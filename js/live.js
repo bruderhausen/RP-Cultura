@@ -77,11 +77,6 @@ async function loadLive(aviso) {
   EVENTS = data.events.map(shape);
   ALL = [...NEWS, ...EVENTS];
   PINS = data.pins;
-  UPDATES = ALL.slice(0, 4).map(i => ({
-    ic: { Cidade: "traffic", Show: "ticket", Festival: "ticket", Cultura: "ticket", Gastronomia: "bus" }[i.cat] || "sun",
-    t: i.title,
-    s: `${i.srcName} · ${i.time}`
-  }));
   liveUpdated = data.updated;
   semServidor(false);
 

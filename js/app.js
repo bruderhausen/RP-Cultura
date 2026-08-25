@@ -231,8 +231,10 @@ function renderHome() {
   }
 
   const rest = news.slice(hero && hero.kind === "noticia" ? 1 : 0);
-  $("#newsList").innerHTML = rest.length ? rest.map(cardHTML).join("")
+  $("#newsList").innerHTML = rest.length ? rest.slice(0, 3).map(cardHTML).join("")
     : `<div class="empty">${t("emptyFeed")}</div>`;
+  $("#verTodas").hidden = rest.length <= 3;
+  $("#verTodas").firstChild.textContent = `Ver todas as notícias (${news.length}) `;
 
   $("#eventRail").innerHTML = evs.map(e => {
     const L = loc(e);
@@ -246,9 +248,6 @@ function renderHome() {
     </button>`;
   }).join("") || `<div class="empty">${t("emptyFeed")}</div>`;
 
-  $("#updateList").innerHTML = UPDATES.map(u => `
-    <div class="upd"><div class="upd__ic">${updIcon(u.ic)}</div>
-      <div><div class="upd__t">${u.t}</div><div class="upd__s">${u.s}</div></div></div>`).join("");
 }
 
 function cardHTML(i) {
@@ -271,6 +270,21 @@ function updIcon(k) {
   }[k];
   return `<svg viewBox="0 0 24 24">${p}</svg>`;
 }
+
+/* lista completa de notícias */
+$("#verTodas").addEventListener("click", () => {
+  const news = NEWS.filter(match);
+  openPage($("#pageSaved"), `
+    <div class="page__bar">
+      <button class="circbtn" data-back aria-label="Voltar"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <h1>Todas as notícias</h1><span style="width:38px"></span>
+    </div>
+    <div class="saved-list">
+      <div class="list" style="padding-bottom:24px">
+        ${news.length ? news.map(cardHTML).join("") : `<div class="empty">${t("emptyFeed")}</div>`}
+      </div>
+    </div>`);
+});
 
 /* clique em qualquer card */
 document.addEventListener("click", e => {
