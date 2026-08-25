@@ -312,7 +312,7 @@ RP_CENTRO = [-21.177632, -47.810098]
 # Sobe quando as regras de localização mudam. Itens gravados por uma versão
 # anterior voltam para a fila: sem isso, um pin colocado no lugar errado por
 # uma regra antiga ficaria errado para sempre.
-GEO_VERSAO = 3
+GEO_VERSAO = 4
 
 _geo_falhas = {}            # chave -> instante em que vale a pena tentar de novo
 TTL_FALHA = 6 * 3600        # recusa de rede: o serviço pode voltar
@@ -685,26 +685,56 @@ def cidade_provavel(text, so_cache=False):
     return None
 
 def cidade_do_texto(text):
-    r"""Cidade citada, escolhida pela posição no texto.
+    return cidade_pontuada(text, "")
 
-    Antes a busca seguia a ordem da lista, e "Ribeirão Preto" é o primeiro
-    item: bastava a cidade aparecer em qualquer ponto, inclusive no nome da
-    editoria que se repete no rodapé de toda matéria, para uma notícia de
-    outro município ser tratada como daqui.
+# Nome da editoria e assinatura do veículo. "Ribeirão Preto e Franca" aparece
+# no rodapé de toda matéria do G1 regional, e "Franca" ali não diz nada sobre
+# onde o fato aconteceu.
+MARCA_RE = re.compile(
+    r"(?:g1|eptv|tribuna|cbn|acidadeon|a cidade on|regi[ao]o de)\s+"
+    r"(?:ribeirao preto e franca|ribeirao preto|ribeirao|franca)")
+# "na região de X" é escopo, não o lugar do fato: no título ele estava
+# fazendo a notícia mudar de cidade
+def _sem_regiao(txt):
+    return re.sub(r"regi[ao]o de\s+(?:" + "|".join(re.escape(norm(c)) for c in CIDADES) + r")",
+                  " ", txt)
 
-    O limite usa (?<![\w-]) em vez de \b para não casar dentro de palavra
-    composta: sem isso "lobo-guará" virava a cidade de Guará.
+PISTA_RE = r"(?:em|de|no munic[ií]pio de|na cidade de|interior de)\s+"
+
+def cidade_pontuada(corpo, titulo=""):
+    r"""Cidade da notícia por pontuação, não pelo primeiro nome encontrado.
+
+    Pegar a primeira ocorrência erra sempre que o texto cita mais de um
+    município: o nome da editoria, a cidade vizinha mencionada de passagem, a
+    região no rodapé. Aqui o título pesa mais que o corpo, "em X" pesa mais
+    que a menção solta, e a assinatura do veículo é descontada antes.
     """
-    n = norm(text)
-    melhor, pos = None, len(n) + 1
-    for c in CIDADES:
-        m = re.search(r"(?<![\w-])" + re.escape(norm(c)) + r"(?![\w-])", n)
-        if m and m.start() < pos:
-            melhor, pos = c, m.start()
-    if melhor:
-        return melhor
+    # a marca só é descontada no corpo: no título, "Ribeirão Preto e Franca"
+    # costuma ser conteúdo, e apagar os dois nomes entregava a notícia para a
+    # cidade citada de passagem mais adiante
+    t = _sem_regiao(norm(titulo))
+    c = MARCA_RE.sub(" ", norm(corpo))
+    placar, primeira = {}, {}
+    for cidade in CIDADES:
+        alvo = re.escape(norm(cidade))
+        limite = r"(?<![\w-])" + alvo + r"(?![\w-])"
+        pontos = 0
+        no_titulo = re.search(limite, t)
+        if no_titulo:
+            pontos += 8                       # título é o que descreve o fato
+            if no_titulo.start() <= max(12, len(t) // 3):
+                pontos += 4                   # quem abre o título é o sujeito
+        pontos += 3 * min(2, len(re.findall(PISTA_RE + limite, t + " " + c)))
+        achados = [m.start() for m in re.finditer(limite, c)]
+        pontos += min(4, len(achados))
+        if pontos:
+            placar[cidade] = pontos
+            primeira[cidade] = achados[0] if achados else -1
+    if placar:
+        return max(placar, key=lambda k: (placar[k], -primeira[k]))
+    inteiro = t + " " + c
     for termo, cidade in APELIDOS_CIDADE.items():
-        if re.search(r"(?<![\w-])" + re.escape(termo) + r"(?![\w-])", n):
+        if re.search(r"(?<![\w-])" + re.escape(termo) + r"(?![\w-])", inteiro):
             return cidade
     return None
 
@@ -712,7 +742,7 @@ def perto_da_cidade(coords, cidade, limite_km=35, so_cache=False):
     centro = geocode(query_cidade(cidade), so_cache=so_cache)
     return bool(coords and centro and haversine(coords, centro) <= limite_km)
 
-def guess_place(text, regional=False, so_cache=False):
+def guess_place(text, regional=False, so_cache=False, titulo=""):
     """Devolve o local mais fino que der para confirmar.
 
     A chave `preciso` diz se o ponto é de fato o lugar da notícia ou apenas
@@ -722,7 +752,7 @@ def guess_place(text, regional=False, so_cache=False):
     """
     n = norm(text)
     # a cidade citada manda: o que é de Barrinha fica em Barrinha
-    cidade = cidade_do_texto(text) or cidade_provavel(text, so_cache)
+    cidade = cidade_pontuada(text, titulo) or cidade_provavel(titulo or text, so_cache)
 
     # 1) lugar conhecido — precisa bater com a cidade citada (ou vir de feed regional sem outra cidade)
     for name, terms, query, cid in PLACES:
@@ -754,7 +784,8 @@ def guess_place(text, regional=False, so_cache=False):
     # 2) rua com número: é o que localiza a quadra
     tentativas = 0
     for m in VIA_RE.finditer(text):
-        via = f"{m.group(1)} {m.group(2)}".strip(" .,;")
+        # o nome pode arrastar a frase seguinte: "Rua São José. A polícia..."
+        via = re.split(r"\.\s", f"{m.group(1)} {m.group(2)}")[0].strip(" .,;")
         numero = m.group(3)
         if len(via) < 9 or not numero or tentativas >= 3:
             continue
@@ -790,7 +821,7 @@ def guess_place(text, regional=False, so_cache=False):
     # 5) rua sem número: fica na via, que já é melhor que o centro
     tentativas = 0
     for m in VIA_RE.finditer(text):
-        via = f"{m.group(1)} {m.group(2)}".strip(" .,;")
+        via = re.split(r"\.\s", f"{m.group(1)} {m.group(2)}")[0].strip(" .,;")
         if len(via) < 9 or tentativas >= 3:
             continue
         tentativas += 1
@@ -824,7 +855,7 @@ def build_item(feed, raw_item):
     # categoria Show; evento é item de plataforma de ingresso, com data,
     # local e página de compra. Misturar os dois embaralhava a agenda.
     # só cache aqui: o worker em segundo plano resolve o resto sem prender o ciclo
-    place = guess_place(text, feed["regional"], so_cache=True)
+    place = guess_place(text, feed["regional"], so_cache=True, titulo=raw_item["title"])
     return {
         "id": iid,
         "kind": "noticia",
@@ -995,9 +1026,9 @@ def localizar(item):
     # O `or` curto-circuitava: o título sozinho já devolvia o centro da cidade,
     # que é truthy, e o corpo da matéria (onde estão rua e bairro) nunca era
     # lido. Era isso que empilhava quase todos os pins no mesmo ponto.
-    place = guess_place(cabeca, regional)
+    place = guess_place(cabeca, regional, titulo=item["title"])
     if not (place or {}).get("preciso"):
-        place = guess_place(f"{cabeca} {corpo}", regional) or place
+        place = guess_place(f"{cabeca} {corpo}", regional, titulo=item["title"]) or place
     if coords and dentro(coords):
         place = {"place": (place or {}).get("place") or cidade_do_texto(cabeca) or "Ribeirão Preto",
                  "lat": coords[0], "lng": coords[1], "preciso": True}
