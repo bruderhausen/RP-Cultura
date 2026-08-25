@@ -88,7 +88,7 @@ window.addEventListener("load", () => {
       if (S.guideSeen) startApp(); else openGuide();
       setTimeout(() => {
         sp.classList.add("is-paint");              // a tinta escorre e revela
-        setTimeout(() => sp.remove(), 1450);
+        setTimeout(() => sp.remove(), 1650);
       }, 140);                                     // deixa o app pintar antes
     }, 700);
   }, 2950);

@@ -4,6 +4,7 @@
   --brand-2:#6C4BF0;
   --brand-ink:#241167;
   --accent:#FFD64A;
+  --tinta:#FFC21F;   /* amarelo chapado da saída do splash */
   --accent-2:#FFC01E;
 
   --bg:#F6F5FB;
@@ -89,30 +90,43 @@ img{max-width:100%;display:block}
   14%{opacity:1;transform:scale(.82)}     /* recua antes de ser lançada */
   100%{opacity:1;transform:scale(32)}
 }
-/* a assinatura sai de cena enquanto a bola vem para frente */
+/* a bola termina em cor chapada, a mesma das tiras: assim a troca de
+   camada no início da queda não deixa emenda visível */
+.splash__ball::after{
+  content:"";position:absolute;inset:0;border-radius:50%;background:var(--tinta);opacity:0
+}
+.splash.is-throw .splash__ball::after{animation:ballFlat .7s linear forwards}
+@keyframes ballFlat{0%,50%{opacity:0}100%{opacity:1}}
+/* a marca e a assinatura saem de cena enquanto a bola vem para frente.
+   A marca precisa sumir de verdade: com o fundo transparente na queda,
+   ela reapareceria flutuando sobre a tela de início. */
 .splash.is-throw .splash__word,
 .splash.is-throw .splash__tag,
 .splash.is-throw .splash__bar,
 .splash.is-throw .splash__glow{animation:none;opacity:0;transition:opacity .26s ease}
+.splash.is-throw .mark{animation:none;opacity:0;transition:opacity .3s ease .12s}
+.splash.is-throw .mark__dot{animation:none;opacity:0}   /* a bola CSS assume no lugar dela */
 
 .splash__paint{position:absolute;inset:0;z-index:7;display:flex;opacity:0;pointer-events:none}
 .splash__paint i{
-  flex:1;position:relative;height:100%;
-  background:linear-gradient(180deg,#FFD645 0%,#FFC01E 55%,#FF9F00 100%);
-  will-change:transform;
+  flex:1;position:relative;height:100%;background:var(--tinta);will-change:transform;
 }
 .splash__paint i::after{           /* a ponta arredondada da tinta que escorre */
   content:"";position:absolute;left:-1px;right:-1px;top:100%;height:var(--h,28px);
-  background:inherit;border-radius:0 0 50% 50%/0 0 100% 100%;
+  background:var(--tinta);border-radius:0 0 50% 50%/0 0 100% 100%;
 }
-/* as tiras entram por cima da bola já cobrindo tudo, então a troca não pisca */
-.splash.is-paint .splash__paint{opacity:1;transition:opacity .14s linear}
-.splash.is-paint .splash__ball{opacity:0;transition:opacity .2s linear .12s}
+
+/* O fundo do splash precisa sair junto com a tinta. Enquanto ele ficava,
+   as tiras revelavam o roxo do próprio splash e não o app, e o corte só
+   acontecia depois, quando o splash inteiro era removido de uma vez. */
+.splash.is-paint{background:none;pointer-events:none}
+.splash.is-paint .splash__paint{opacity:1}
+.splash.is-paint .splash__ball{display:none}
 .splash.is-paint .splash__paint i{
-  animation:paintFall .9s cubic-bezier(.55,0,.85,.4) forwards;
-  animation-delay:calc(var(--k) * .04s);
+  animation:paintFall 1.05s cubic-bezier(.5,0,.75,.45) forwards;
+  animation-delay:calc(var(--k) * .045s);
 }
-@keyframes paintFall{to{transform:translateY(118%)}}
+@keyframes paintFall{to{transform:translateY(122%)}}
 
 .splash__glow{
   position:absolute;left:50%;top:41%;width:min(120vw,560px);aspect-ratio:1;
