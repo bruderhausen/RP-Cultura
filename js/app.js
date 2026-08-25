@@ -422,7 +422,7 @@ function renderMap() {
   }
   _pinLayer.clearLayers();
   marcarUsuario(false);
-  const longe = _map.getZoom() < 12;
+  const longe = _map.getZoom() < 10;   // só bem afastado é que filtra
   PINS.forEach(p => {
     if (p.lat == null) return;
     // afastado demais, só os favoritos, para o mapa não virar um amontoado
