@@ -448,9 +448,10 @@ function renderMap() {
           <path class="pin__shape" d="M16 2C8.268 2 2 8.268 2 16c0 9.5 14 22 14 22s14-12.5 14-22C30 8.268 23.732 2 16 2z"/>
           <circle class="pin__hole" cx="16" cy="15" r="5"/></svg>
         <span class="pin__label">${p.label}</span>
-        ${(p.more || []).length ? `<b class="pin__n">${Math.min(99, (p.more || []).length + 1)}</b>` : ""}</span>`
+        ${p.n > 1 ? `<b class="pin__n">${p.n > 99 ? "99+" : p.n}</b>` : ""}</span>`
     });
-    L.marker([p.lat, p.lng], { icon, zIndexOffset: (p.more || []).length ? 600 : 0 }).addTo(_pinLayer).on("click", () => openSheet(p.id, p.more));
+    L.marker([p.lat, p.lng], { icon, zIndexOffset: p.n > 1 ? 600 : 0 })
+      .addTo(_pinLayer).on("click", () => openSheet(p.id, p.more, p.n));
   });
 }
 
@@ -601,7 +602,7 @@ function dataLonga(iso) {
          " · " + d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 }
 
-function openSheet(id, more = []) {
+function openSheet(id, more = [], total = 0) {
   const i = byId(id); if (!i) return;
   if ($("#mapSheet").hidden) pushLayer();
   const L = loc(i), src = SOURCES[i.src];
@@ -622,6 +623,7 @@ function openSheet(id, more = []) {
     ${(more || []).map(byId).filter(Boolean).length ? `<div class="sheet__more">
       <b>Também aqui</b>
       ${(more || []).map(byId).filter(Boolean).map(m => `<button data-open="${m.id}">${loc(m).title}</button>`).join("")}
+      ${total > (more || []).length + 1 ? `<i class="sheet__resto">e mais ${total - (more || []).length - 1} neste local</i>` : ""}
     </div>` : ""}`;
   $("#mapSheet").hidden = false;
   $("#mapScrim").hidden = false;

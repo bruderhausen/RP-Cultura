@@ -39,6 +39,10 @@ FEEDS = [
      "url": "https://g1.globo.com/rss/g1/sp/ribeirao-preto-franca/", "regional": True},
     {"key": "tribuna", "name": "Tribuna Ribeirão", "site": "https://tribunaribeirao.com.br/",
      "url": "https://tribunaribeirao.com.br/feed/", "regional": True},
+    {"key": "acidadeon", "name": "A Cidade ON", "site": "https://www.acidadeon.com/ribeiraopreto",
+     "url": "https://www.acidadeon.com/ribeiraopreto/feed/", "regional": True},
+    {"key": "cbn",     "name": "CBN Ribeirão",  "site": "https://cbnribeirao.com.br",
+     "url": "https://cbnribeirao.com.br/feed/", "regional": True},
     {"key": "g1sp",    "name": "G1 São Paulo",  "site": "https://g1.globo.com/sp/",
      "url": "https://g1.globo.com/rss/g1/sp/", "regional": False},
     {"key": "folha",   "name": "Folha",         "site": "https://www.folha.uol.com.br/cotidiano/",
@@ -286,34 +290,82 @@ def load_geo():
     except Exception:
         pass
 
-def geocode(query, confere=None):
-    """Coordenadas reais via Nominatim (OpenStreetMap), com cache em disco.
-    `confere` exige que a cidade apareça no endereço devolvido."""
+RP_CENTRO = [-21.177632, -47.810098]
+
+_geo_falhas = {}            # chave -> instante em que vale a pena tentar de novo
+TTL_FALHA = 6 * 3600        # recusa de rede: o serviço pode voltar
+TTL_VAZIO = 7 * 86400       # o serviço respondeu e não conhece o lugar
+
+def _nominatim(query, confere):
+    url = ("https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br&q="
+           + urllib.parse.quote(query))
+    data = json.loads(fetch(url, timeout=15).decode("utf-8"))
+    if not data:
+        return None, True
+    achado = data[0]
+    if confere and norm(confere) not in norm(achado.get("display_name", "")):
+        return None, True
+    return [round(float(achado["lat"]), 6), round(float(achado["lon"]), 6)], True
+
+def _photon(query, confere):
+    """Segunda opção. O Nominatim recusa tráfego de datacenter com frequência,
+    e sem alternativa o app inteiro ficava sem pin nenhum."""
+    url = ("https://photon.komoot.io/api/?limit=1&lat=%f&lon=%f&q=" % tuple(RP_CENTRO)
+           + urllib.parse.quote(query))
+    feicoes = (json.loads(fetch(url, timeout=15).decode("utf-8")).get("features") or [])
+    if not feicoes:
+        return None, True
+    f = feicoes[0]
+    lon, lat = f["geometry"]["coordinates"][:2]
+    if confere:
+        campos = " ".join(str(f["properties"].get(k, ""))
+                          for k in ("city", "county", "state", "name", "district"))
+        if norm(confere) not in norm(campos):
+            return None, True
+    return [round(lat, 6), round(lon, 6)], True
+
+def geocode(query, confere=None, so_cache=False):
+    """Coordenadas reais, com cache em disco.
+
+    `confere` exige que a cidade apareça no endereço devolvido.
+    `so_cache` responde apenas pelo que já está em cache, sem tocar na rede.
+    É o modo usado na leitura dos feeds: cada consulta custa uma pausa de
+    1,1s por política de uso, e em série isso prendia o ciclo por minutos.
+    O trabalho de rede fica para o worker em segundo plano.
+    """
     if not query:
         return None
     chave = query + ("|" + confere if confere else "")
     with _geo_lock:
         if chave in _geo:
             return _geo[chave]
-    url = ("https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br&q="
-           + urllib.parse.quote(query))
-    result = None
-    try:
-        data = json.loads(fetch(url, timeout=15).decode("utf-8"))
-        if data:
-            achado = data[0]
-            nome = norm(achado.get("display_name", ""))
-            if not confere or norm(confere) in nome:
-                result = [round(float(achado["lat"]), 6), round(float(achado["lon"]), 6)]
-    except Exception as e:
-        print(f"[geo] {query}: {e}", flush=True)
+        espera = _geo_falhas.get(chave, 0)
+    if so_cache or time.time() < espera:
+        return None
+
+    resultado, definitivo = None, False
+    for tentar in (_nominatim, _photon):
+        try:
+            resultado, definitivo = tentar(query, confere)
+        except Exception as e:
+            resultado, definitivo = None, False      # rede, não ausência do lugar
+            print(f"[geo] {tentar.__name__} {query}: {e}", flush=True)
+        time.sleep(1.1)                              # política de uso dos dois serviços
+        if resultado:
+            break
+
     with _geo_lock:
-        _geo[chave] = result
-        os.makedirs(DATA_DIR, exist_ok=True)
-        with open(GEO_CACHE, "w", encoding="utf-8") as f:
-            json.dump(_geo, f, ensure_ascii=False)
-    time.sleep(1.1)  # política de uso do Nominatim
-    return result
+        if resultado:
+            # só sucesso vai para o cache. Guardar None fazia uma recusa
+            # temporária virar resposta definitiva até o processo reiniciar
+            _geo[chave] = resultado
+            _geo_falhas.pop(chave, None)
+            os.makedirs(DATA_DIR, exist_ok=True)
+            with open(GEO_CACHE, "w", encoding="utf-8") as f:
+                json.dump(_geo, f, ensure_ascii=False)
+        else:
+            _geo_falhas[chave] = time.time() + (TTL_VAZIO if definitivo else TTL_FALHA)
+    return resultado
 
 # ---------------------------------------------------------------- util
 def strip_accents(s):
@@ -473,6 +525,10 @@ def haversine(a, b):
     h = sin((la2 - la1) / 2) ** 2 + cos(la1) * cos(la2) * sin((lo2 - lo1) / 2) ** 2
     return 6371 * 2 * asin(sqrt(h))
 
+def dentro(coords, limite_km=140):
+    """Coordenada plausível para a região que o app cobre."""
+    return bool(coords) and haversine(coords, RP_CENTRO) <= limite_km
+
 def cidade_do_texto(text):
     n = norm(text)
     for c in CIDADES:
@@ -480,11 +536,11 @@ def cidade_do_texto(text):
             return c
     return None
 
-def perto_da_cidade(coords, cidade, limite_km=35):
-    centro = geocode(CIDADE_QUERY.get(cidade, ""))
+def perto_da_cidade(coords, cidade, limite_km=35, so_cache=False):
+    centro = geocode(CIDADE_QUERY.get(cidade, ""), so_cache=so_cache)
     return bool(coords and centro and haversine(coords, centro) <= limite_km)
 
-def guess_place(text, regional=False):
+def guess_place(text, regional=False, so_cache=False):
     """Só devolve local quando dá para confirmar. Sem confirmação, sem pin."""
     n = norm(text)
     cidade = cidade_do_texto(text)
@@ -497,8 +553,8 @@ def guess_place(text, regional=False):
             continue
         if not cidade and not regional:
             continue
-        c = geocode(query)
-        if c and perto_da_cidade(c, cid, 25):
+        c = geocode(query, so_cache=so_cache)
+        if c and perto_da_cidade(c, cid, 25, so_cache):
             return {"place": name, "lat": c[0], "lng": c[1]}
         return None
 
@@ -515,15 +571,15 @@ def guess_place(text, regional=False):
         tentativas += 1
         # com número o geocodificador acerta a quadra; sem ele, fica na via
         if numero:
-            c = geocode(f"{via}, {numero}, {alvo}, SP", confere=alvo)
-            if c and perto_da_cidade(c, alvo):
+            c = geocode(f"{via}, {numero}, {alvo}, SP", confere=alvo, so_cache=so_cache)
+            if c and perto_da_cidade(c, alvo, so_cache=so_cache):
                 return {"place": f"{via}, {numero}", "lat": c[0], "lng": c[1]}
-        c = geocode(f"{via}, {alvo}, SP", confere=alvo)
-        if c and perto_da_cidade(c, alvo):
+        c = geocode(f"{via}, {alvo}, SP", confere=alvo, so_cache=so_cache)
+        if c and perto_da_cidade(c, alvo, so_cache=so_cache):
             return {"place": via, "lat": c[0], "lng": c[1]}
 
     # 3) sem referência fina: fica no centro da cidade citada, com o nome dela
-    c = geocode(CIDADE_QUERY.get(alvo, ""))
+    c = geocode(CIDADE_QUERY.get(alvo, ""), so_cache=so_cache)
     if c:
         return {"place": alvo, "lat": c[0], "lng": c[1]}
     return None
@@ -543,7 +599,8 @@ def build_item(feed, raw_item):
         return None
     iid = hashlib.sha1(raw_item["link"].encode()).hexdigest()[:12]
     quando = data_do_evento(text, raw_item["published"] or datetime.now(timezone.utc).isoformat()) if is_event(text) else None
-    place = guess_place(text, feed["regional"])
+    # só cache aqui: o worker em segundo plano resolve o resto sem prender o ciclo
+    place = guess_place(text, feed["regional"], so_cache=True)
     return {
         "id": iid,
         "kind": "evento" if is_event(text) else "noticia",
@@ -693,7 +750,7 @@ def localizar(item):
     corpo = marca.sub(" ", texto)[:2500]
     place = guess_place(cabeca, regional) or guess_place(f"{cabeca} {corpo}", regional)
     if coords and dentro(coords):
-        place = {"place": (place or {}).get("place") or cidade_do_texto(base) or "Ribeirão Preto",
+        place = {"place": (place or {}).get("place") or cidade_do_texto(cabeca) or "Ribeirão Preto",
                  "lat": coords[0], "lng": coords[1]}
     if not place or place.get("lat") is None:
         return mudou
@@ -819,11 +876,17 @@ def feed_payload():
             continue
         key = (round(i["lat"], 5), round(i["lng"], 5))
         g = grupos.setdefault(key, {"id": i["id"], "lat": key[0], "lng": key[1],
-                                    "label": i["place"], "more": [],
+                                    "label": i["place"], "n": 0, "more": [],
                                     "type": "ev" if i["kind"] == "evento" else "news"})
-        if g["id"] != i["id"] and len(g["more"]) < 12:
+        g["n"] += 1
+        if g["id"] != i["id"] and len(g["more"]) < 24:
             g["more"].append(i["id"])
-    pins = list(grupos.values())[:120]
+    # `n` é o total real do local e alimenta o balão; `more` segue limitado
+    # apenas para o payload não inchar
+    todos = list(grupos.values())
+    pins = todos[:120]
+    if len(todos) > len(pins):
+        print(f"[pins] {len(todos) - len(pins)} locais fora do limite de 120", flush=True)
     sources = {f["key"]: {"name": f["name"], "url": f["site"]} for f in FEEDS}
     sources["sympla"] = {"name": "Sympla", "url": "https://www.sympla.com.br"}
     sources["eventim"] = {"name": "Eventim", "url": "https://www.eventim.com.br"}
