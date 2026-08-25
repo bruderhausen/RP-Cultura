@@ -492,6 +492,12 @@ $("#mapRecenter").addEventListener("click", () => {
   if (S.geo) { marcarUsuario(true); } else { pedirLocalizacao(true); }
 });
 
+function dataLonga(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "long" }) +
+         " · " + d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
 function openSheet(id, more = []) {
   const i = byId(id); if (!i) return;
   if ($("#mapSheet").hidden) pushLayer();
@@ -500,19 +506,20 @@ function openSheet(id, more = []) {
     <div class="sheet__img">${art(i)}</div>
     <div class="sheet__row"><span class="tag">${catLabel(i.cat)}</span>${i.price ? `<span class="tag tag--price">${i.price}</span>` : ""}<span class="ev__p">📍 ${i.place}</span></div>
     <h3>${L.title}</h3>
+    <div class="sheet__quando">${i.kind === "evento" && i.when ? `🗓 ${dataLonga(i.when)}` : i.time}</div>
     <p class="sheet__sum">${L.lead}</p>
     <a class="sourcelink" href="${i.url || src.url}" target="_blank" rel="noopener">
       ${t("readAt")}: <b>${src.name}</b>
       <svg viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>
     </a>
-    ${(more || []).map(byId).filter(Boolean).length ? `<div class="sheet__more">
-      <b>Também aqui</b>
-      ${(more || []).map(byId).filter(Boolean).map(m => `<button data-open="${m.id}">${loc(m).title}</button>`).join("")}
-    </div>` : ""}
     <div class="sheet__acts" style="margin-top:14px">
       <button class="btn btn--ghost" id="sheetSave">${isSaved(i.id) ? t("saved2") + " ✓" : t("save")}</button>
       <button class="btn btn--primary" data-open="${i.id}">${t("openSource")}</button>
-    </div>`;
+    </div>
+    ${(more || []).map(byId).filter(Boolean).length ? `<div class="sheet__more">
+      <b>Também aqui</b>
+      ${(more || []).map(byId).filter(Boolean).map(m => `<button data-open="${m.id}">${loc(m).title}</button>`).join("")}
+    </div>` : ""}`;
   $("#mapSheet").hidden = false;
   $("#mapScrim").hidden = false;
   $("#mapLegend").classList.add("is-hidden");

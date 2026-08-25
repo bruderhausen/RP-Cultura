@@ -315,6 +315,8 @@ img{max-width:100%;display:block}
 .sheet__grab{display:block;width:44px;height:5px;border-radius:9px;background:var(--line);margin:4px auto 12px}
 .sheet__img{height:150px;border-radius:var(--r-m);overflow:hidden;position:relative;margin-bottom:12px}
 .sheet h3{font-size:20px;font-weight:800;line-height:1.15;margin-bottom:6px}
+.sheet__quando{font-size:13px;font-weight:700;color:var(--brand);margin:6px 0 8px}
+.sheet__more{margin-top:16px}
 .sheet__sum{font-size:14px;color:var(--ink-2);margin:0 0 14px}
 .sheet__row{display:flex;gap:9px;align-items:center;margin-bottom:12px}
 .sourcelink{
