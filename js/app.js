@@ -9,7 +9,7 @@ const KEY = "rpcultural.v1";
 const S = Object.assign({
   cat: "Todos", q: "", lang: "pt", screen: "home",
   saved: [], prefs: { noticias: true, eventos: true, alertas: false },
-  interests: [], user: null, avatar: null, guideSeen: false
+  interests: [], geo: null, user: null, avatar: null, guideSeen: false
 }, JSON.parse(localStorage.getItem(KEY) || "{}"));
 
 const save = () => localStorage.setItem(KEY, JSON.stringify(S));
@@ -182,7 +182,7 @@ $("#catChips").addEventListener("click", e => {
   S.cat = b.dataset.cat; save(); renderChips(); renderHome();
 });
 $("#searchInput").addEventListener("input", e => { S.q = e.target.value.trim().toLowerCase(); renderHome(); });
-$("#regionBtn").addEventListener("click", () => toast("Ribeirão Preto e região · protótipo"));
+$("#regionBtn").addEventListener("click", () => pedirLocalizacao(false));
 
 function match(i) {
   if (i.kind === "noticia" && !S.prefs.noticias) return false;
@@ -193,6 +193,19 @@ function match(i) {
   return okCat && okQ;
 }
 
+function km(a, b) {
+  const r = x => x * Math.PI / 180, R = 6371;
+  const h = Math.sin(r(b[0] - a[0]) / 2) ** 2 +
+            Math.cos(r(a[0])) * Math.cos(r(b[0])) * Math.sin(r(b[1] - a[1]) / 2) ** 2;
+  return Math.round(R * 2 * Math.asin(Math.sqrt(h)));
+}
+
+function porPerto(lista) {
+  if (!S.geo) return lista;
+  lista.forEach(i => { i.dist = (i.lat != null) ? km(S.geo, [i.lat, i.lng]) : null; });
+  return [...lista].sort((a, b) => (a.dist ?? 999) - (b.dist ?? 999));
+}
+
 function renderHome() {
   // interesses afinam o feed, mas nunca o deixam vazio
   const porInteresse = l => {
@@ -201,7 +214,7 @@ function renderHome() {
     return f.length ? f : l;
   };
   const news = porInteresse(NEWS.filter(match));
-  const evs  = porInteresse(EVENTS.filter(match));
+  const evs  = porPerto(porInteresse(EVENTS.filter(match)));
   const hero = news[0] || evs[0];
 
   $("#heroCard").hidden = !hero;
@@ -226,7 +239,10 @@ function renderHome() {
     return `<button class="ev" data-open="${e.id}">
       <div class="ev__img">${art(e, `<span class="ev__date"><b>${e.day}</b><i>${e.month}</i></span>`)}</div>
       <div class="ev__in"><div class="ev__t">${L.title}</div>
-        <div class="ev__p">📍 ${e.place}</div></div>
+        <div class="ev__p">📍 ${e.place}</div>
+        <div class="ev__foot">${e.price ? `<span class="tag tag--price">${e.price}</span>`
+          : e.src === "sympla" ? `<span class="tag tag--ghost2">Ingressos</span>` : ""}
+          ${e.dist != null ? `<span class="ev__dist">${e.dist} km</span>` : ""}</div></div>
     </button>`;
   }).join("") || `<div class="empty">${t("emptyFeed")}</div>`;
 
@@ -333,6 +349,7 @@ function renderMap() {
     _map.on("zoomend", () => renderMap());
   }
   _pinLayer.clearLayers();
+  marcarUsuario(false);
   const longe = _map.getZoom() < 12;
   PINS.forEach(p => {
     if (p.lat == null) return;
@@ -355,9 +372,40 @@ function refreshMapSize() {
   if (_map) setTimeout(() => _map.invalidateSize(), 80);
 }
 
+let _euMarker, _euCirculo;
+
+function marcarUsuario(centralizar) {
+  if (!_map || !S.geo) return;
+  const [lat, lng, prec] = S.geo;
+  if (!_euMarker) {
+    _euMarker = L.circleMarker([lat, lng], {
+      radius: 8, color: "#fff", weight: 3, fillColor: "#1A73E8", fillOpacity: 1
+    }).addTo(_map).bindTooltip("Você está aqui");
+    _euCirculo = L.circle([lat, lng], { radius: prec || 120, color: "#1A73E8",
+      weight: 1, fillColor: "#1A73E8", fillOpacity: .12 }).addTo(_map);
+  } else {
+    _euMarker.setLatLng([lat, lng]);
+    _euCirculo.setLatLng([lat, lng]).setRadius(prec || 120);
+  }
+  if (centralizar) _map.setView([lat, lng], 14);
+}
+
+function pedirLocalizacao(centralizar = true) {
+  if (!navigator.geolocation) return toast("Este aparelho não informa a localização");
+  toast("Buscando sua localização…");
+  navigator.geolocation.getCurrentPosition(pos => {
+    S.geo = [+pos.coords.latitude.toFixed(6), +pos.coords.longitude.toFixed(6),
+             Math.round(pos.coords.accuracy || 120)];
+    save(); marcarUsuario(centralizar); renderHome();
+    toast("Mostrando o que está perto de você");
+  }, () => toast("Não consegui acessar sua localização"),
+     { enableHighAccuracy: true, timeout: 9000, maximumAge: 300000 });
+}
+
 $("#mapRecenter").addEventListener("click", () => {
   closeSheet();
-  if (_map) { _map.invalidateSize(); _map.setView(RP, 13); }
+  if (_map) _map.invalidateSize();
+  if (S.geo) { marcarUsuario(true); } else { pedirLocalizacao(true); }
 });
 
 function openSheet(id, more = []) {
@@ -366,7 +414,7 @@ function openSheet(id, more = []) {
   const L = loc(i), src = SOURCES[i.src];
   $("#mapSheetBody").innerHTML = `
     <div class="sheet__img">${art(i)}</div>
-    <div class="sheet__row"><span class="tag">${i.cat}</span><span class="ev__p">📍 ${i.place}</span></div>
+    <div class="sheet__row"><span class="tag">${i.cat}</span>${i.price ? `<span class="tag tag--price">${i.price}</span>` : ""}<span class="ev__p">📍 ${i.place}</span></div>
     <h3>${L.title}</h3>
     <p class="sheet__sum">${L.lead}</p>
     <a class="sourcelink" href="${i.url || src.url}" target="_blank" rel="noopener">

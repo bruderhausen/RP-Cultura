@@ -36,7 +36,8 @@ function shape(i) {
     figcap: [i.srcName, i.place].filter(Boolean).join(" · "),
     day: String(d.getDate()).padStart(2, "0"),
     month: MESES[d.getMonth()],
-    place: i.place || "Ribeirão Preto e região"
+    place: i.place || "Ribeirão Preto e região",
+    price: i.price || null
   });
 }
 

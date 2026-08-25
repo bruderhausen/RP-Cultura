@@ -18,6 +18,8 @@ from datetime import datetime, timezone, timedelta
 from email.utils import parsedate_to_datetime
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 
+import eventos as plataformas
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(ROOT, "data")
 STORE = os.path.join(DATA_DIR, "news.json")
@@ -562,8 +564,11 @@ def save_store():
 def prune(items):
     limit = datetime.now(timezone.utc) - timedelta(days=HISTORY_DAYS)
     kept = []
+    agora = datetime.now(timezone.utc)
     for it in items:
         try:
+            if it.get("when") and datetime.fromisoformat(it["when"]) >= agora:
+                kept.append(it); continue
             if datetime.fromisoformat(it["published"]) >= limit:
                 kept.append(it)
         except Exception:
@@ -649,6 +654,14 @@ def refresh():
         except Exception as e:
             print(f"[feed] {feed['key']}: {e}", flush=True)
 
+    try:
+        for ev in plataformas.buscar():
+            ev["cat"] = guess_category(ev["title"] + " " + ev["lead"])
+            ev["tone"] = int(hashlib.sha1(ev["id"].encode()).hexdigest()[:2], 16) % TONES
+            collected.append(ev)
+    except Exception as e:
+        print("[sympla]", e, flush=True)
+
     with _lock:
         known = {i["id"] for i in _state["items"]}
         assinaturas = [assinatura(i["title"]) for i in _state["items"]]
@@ -707,6 +720,7 @@ def feed_payload():
             g["more"].append(i["id"])
     pins = list(grupos.values())[:120]
     sources = {f["key"]: {"name": f["name"], "url": f["site"]} for f in FEEDS}
+    sources["sympla"] = {"name": "Sympla", "url": "https://www.sympla.com.br"}
     return {"updated": updated, "days": HISTORY_DAYS, "refresh": REFRESH_SECONDS,
             "sources": sources, "news": news, "events": events, "pins": pins,
             "total": len(items)}
