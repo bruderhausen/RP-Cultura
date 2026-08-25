@@ -1,76 +1,90 @@
 # RP Cultural
 
-Protótipo navegável (mobile first) do divulgador de notícias e eventos de Ribeirão Preto e região,
-feito a partir dos wireframes de baixa fidelidade (páginas 01, 02 e 03).
+App mobile-first de notícias, eventos e cultura de Ribeirão Preto e região, feito a partir dos
+wireframes de baixa fidelidade (páginas 01, 02 e 03). Conteúdo real: notícias vindas dos RSS dos
+veículos da região e eventos das plataformas de ingresso.
 
-## Como abrir
+**No ar:** https://rpcultura.onrender.com · adicione à tela de início para abrir como app.
+
+## Como rodar
 
 ```bash
 python server/app.py
 ```
 
-Depois acesse `http://localhost:5173` — de preferência com o modo dispositivo móvel do navegador
-(375×812). Abrir o `index.html` direto pelo arquivo também funciona.
+`http://localhost:5173` — de preferência no modo dispositivo móvel do navegador (375×812).
+Só precisa de Python 3.9+; não há dependências externas.
 
-## O que está implementado
+## Telas
 
-| Tela | Detalhes |
+| Tela | O que faz |
 |---|---|
-| **Splash** | Animação de introdução: o traço do logo "RP" é desenhado, os pontos aparecem e a faixa amarela **CULTURAL** sobe. Dura ~2,5 s e some. |
-| **Guia do app** | Três slides com deslize horizontal, indicador de progresso, "Pular" e "Começar". Aparece só no primeiro uso e pode ser revisto pelo Perfil. |
-| **Início** | Busca ("Eventos perto de mim"), filtro de região, chips de categoria, manchete em destaque, lista de principais notícias, carrossel de eventos e atualizações da região. Todo card é clicável. |
-| **Notícia / Evento** | Imagem, categoria, manchete, fonte, tempo de leitura, texto, imagem secundária com legenda, link para a matéria original e "Leia também". Botão de salvar no topo. |
-| **Mapa** | Malha de ruas com pins clicáveis (roxo = notícia, amarelo = evento). Ao tocar, abre uma aba inferior com resumo e **link da fonte** (G1, UOL, Folha, A Cidade ON, Revide). |
-| **Perfil** | Foto editável, "Entre ou cadastre-se", contador de salvos, preferências do que receber (notícias / eventos / alertas), interesses e link para rever o guia. |
-| **Salvos** | Notícias e eventos em **áreas separadas** por abas, com remoção item a item. |
-| **Entrar / Cadastrar** | Segmentos ENTRAR e CADASTRAR, campo de e-mail validado e "continuar »". |
-| **Tradução** | Botão no topo da Home alterna Português → English → Español: traduz a interface e os títulos/resumos dos conteúdos, marcando-os como traduzidos automaticamente. |
+| **Splash** | Animação do logo "RP" com a faixa CULTURAL, ~2,5 s. |
+| **Guia** | Três slides no primeiro uso, revisível pelo Perfil. |
+| **Início** | Busca, filtro de categoria, manchete, 3 principais notícias + **Ver todas** (separadas por dia), carrossel de eventos com data, local e ingresso. |
+| **Matéria** | Imagem, categoria, fonte, tempo de leitura, resumo, link para a matéria original, salvar e compartilhar. |
+| **Mapa** | Mapa real (Leaflet + CARTO Voyager) com pins no local exato; toque abre a aba com resumo, fonte e "Também aqui". Ponto azul acompanha o usuário. |
+| **Perfil** | Foto com recorte circular, preferências do que receber, interesses, salvos e link para o guia. |
+| **Salvos** | Notícias e eventos em abas separadas. |
+| **Tradução** | Português → English → Español na interface e nos títulos. |
 
-Preferências, salvos, idioma, foto e conta ficam no `localStorage` (chave `rpcultural.v1`).
+Preferências, salvos, idioma, foto e localização ficam no `localStorage` (`rpcultural.v1`).
+
+## Backend
+
+`server/app.py` (só biblioteca padrão) serve o app e a API:
+
+| Rota | O que faz |
+|---|---|
+| `GET /api/feed` | notícias, eventos, pins e fontes |
+| `GET /api/stream` | SSE: avisa o app quando entra conteúdo novo |
+| `GET /api/refresh` | força uma leitura agora |
+| `GET /api/health` | status e contagem |
+
+**Notícias** — RSS do G1 Ribeirão/Franca, Tribuna Ribeirão, G1 São Paulo e Folha (os dois últimos
+filtrados por termos da região). Cada item é classificado por categoria, separado entre notícia e
+evento e deduplicado por semelhança de título.
+
+**Eventos** — `server/eventos.py` lê as páginas de cidade da Sympla (Ribeirão, Franca, Sertãozinho,
+Barretos, Araraquara) e extrai nome, data, casa, endereço com número e coordenadas; eventos ficam no
+feed até a data acontecer. Há um adaptador da Eventim pronto, ativado por `EVENTIM_WEBID` /
+`EVENTIM_KEY` (a API deles exige credencial de afiliado).
+
+**Localização** — o local sai primeiro de um dicionário de lugares conhecidos, depois de
+rua/avenida/bairro com número citados no texto (geocodificados no Nominatim com validação de cidade
+e distância) e, por último, da cidade citada. Três workers processam as matérias novas em segundo
+plano e avisam o app por SSE, então o pin aparece em tempo real.
+
+**Atualização** — releitura a cada 5 min no servidor, push por SSE, e o app rebusca a cada 90 s e ao
+voltar para o primeiro plano. Um auto-ping a cada 10 min evita a hibernação do plano gratuito.
+
+### Variáveis
+
+| Variável | Padrão | Para quê |
+|---|---|---|
+| `PORT` | 5173 | porta |
+| `REFRESH_SECONDS` | 300 | intervalo de leitura das fontes |
+| `HISTORY_DAYS` | 7 | histórico guardado |
+| `KEEPALIVE_URL` | `RENDER_EXTERNAL_URL` | endereço do auto-ping |
+| `GIST_ID` / `GIST_TOKEN` | — | backup do histórico fora do disco efêmero |
+| `EVENTIM_WEBID` / `EVENTIM_KEY` | — | integração da Eventim |
 
 ## Estrutura
 
 ```
 index.html          telas e navegação
-css/styles.css      design system (cores, tipografia, componentes)
-js/data.js          notícias, eventos, atualizações, pins e fontes
-js/i18n.js          textos da interface e traduções de conteúdo
-js/app.js           estado, navegação e renderização
+css/styles.css      design system
+js/app.js           estado, navegação, mapa, recorte de foto
+js/live.js          consumo da API, SSE e atualização contínua
+js/data.js          conteúdo de demonstração (só sem backend)
+js/i18n.js          textos da interface e traduções
+sw.js               service worker (rede primeiro)
+server/app.py       API, leitura das fontes e localização
+server/eventos.py   Sympla e Eventim
 ```
 
-As imagens são geradas em SVG por categoria — o protótipo não depende de nenhum arquivo externo.
-O conteúdo é fictício e serve só para demonstrar a navegação.
+## Deploy
 
-
-## Notícias reais (backend)
-
-[server/app.py](server/app.py) lê os RSS dos veículos da região a cada 5 minutos, guarda
-**7 dias de histórico** em `data/news.json` e serve o app junto com a API:
-
-| Rota | O que faz |
-|---|---|
-| `GET /api/feed` | notícias, eventos, pins do mapa e fontes |
-| `GET /api/stream` | SSE — avisa o app no instante em que entram notícias novas |
-| `GET /api/refresh` | força uma leitura dos feeds agora |
-| `GET /api/health` | status e quantidade de itens |
-
-Fontes: G1 Ribeirão/Franca, Tribuna Ribeirão, G1 São Paulo e Folha (as duas últimas
-filtradas por termos da região). O backend classifica cada item em categoria,
-separa notícia de evento e crava o pin no mapa quando reconhece um lugar da cidade.
-
-Variáveis: `PORT`, `REFRESH_SECONDS` (padrão 300), `HISTORY_DAYS` (padrão 7).
-
-O app ([js/live.js](js/live.js)) consome a API e, se não encontrar backend, continua
-funcionando com o conteúdo de demonstração.
-
-## Publicar para acessar do celular
-
-Precisa de um host rodando 24h — o [Dockerfile](Dockerfile) e o [render.yaml](render.yaml)
-já estão prontos:
-
-1. suba a pasta para um repositório no GitHub;
-2. no Render, *New → Web Service*, aponte para o repositório (ele lê o `render.yaml`);
-3. o endereço gerado (`https://rpcultural.onrender.com`) abre no celular de qualquer lugar.
-
-Vale para Railway, Fly.io ou qualquer host com Docker. No plano gratuito do Render o
-serviço hiberna sem acesso e demora alguns segundos para acordar.
+`Dockerfile` e `render.yaml` prontos: no Render, *New → Blueprint Instance* apontando para o
+repositório. Serve para qualquer host com Docker. No plano gratuito não há disco persistente — o
+histórico se refaz na primeira leitura (ou vem do Gist, se configurado).
