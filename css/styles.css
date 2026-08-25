@@ -403,6 +403,11 @@ img{max-width:100%;display:block}
 .sec-head__link svg{width:15px;height:15px;fill:none;stroke:currentColor;
   stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
 
+/* discreto de propósito: serve ao operador, não ao leitor do app */
+.ehadmin{display:block;margin:22px auto 0;padding:6px;width:max-content;
+  font-size:11.5px;color:var(--ink-3);text-decoration:none;letter-spacing:.02em}
+.ehadmin:active{color:var(--brand)}
+
 /* --- aviso dos eventos salvos --- */
 .aviso-salvos{padding:4px 0 2px}
 .aviso-salvos .pref{margin:0 18px}
