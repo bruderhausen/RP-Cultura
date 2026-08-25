@@ -613,7 +613,10 @@ def artigo_texto(url, limite=120000):
     return clean(html.unescape(texto), 6000), coords
 
 def localizar(item):
-    """Procura o local no corpo da matéria. Devolve True se achou coordenada."""
+    """Procura o local no corpo da matéria. Devolve True se achou coordenada.
+    Itens que já vêm com coordenada da plataforma (Sympla, Eventim) ficam como estão."""
+    if item.get("lat") is not None:
+        return False
     regional = any(f["key"] == item["src"] and f["regional"] for f in FEEDS)
     texto, coords = artigo_texto(item["url"])
     if not texto:
@@ -686,7 +689,7 @@ def refresh():
     if fresh:
         broadcast({"type": "news", "count": len(fresh), "updated": _state["updated"]})
     for i in fresh:                       # localização fina roda em segundo plano
-        if i.get("url", "").startswith("http"):
+        if i.get("lat") is None and i.get("url", "").startswith("http"):
             _fila.put(i)
     print(f"[refresh] {len(collected)} lidas, {len(fresh)} novas, {len(_state['items'])} no histórico", flush=True)
     return len(fresh)
