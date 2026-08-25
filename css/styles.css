@@ -35,7 +35,7 @@ body{
   -webkit-font-smoothing:antialiased;
   overscroll-behavior:none;
 }
-button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+button{font:inherit;color:inherit;border:0;padding:0;background:none;cursor:pointer}
 input{font:inherit}
 svg{width:100%;height:100%;display:block}
 h1,h2,h3{margin:0;font-family:var(--display);letter-spacing:-.02em}
@@ -399,10 +399,10 @@ img{max-width:100%;display:block}
 /* --- perfil --- */
 .profile{display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 18px 20px}
 .avatar{
-  position:relative;width:104px;height:104px;border-radius:50%;background:var(--surface-2);
+  position:relative;width:104px;height:104px;aspect-ratio:1;padding:0;border-radius:50%;background:var(--surface-2);
   display:grid;place-items:center;box-shadow:var(--sh-1);overflow:visible
 }
-.avatar img{width:100%;height:100%;border-radius:50%;object-fit:cover}
+.avatar img{width:104px;height:104px;border-radius:50%;object-fit:cover;display:block}
 .avatar__ph{width:56px;height:56px;fill:none;stroke:var(--ink-3);stroke-width:1.6;stroke-linecap:round}
 .avatar__edit{
   position:absolute;right:0;bottom:2px;width:32px;height:32px;border-radius:50%;background:var(--brand);
