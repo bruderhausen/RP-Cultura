@@ -321,7 +321,19 @@ def _nome_bate(query, nome):
     achou = _tokens(nome)
     return len(pedido & achou) >= max(1, (len(pedido) + 1) // 2)
 
-def _nominatim(query, confere, granular):
+def _bairro_bate(pedido, achado):
+    """Rua homônima em outro bairro é o erro mais comum aqui.
+
+    Ribeirão Preto tem Centro e o distrito de Bonfim Paulista, entre outros,
+    com ruas de mesmo nome. Sem conferir o bairro, o geocodificador escolhe
+    qualquer uma e o pin vai parar do outro lado da cidade.
+    """
+    if not pedido or not achado:
+        return True                      # nada a conferir
+    p, a = norm(pedido), norm(achado)
+    return p in a or a in p
+
+def _nominatim(query, confere, granular, bairro=None):
     url = ("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&"
            "addressdetails=1&countrycodes=br&q=" + urllib.parse.quote(query))
     data = json.loads(fetch(url, timeout=15).decode("utf-8"))
@@ -337,9 +349,15 @@ def _nominatim(query, confere, granular):
             return None, True
         if not _nome_bate(query, achado.get("name") or display.split(",")[0]):
             return None, True
+        end = achado.get("address") or {}
+        achado_bairro = (end.get("suburb") or end.get("neighbourhood")
+                         or end.get("city_district") or end.get("village")
+                         or end.get("town") or "")
+        if not _bairro_bate(bairro, achado_bairro):
+            return None, True
     return [round(float(achado["lat"]), 6), round(float(achado["lon"]), 6)], True
 
-def _photon(query, confere, granular):
+def _photon(query, confere, granular, bairro=None):
     """Segunda opção. O Nominatim recusa tráfego de datacenter com frequência,
     e sem alternativa o app inteiro ficava sem pin nenhum."""
     url = ("https://photon.komoot.io/api/?limit=1&lat=%f&lon=%f&q=" % tuple(RP_CENTRO)
@@ -361,9 +379,11 @@ def _photon(query, confere, granular):
         if not _nome_bate(query, " ".join(str(props.get(k, ""))
                                           for k in ("name", "street", "district"))):
             return None, True
+        if not _bairro_bate(bairro, props.get("district") or props.get("locality") or ""):
+            return None, True
     return [round(lat, 6), round(lon, 6)], True
 
-def geocode(query, confere=None, so_cache=False, granular=False):
+def geocode(query, confere=None, so_cache=False, granular=False, bairro=None):
     """Coordenadas reais, com cache em disco.
 
     `confere` exige que a cidade apareça no endereço devolvido.
@@ -374,7 +394,8 @@ def geocode(query, confere=None, so_cache=False, granular=False):
     """
     if not query:
         return None
-    chave = query + ("|" + confere if confere else "") + ("|g" if granular else "")
+    chave = (query + ("|" + confere if confere else "")
+             + ("|g" if granular else "") + ("|b" + bairro if bairro else ""))
     with _geo_lock:
         if chave in _geo:
             return _geo[chave]
@@ -385,7 +406,7 @@ def geocode(query, confere=None, so_cache=False, granular=False):
     resultado, definitivo = None, False
     for tentar in (_nominatim, _photon):
         try:
-            resultado, definitivo = tentar(query, confere, granular)
+            resultado, definitivo = tentar(query, confere, granular, bairro)
         except Exception as e:
             resultado, definitivo = None, False      # rede, não ausência do lugar
             print(f"[geo] {tentar.__name__} {query}: {e}", flush=True)
@@ -559,6 +580,7 @@ BAIRROS_RP = [
     "Jardim Marchesi", "Jardim das Palmeiras", "Jardim Mosteiro",
     "Parque Ribeirão Preto", "Parque dos Servidores", "Parque Bandeirantes",
     "Parque Industrial Lagoinha", "Alto da Boa Vista", "Núcleo Branca Salles",
+    "Bonfim Paulista", "Centro",
 ]
 BAIRROS_RE = re.compile(
     r"\b(?:no |na |do |da |em |bairro |zona )?"
@@ -580,6 +602,21 @@ def haversine(a, b):
     la1, lo1, la2, lo2 = map(radians, [a[0], a[1], b[0], b[1]])
     h = sin((la2 - la1) / 2) ** 2 + cos(la1) * cos(la2) * sin((lo2 - lo1) / 2) ** 2
     return 6371 * 2 * asin(sqrt(h))
+
+ABREV_BAIRRO = {"Jd": "Jardim", "Jd.": "Jardim", "Vl": "Vila", "Vl.": "Vila",
+                "Pq": "Parque", "Pq.": "Parque"}
+
+def bairro_do_texto(text):
+    """Bairro citado na notícia, usado para desempatar ruas de mesmo nome."""
+    n = norm(text)
+    for b in BAIRROS_RP:
+        if re.search(r"\b" + re.escape(norm(b)) + r"\b", n):
+            return b
+    m = BAIRROS_RE.search(text)
+    if m:
+        pref = ABREV_BAIRRO.get(m.group(1), m.group(1))
+        return f"{pref} {m.group(2)}".strip(" .,;")
+    return None
 
 def dentro(coords, limite_km=140):
     """Coordenada plausível para a região que o app cobre."""
@@ -629,6 +666,10 @@ def guess_place(text, regional=False, so_cache=False):
     alvo = cidade or ("Ribeirão Preto" if regional or is_regional(text) else None)
     if not alvo:
         return None
+    # o bairro entra na consulta e também é conferido no resultado: é ele que
+    # separa a Rua Sete de Setembro do Centro da homônima em Bonfim Paulista
+    bai = bairro_do_texto(text)
+    sufixo = f", {bai}" if bai else ""
 
     # 2) rua com número: é o que localiza a quadra
     tentativas = 0
@@ -638,9 +679,11 @@ def guess_place(text, regional=False, so_cache=False):
         if len(via) < 9 or not numero or tentativas >= 3:
             continue
         tentativas += 1
-        c = geocode(f"{via}, {numero}, {alvo}, SP", confere=alvo, so_cache=so_cache, granular=True)
+        c = geocode(f"{via}, {numero}{sufixo}, {alvo}, SP", confere=alvo,
+                    so_cache=so_cache, granular=True, bairro=bai)
         if c and perto_da_cidade(c, alvo, so_cache=so_cache):
-            return {"place": f"{via}, {numero}", "lat": c[0], "lng": c[1], "preciso": True}
+            rotulo = f"{via}, {numero}" + (f" - {bai}" if bai else "")
+            return {"place": rotulo, "lat": c[0], "lng": c[1], "preciso": True}
 
     # 3) bairro com prefixo (Jardim, Vila, Parque...)
     tentativas = 0
@@ -671,9 +714,11 @@ def guess_place(text, regional=False, so_cache=False):
         if len(via) < 9 or tentativas >= 3:
             continue
         tentativas += 1
-        c = geocode(f"{via}, {alvo}, SP", confere=alvo, so_cache=so_cache, granular=True)
+        c = geocode(f"{via}{sufixo}, {alvo}, SP", confere=alvo,
+                    so_cache=so_cache, granular=True, bairro=bai)
         if c and perto_da_cidade(c, alvo, so_cache=so_cache):
-            return {"place": via, "lat": c[0], "lng": c[1], "preciso": True}
+            rotulo = via + (f" - {bai}" if bai else "")
+            return {"place": rotulo, "lat": c[0], "lng": c[1], "preciso": True}
 
     # 6) sem referência fina: centro da cidade, marcado como impreciso
     c = geocode(CIDADE_QUERY.get(alvo, ""), so_cache=so_cache)
@@ -931,6 +976,14 @@ def refresh():
     for ev in eventos:
         ev["cat"] = guess_category(ev["title"] + " " + ev["lead"])
         ev["tone"] = int(hashlib.sha1(ev["id"].encode()).hexdigest()[:2], 16) % TONES
+        # A plataforma informa a coordenada do local do evento. É melhor do que
+        # qualquer coisa que se consiga geocodificando o texto, então o item já
+        # nasce fino e nunca entra na fila de refino. Sem isto, um evento no
+        # Centro era regeocodificado e ia parar numa rua homônima de outro
+        # bairro.
+        if ev.get("lat") is not None:
+            ev["preciso"] = True
+            ev["geov"] = GEO_VERSAO
         collected.append(ev)
     _diag.update(fontes=relatorio, erro_geral=erro_eventos,
                  checado=datetime.now(timezone.utc).isoformat())
