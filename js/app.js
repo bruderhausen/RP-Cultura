@@ -156,8 +156,10 @@ function go(name) {
   if (name === "perfil") renderProfile();
   if (name === "mapa") {
     refreshMapSize();
+    // posição salva de uma sessão anterior não dispensa o watch: sem ele o
+    // marcador ficava congelado onde o usuário estava da última vez
     if (!S.geo && !S.geoNegado) pedirLocalizacao(true, true);   // pede ao abrir o mapa
-    else marcarUsuario(false);
+    else { marcarUsuario(false); iniciarWatch(); }
   }
 }
 
@@ -419,6 +421,8 @@ function renderMap() {
     L.control.zoom({ position: "bottomright" }).addTo(_map);
     _pinLayer = L.layerGroup().addTo(_map);
     _map.on("zoomend", () => renderMap());
+    // arrastar o mapa é o usuário dizendo que quer olhar outro lugar
+    _map.on("dragstart", () => { _seguindo = false; });
   }
   _pinLayer.clearLayers();
   marcarUsuario(false);
@@ -462,34 +466,97 @@ function marcarUsuario(centralizar) {
     _euCirculo.setLatLng([lat, lng]).setRadius(prec || 120);
   }
   if (centralizar) _map.setView([lat, lng], 14);
+  // segue o usuário só enquanto ele não tiver arrastado o mapa
+  else if (_seguindo && !_map.getBounds().pad(-0.25).contains([lat, lng])) _map.panTo([lat, lng]);
 }
 
+/* =========================================================
+   localização ao vivo
+   ========================================================= */
 let _watch = null;
+let _seguindo = true;        // volta a false quando o usuário arrasta o mapa
+let _ultimoRender = 0;       // throttle do renderHome
+let _ultimaPos = null;
+
+const OPCOES_WATCH = { enableHighAccuracy: true, maximumAge: 0, timeout: 27000 };
+
+/* metros entre duas coordenadas, para decidir se vale re-renderizar */
+function metros(a, b) {
+  const R = 6371000, r = Math.PI / 180;
+  const dLat = (b[0] - a[0]) * r, dLng = (b[1] - a[1]) * r;
+  const m = Math.sin(dLat / 2) ** 2 +
+            Math.cos(a[0] * r) * Math.cos(b[0] * r) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(m));
+}
+
+function guardarPos(pos, centrar) {
+  const lat = +pos.coords.latitude.toFixed(6);
+  const lng = +pos.coords.longitude.toFixed(6);
+  const prec = Math.round(pos.coords.accuracy || 120);
+
+  // leitura muito ruim: só aceita se ainda não temos nada melhor
+  if (prec > 200 && _ultimaPos && _ultimaPos[2] <= 200) return;
+
+  const antes = _ultimaPos;
+  _ultimaPos = [lat, lng, prec];
+  S.geo = _ultimaPos;
+  S.geoNegado = false;
+
+  marcarUsuario(centrar);
+
+  // o marcador acompanha todo tique do GPS, mas a lista de "perto de você"
+  // só é refeita quando o usuário andou de verdade: reordenar a cada metro
+  // faria os cartões dançarem embaixo do dedo dele
+  const andou = !antes || metros(antes, _ultimaPos) > 25;
+  const agora = Date.now();
+  if (andou && agora - _ultimoRender > 4000) {
+    _ultimoRender = agora;
+    save();
+    renderHome();
+  }
+}
+
+function pararWatch() {
+  if (_watch !== null) { navigator.geolocation.clearWatch(_watch); _watch = null; }
+}
+
+function iniciarWatch() {
+  if (_watch !== null || !navigator.geolocation || S.geoNegado) return;
+  _watch = navigator.geolocation.watchPosition(
+    p => guardarPos(p, false),
+    err => {
+      // permissão revogada no meio do caminho: não adianta insistir
+      if (err.code === err.PERMISSION_DENIED) { pararWatch(); S.geoNegado = true; save(); }
+    },
+    OPCOES_WATCH
+  );
+}
 
 function pedirLocalizacao(centralizar = true, silencioso = false) {
   if (!navigator.geolocation) return silencioso || toast("Este aparelho não informa a localização");
   if (!silencioso) toast("Buscando sua localização…");
-  const guardar = (pos, centrar) => {
-    S.geo = [+pos.coords.latitude.toFixed(6), +pos.coords.longitude.toFixed(6),
-             Math.round(pos.coords.accuracy || 120)];
-    save(); marcarUsuario(centrar); renderHome();
-  };
   navigator.geolocation.getCurrentPosition(pos => {
-    guardar(pos, centralizar);
+    guardarPos(pos, centralizar);
+    save();
     if (!silencioso) toast("Mostrando o que está perto de você");
-    // segue acompanhando o usuário enquanto o app estiver aberto
-    if (_watch === null) {
-      _watch = navigator.geolocation.watchPosition(p => guardar(p, false), () => {},
-        { enableHighAccuracy: true, maximumAge: 15000, timeout: 20000 });
-    }
+    iniciarWatch();
   }, () => { S.geoNegado = true; save(); if (!silencioso) toast("Não consegui acessar sua localização"); },
-     { enableHighAccuracy: true, timeout: 9000, maximumAge: 300000 });
+     { enableHighAccuracy: true, timeout: 9000, maximumAge: 60000 });
 }
+
+/* o navegador suspende o watch com o app em segundo plano e nem sempre o
+   retoma sozinho; recriar na volta garante posição fresca */
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) { pararWatch(); return; }
+  if (S.screen === "mapa" || S.geo) iniciarWatch();
+});
+window.addEventListener("pagehide", pararWatch);
 
 $("#mapRecenter").addEventListener("click", () => {
   closeSheet();
   if (_map) _map.invalidateSize();
-  if (S.geo) { marcarUsuario(true); } else { pedirLocalizacao(true); }
+  _seguindo = true;
+  if (S.geo) { marcarUsuario(true); iniciarWatch(); } else { pedirLocalizacao(true); }
 });
 
 function dataLonga(iso) {
