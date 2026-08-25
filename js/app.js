@@ -147,8 +147,11 @@ function go(name) {
    para o botão voltar do celular fechar a camada em vez de sair do app */
 const pushLayer = () => history.pushState({ layer: Date.now() }, "");
 
+let _camada = 0;
+
 function openPage(el, html) {
   pushLayer();
+  el.style.zIndex = 1000 + ++_camada;
   el.innerHTML = html; el.hidden = false;
   el.scrollTop = 0;
   el.querySelector("[data-back]")?.addEventListener("click", () => history.back());
@@ -170,7 +173,10 @@ window.addEventListener("popstate", () => {
 
 function closePage(el) {
   el.classList.add("is-closing");
-  setTimeout(() => { el.hidden = true; el.classList.remove("is-closing"); el.innerHTML = ""; }, 220);
+  setTimeout(() => {
+    el.hidden = true; el.classList.remove("is-closing"); el.innerHTML = "";
+    el.style.zIndex = ""; _camada = Math.max(0, _camada - 1);
+  }, 220);
 }
 
 /* =========================================================
@@ -276,18 +282,47 @@ function updIcon(k) {
 }
 
 /* lista completa de notícias */
+function diaChave(iso) {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function rotuloDia(chave) {
+  const hoje = diaChave(new Date()), d = new Date(chave + "T12:00:00");
+  const ontem = diaChave(new Date(Date.now() - 86400000));
+  if (chave === hoje) return "Hoje";
+  if (chave === ontem) return "Ontem";
+  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
+}
+
 $("#verTodas").addEventListener("click", () => {
   const news = NEWS.filter(match);
+  const dias = [...new Set(news.map(i => diaChave(i.published)))].sort().reverse();
+  let diaAtivo = dias[0];
+
+  const listar = () => {
+    const doDia = news.filter(i => diaChave(i.published) === diaAtivo);
+    $("#listaDia").innerHTML = doDia.length ? doDia.map(cardHTML).join("")
+      : `<div class="empty">${t("emptyFeed")}</div>`;
+    $$("#chipsDia .chip").forEach(c => c.classList.toggle("is-on", c.dataset.dia === diaAtivo));
+  };
+
   openPage($("#pageSaved"), `
     <div class="page__bar">
       <button class="circbtn" data-back aria-label="Voltar"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
       <h1>Todas as notícias</h1><span style="width:38px"></span>
     </div>
-    <div class="saved-list">
-      <div class="list" style="padding-bottom:24px">
-        ${news.length ? news.map(cardHTML).join("") : `<div class="empty">${t("emptyFeed")}</div>`}
-      </div>
-    </div>`);
+    <div class="chips" id="chipsDia">
+      ${dias.map(d => `<button class="chip" data-dia="${d}">${rotuloDia(d)}
+        <b>${news.filter(i => diaChave(i.published) === d).length}</b></button>`).join("")}
+    </div>
+    <div class="saved-list"><div class="list" id="listaDia" style="padding-bottom:24px"></div></div>`);
+
+  $("#chipsDia").addEventListener("click", e => {
+    const b = e.target.closest("[data-dia]"); if (!b) return;
+    diaAtivo = b.dataset.dia; listar();
+  });
+  listar();
 });
 
 /* clique em qualquer card */
