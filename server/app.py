@@ -756,7 +756,8 @@ def feed_payload():
 def build_stamp():
     """Carimbo do build: muda sempre que css/js/html mudam, matando cache antigo."""
     h = hashlib.sha1()
-    for rel in ("index.html", "css/styles.css", "js/app.js", "js/data.js", "js/i18n.js", "js/live.js"):
+    for rel in ("index.html", "css/styles.css", "js/app.js", "js/data.js", "js/i18n.js", "js/live.js",
+                "manifest.json", "assets/icon-192.png", "assets/icon-512.png"):
         try:
             st = os.stat(os.path.join(ROOT, rel))
             h.update(f"{rel}{st.st_mtime_ns}{st.st_size}".encode())
@@ -804,6 +805,18 @@ class Handler(SimpleHTTPRequestHandler):
         path = self.path.split("?")[0]
         if path in ("/", "/index.html"):
             return self.send_index()
+        if path == "/manifest.json":
+            # carimbo nos ícones: o Android vê o manifest mudado e troca o ícone sozinho
+            with open(os.path.join(ROOT, "manifest.json"), encoding="utf-8") as f:
+                texto = f.read().replace(".png\"", f".png?v={BUILD}\"")
+            corpo = texto.encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/manifest+json; charset=utf-8")
+            self.send_header("Content-Length", str(len(corpo)))
+            self.send_header("Cache-Control", "no-store, must-revalidate")
+            self.end_headers()
+            self.wfile.write(corpo)
+            return
         if path == "/api/feed":
             return self._json(feed_payload())
         if path == "/api/health":
