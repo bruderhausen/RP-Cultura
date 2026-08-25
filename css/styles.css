@@ -135,6 +135,9 @@ img{max-width:100%;display:block}
 }
 .iconbtn svg{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .iconbtn.is-on{background:var(--brand);color:#fff}
+.iconbtn--instalar{margin-left:auto;margin-right:auto;background:var(--brand);color:#fff;
+  box-shadow:0 6px 16px rgba(75,46,212,.3);animation:instalarPulso 2.6s ease-in-out infinite}
+@keyframes instalarPulso{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
 
 /* --- busca --- */
 .searchrow{display:flex;gap:9px;padding:6px 18px 10px}

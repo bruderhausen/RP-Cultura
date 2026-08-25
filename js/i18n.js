@@ -48,6 +48,12 @@ const UI = {
   }
 };
 
+/* categorias */
+const CATS_I18N = {
+  en: { Todos: "All", Show: "Concerts", Festival: "Festivals", Cultura: "Culture", Cidade: "City", Gastronomia: "Food" },
+  es: { Todos: "Todos", Show: "Conciertos", Festival: "Festivales", Cultura: "Cultura", Cidade: "Ciudad", Gastronomia: "Gastronomía" }
+};
+
 /* títulos e resumos traduzidos dos conteúdos */
 const CONTENT_I18N = {
   en: {

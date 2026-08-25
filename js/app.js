@@ -21,6 +21,7 @@ function loc(item) {
   return tr ? { title: tr[0], lead: tr[1] } : { title: item.title, lead: item.lead };
 }
 const byId = id => ALL.find(i => i.id === id);
+const catLabel = c => (CATS_I18N[S.lang] && CATS_I18N[S.lang][c]) || c;
 
 /* ---------------- arte gerada (sem imagens externas) ---------------- */
 function art(item, extra = "") {
@@ -111,6 +112,21 @@ $("#guideTrack").addEventListener("scroll", () => {
   if (n !== gi) { gi = n; paintGuide(); }
 });
 
+/* ---------------- instalar na tela de início ---------------- */
+let _instalar = null;
+const instalado = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+
+window.addEventListener("beforeinstallprompt", e => {
+  e.preventDefault(); _instalar = e;
+  if (!instalado()) $("#btnInstalar").hidden = false;
+});
+window.addEventListener("appinstalled", () => { $("#btnInstalar").hidden = true; _instalar = null; });
+
+$("#btnInstalar").addEventListener("click", async () => {
+  if (_instalar) { _instalar.prompt(); await _instalar.userChoice; _instalar = null; $("#btnInstalar").hidden = true; }
+  else toast("Toque em Compartilhar e depois em Adicionar à Tela de Início");
+});
+
 /* ---------------- boot do app ---------------- */
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
@@ -122,6 +138,8 @@ function startApp() {
   pushLayer();   // passo extra: o primeiro "voltar" nunca sai do app
   renderChips(); renderHome(); renderMap(); renderProfile(); paintSavedCount(); applyLang();
   if (window.paintLiveBadge) paintLiveBadge();
+  // iPhone não dispara o evento de instalação: mostramos o atalho mesmo assim
+  if (!instalado() && /iphone|ipad|ipod/i.test(navigator.userAgent)) $("#btnInstalar").hidden = false;
 }
 
 /* =========================================================
@@ -184,8 +202,7 @@ function closePage(el) {
    ========================================================= */
 function renderChips() {
   $("#catChips").innerHTML = CATS.map(c =>
-    `<button class="chip${c === S.cat ? " is-on" : ""}" data-cat="${c}">${c === "Todos" ? (S.lang === "en" ? "All" : S.lang === "es" ? "Todos" : "Todos") : c}</button>`
-  ).join("");
+    `<button class="chip${c === S.cat ? " is-on" : ""}" data-cat="${c}">${catLabel(c)}</button>`).join("");
 }
 $("#catChips").addEventListener("click", e => {
   const b = e.target.closest(".chip"); if (!b) return;
@@ -234,7 +251,7 @@ function renderHome() {
     $("#heroCard").innerHTML = `
       <div class="hero__bg">${art(hero)}</div><div class="hero__shade"></div>
       <div class="hero__in">
-        <div class="hero__tags"><span class="tag">${hero.cat}</span><span class="tag tag--ghost">${hero.place || ""}</span></div>
+        <div class="hero__tags"><span class="tag">${catLabel(hero.cat)}</span><span class="tag tag--ghost">${hero.place || ""}</span></div>
         <h3>${L.title}</h3>
         <div class="hero__meta"><span class="src">${SOURCES[hero.src].name}</span><i class="dot-sep"></i>${hero.time}</div>
       </div>`;
@@ -265,7 +282,7 @@ function cardHTML(i) {
   return `<button class="card" data-open="${i.id}">
     <div class="card__thumb">${art(i)}</div>
     <div class="card__body">
-      <div class="card__cat">${i.cat}</div>
+      <div class="card__cat">${catLabel(i.cat)}</div>
       <div class="card__title">${L.title}</div>
       <div class="card__meta"><span class="src">${SOURCES[i.src].name}</span><i class="dot-sep"></i>${i.time}</div>
     </div></button>`;
@@ -353,7 +370,7 @@ function openArticle(id) {
         <svg viewBox="0 0 24 24"><path d="M7 4h10v16l-5-4-5 4z"/></svg></button>
     </div>
     <div class="art">
-      <div class="art__hero">${art(i)}<span class="tag art__cat">${i.cat}</span></div>
+      <div class="art__hero">${art(i)}<span class="tag art__cat">${catLabel(i.cat)}</span></div>
       ${i.credit ? `<p class="art__credito">Foto: ${i.credit}</p>` : ""}
       <div class="art__in">
         <h1>${L.title}</h1>
@@ -481,7 +498,7 @@ function openSheet(id, more = []) {
   const L = loc(i), src = SOURCES[i.src];
   $("#mapSheetBody").innerHTML = `
     <div class="sheet__img">${art(i)}</div>
-    <div class="sheet__row"><span class="tag">${i.cat}</span>${i.price ? `<span class="tag tag--price">${i.price}</span>` : ""}<span class="ev__p">📍 ${i.place}</span></div>
+    <div class="sheet__row"><span class="tag">${catLabel(i.cat)}</span>${i.price ? `<span class="tag tag--price">${i.price}</span>` : ""}<span class="ev__p">📍 ${i.place}</span></div>
     <h3>${L.title}</h3>
     <p class="sheet__sum">${L.lead}</p>
     <a class="sourcelink" href="${i.url || src.url}" target="_blank" rel="noopener">
@@ -544,7 +561,7 @@ function renderProfile() {
   $$("[data-pref]").forEach(c => { c.checked = !!S.prefs[c.dataset.pref]; });
   if (S.avatar) { $("#avatarImg").src = S.avatar; $("#avatarImg").hidden = false; $(".avatar__ph").style.display = "none"; }
   $("#interestChips").innerHTML = CATS.filter(c => c !== "Todos")
-    .map(c => `<button class="chip${S.interests.includes(c) ? " is-on" : ""}" data-int="${c}">${c}</button>`).join("");
+    .map(c => `<button class="chip${S.interests.includes(c) ? " is-on" : ""}" data-int="${c}">${catLabel(c)}</button>`).join("");
   paintSavedCount();
 }
 $("#interestChips").addEventListener("click", e => {
