@@ -470,8 +470,10 @@ def feed_payload():
             continue
         key = (i["lat"], i["lng"])
         n = usados.get(key, 0)
+        if n >= 3:                                   # no máximo 3 pins por lugar
+            continue
         usados[key] = n + 1
-        ang, raio = n * 2.399, 0.0016 * (n ** 0.5)   # espiral, ~150 m por passo
+        ang, raio = n * 2.399, 0.004 * (n ** 0.5)    # espiral, ~400 m por passo
         pins.append({"id": i["id"], "lat": i["lat"] + raio * math.cos(ang),
                      "lng": i["lng"] + raio * math.sin(ang), "label": i["place"],
                      "type": "ev" if i["kind"] == "evento" else "news"})
@@ -481,6 +483,19 @@ def feed_payload():
     return {"updated": updated, "days": HISTORY_DAYS, "refresh": REFRESH_SECONDS,
             "sources": sources, "news": news, "events": events, "pins": pins,
             "total": len(items)}
+
+def build_stamp():
+    """Carimbo do build: muda sempre que css/js/html mudam, matando cache antigo."""
+    h = hashlib.sha1()
+    for rel in ("index.html", "css/styles.css", "js/app.js", "js/data.js", "js/i18n.js", "js/live.js"):
+        try:
+            st = os.stat(os.path.join(ROOT, rel))
+            h.update(f"{rel}{st.st_mtime_ns}{st.st_size}".encode())
+        except OSError:
+            pass
+    return h.hexdigest()[:8]
+
+BUILD = build_stamp()
 
 class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *a, **kw):
@@ -505,8 +520,21 @@ class Handler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def send_index(self):
+        with open(os.path.join(ROOT, "index.html"), encoding="utf-8") as f:
+            page = re.sub(r"\?v=[\w.]+", "?v=" + BUILD, f.read())
+        body = page.encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store, must-revalidate")
+        self.end_headers()
+        self.wfile.write(body)
+
     def do_GET(self):
         path = self.path.split("?")[0]
+        if path in ("/", "/index.html"):
+            return self.send_index()
         if path == "/api/feed":
             return self._json(feed_payload())
         if path == "/api/health":

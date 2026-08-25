@@ -250,7 +250,7 @@ img{max-width:100%;display:block}
 .leaflet-container{font-family:var(--font);background:#E9E6F5}
 .leaflet-control-attribution{font-size:10px}
 .pinwrap{background:none;border:0}
-.pinwrap .pin{position:relative;transform:none;display:flex;flex-direction:column;align-items:center;animation:none}
+.pinwrap .pin{background:none;box-shadow:none;width:auto;position:relative;transform:none;display:flex;flex-direction:column;align-items:center;animation:none}
 .pinwrap .pin:active{transform:scale(.94)}
 .pinwrap .pin__label{display:none}
 .map__legend{
@@ -270,7 +270,7 @@ img{max-width:100%;display:block}
 .pin__svg{width:30px;height:41px;filter:drop-shadow(0 4px 8px rgba(36,17,103,.35))}
 .pin__shape{fill:var(--brand);stroke:#fff;stroke-width:2.2}
 .pin__hole{fill:#fff}
-.pin.ev .pin__shape{fill:var(--accent-2)}
+.pin--ev .pin__shape{fill:var(--accent-2)}
 .pin.is-on{transform:translate(-50%,-108%) scale(1.14);z-index:5}
 .pin__label{
   margin-top:-2px;font-size:10px;font-weight:700;color:var(--brand-ink);white-space:nowrap;
@@ -280,7 +280,7 @@ img{max-width:100%;display:block}
   position:absolute;left:50%;top:16px;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;
   background:var(--brand);opacity:.3;animation:pulse 2.6s ease-out infinite
 }
-.pin.ev .pin__pulse{background:var(--accent-2)}
+.pin--ev .pin__pulse{background:var(--accent-2)}
 @keyframes pulse{0%{transform:scale(.6);opacity:.35}70%{transform:scale(3.2);opacity:0}100%{opacity:0}}
 
 .scrim{position:absolute;inset:0;background:rgba(20,10,50,.35);z-index:8;animation:fadeIn .25s ease}

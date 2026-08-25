@@ -305,7 +305,7 @@ function renderMap() {
   if (!_map) {
     _map = L.map("map", { zoomControl: false, attributionControl: true }).setView(RP, 13);
     setTimeout(() => _map.invalidateSize(), 300);
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
       maxZoom: 20, subdomains: "abcd", detectRetina: true,
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
     }).addTo(_map);
@@ -317,7 +317,7 @@ function renderMap() {
     if (p.lat == null) return;
     const icon = L.divIcon({
       className: "pinwrap", iconSize: [30, 52], iconAnchor: [15, 44],
-      html: `<span class="pin ${p.type}"><span class="pin__pulse"></span>
+      html: `<span class="pin pin--${p.type}"><span class="pin__pulse"></span>
         <svg viewBox="0 0 26 36" class="pin__svg">
           <path class="pin__shape" d="M13 34.5S24 21.8 24 13A11 11 0 1 0 2 13c0 8.8 11 21.5 11 21.5z"/>
           <circle class="pin__hole" cx="13" cy="13" r="4.2"/></svg>
