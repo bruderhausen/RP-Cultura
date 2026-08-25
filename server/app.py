@@ -318,6 +318,9 @@ RP_CENTRO = [-21.177632, -47.810098]
 GEO_VERSAO = 4
 
 _geo_falhas = {}            # chave -> instante em que vale a pena tentar de novo
+_ritmo = threading.Lock()   # serializa as consultas
+_ultima_consulta = 0.0      # instante da última chamada de rede
+INTERVALO_GEO = 1.2         # política de uso: no máximo uma consulta por segundo
 TTL_FALHA = 6 * 3600        # recusa de rede: o serviço pode voltar
 TTL_VAZIO = 7 * 86400       # o serviço respondeu e não conhece o lugar
 
@@ -434,12 +437,19 @@ def geocode(query, confere=None, so_cache=False, granular=False, bairro=None,
 
     resultado, definitivo = None, False
     for tentar in (_nominatim, _photon):
-        try:
-            resultado, definitivo = tentar(query, confere, granular, bairro, so_cidade)
-        except Exception as e:
-            resultado, definitivo = None, False      # rede, não ausência do lugar
-            print(f"[geo] {tentar.__name__} {query}: {e}", flush=True)
-        time.sleep(1.1)                              # política de uso dos dois serviços
+        # o sleep sozinho não bastava: três workers consultavam ao mesmo tempo e
+        # o Nominatim respondia 429. O ritmo agora é global, não por thread.
+        with _ritmo:
+            global _ultima_consulta
+            espera = INTERVALO_GEO - (time.time() - _ultima_consulta)
+            if espera > 0:
+                time.sleep(espera)
+            try:
+                resultado, definitivo = tentar(query, confere, granular, bairro, so_cidade)
+            except Exception as e:
+                resultado, definitivo = None, False  # rede, não ausência do lugar
+                print(f"[geo] {tentar.__name__} {query}: {e}", flush=True)
+            _ultima_consulta = time.time()
         if resultado:
             break
 

@@ -202,7 +202,7 @@ $("#testarLocal").addEventListener("click", async () => {
     const reg = await navigator.serviceWorker.ready;
     await reg.showNotification("Teste local", {
       body: "Se você está vendo isto, o aparelho exibe notificações.",
-      icon: "assets/icon-192.png", badge: "assets/favicon-64.png", tag: "rpcultural-teste",
+      icon: "assets/icon-192.png", badge: "assets/badge-96.png", tag: "rpcultural-teste",
     });
     aviso("Disparei aqui mesmo. Se nada apareceu, o bloqueio é do sistema.");
   } catch (e) {

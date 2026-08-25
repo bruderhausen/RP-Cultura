@@ -54,7 +54,7 @@ self.addEventListener("push", e => {
   e.waitUntil(montarAviso().then(a => self.registration.showNotification(a.titulo, {
     body: a.corpo,
     icon: "assets/icon-192.png",
-    badge: "assets/favicon-64.png",
+    badge: "assets/badge-96.png",   // Android usa só o alpha: precisa ser silhueta
     tag: "rpcultural-feed",       // uma notificação por vez, sem empilhar
     renotify: true,
     data: { url: a.url },
