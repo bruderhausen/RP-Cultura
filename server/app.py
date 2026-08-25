@@ -273,6 +273,10 @@ GEO_CACHE = os.path.join(DATA_DIR, "geo.json")
 _geo = {}
 _geo_lock = threading.Lock()
 
+# diagnóstico dos coletores de evento. Fica fora de _state de propósito:
+# é estado da última execução, não conteúdo, e não deve ir para o arquivo.
+_diag = {"fontes": {}, "checado": None, "erro_geral": None}
+
 def load_geo():
     global _geo
     _geo = dict(DEFAULT_GEO)
@@ -727,13 +731,23 @@ def refresh():
         except Exception as e:
             print(f"[feed] {feed['key']}: {e}", flush=True)
 
+    # Sympla e Eventim são raspados dentro de buscar(), cada um com seu próprio
+    # tratamento de erro; aqui só resta o caso de o módulo inteiro falhar
     try:
-        for ev in plataformas.buscar():
-            ev["cat"] = guess_category(ev["title"] + " " + ev["lead"])
-            ev["tone"] = int(hashlib.sha1(ev["id"].encode()).hexdigest()[:2], 16) % TONES
-            collected.append(ev)
+        eventos, relatorio = plataformas.buscar()
+        erro_eventos = None
     except Exception as e:
-        print("[sympla]", e, flush=True)
+        eventos, relatorio, erro_eventos = [], {}, str(e)
+        print("[eventos]", e, flush=True)
+    for ev in eventos:
+        ev["cat"] = guess_category(ev["title"] + " " + ev["lead"])
+        ev["tone"] = int(hashlib.sha1(ev["id"].encode()).hexdigest()[:2], 16) % TONES
+        collected.append(ev)
+    _diag.update(fontes=relatorio, erro_geral=erro_eventos,
+                 checado=datetime.now(timezone.utc).isoformat())
+    for nome, f in relatorio.items():
+        if not f.get("ok"):
+            print(f"[eventos] {nome} sem resultado: {f.get('erro') or 'zero itens'}", flush=True)
 
     with _lock:
         known = {i["id"] for i in _state["items"]}
@@ -750,7 +764,11 @@ def refresh():
         _state["updated"] = datetime.now(timezone.utc).isoformat()
         save_store()
     if fresh:
-        broadcast({"type": "news", "count": len(fresh), "updated": _state["updated"]})
+        # separar por tipo: antes todo item novo chegava no app anunciado
+        # como notícia, inclusive evento
+        n_ev = sum(1 for i in fresh if i.get("kind") == "evento")
+        broadcast({"type": "feed", "news": len(fresh) - n_ev, "events": n_ev,
+                   "count": len(fresh), "updated": _state["updated"]})
     for i in fresh:                       # localização fina roda em segundo plano
         if (i.get("lat") is None or not i.get("img")) and i.get("url", "").startswith("http"):
             _fila.put(i)
@@ -880,7 +898,19 @@ class Handler(SimpleHTTPRequestHandler):
         if path == "/api/feed":
             return self._json(feed_payload())
         if path == "/api/health":
-            return self._json({"ok": True, "items": len(_state["items"]), "updated": _state["updated"]})
+            # sempre 200: o Render usa esta rota como healthCheck e derrubaria
+            # o serviço por causa de uma raspagem de evento quebrada
+            alertas = []
+            if _diag["erro_geral"]:
+                alertas.append("eventos: " + _diag["erro_geral"])
+            for nome, f in (_diag["fontes"] or {}).items():
+                if not f.get("ok"):
+                    alertas.append(f"{nome}: {f.get('erro') or 'zero itens'}")
+            return self._json({"ok": True, "items": len(_state["items"]),
+                               "events": sum(1 for i in _state["items"]
+                                             if i.get("kind") == "evento"),
+                               "sources": _diag, "alerts": alertas,
+                               "updated": _state["updated"]})
         if path == "/api/refresh":
             return self._json({"new": refresh(), "updated": _state["updated"]})
         if path == "/api/stream":

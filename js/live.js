@@ -94,8 +94,16 @@ function connectStream() {
   const es = new EventSource(API + "stream");
   es.onmessage = ev => {
     let d = {}; try { d = JSON.parse(ev.data); } catch (e) { return; }
-    if (d.type === "news") loadLive(`${d.count} ${d.count === 1 ? "notícia nova" : "notícias novas"}`);
-    else loadLive();                       // pins recém-localizados
+    if (d.type === "feed" || d.type === "news") {
+      // o servidor manda a contagem separada por tipo; d.count é o formato
+      // antigo, ainda possível num cliente servido de cache
+      const n = d.news != null ? d.news : d.count || 0;
+      const m = d.events || 0;
+      const partes = [];
+      if (n) partes.push(`${n} ${n === 1 ? "notícia nova" : "notícias novas"}`);
+      if (m) partes.push(`${m} ${m === 1 ? "evento novo" : "eventos novos"}`);
+      loadLive(partes.join(" e "));
+    } else loadLive();                     // pins recém-localizados
   };
   es.onerror = () => { es.close(); setTimeout(connectStream, 30000); };
 }

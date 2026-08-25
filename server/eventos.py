@@ -114,25 +114,40 @@ def _eventim_cidade(cidade):
 
 
 def buscar_eventim():
-    saida = []
+    """Devolve (eventos, erro). O erro sobe até /api/health: sem isso, uma
+    quebra na raspagem só apareceria no log do servidor."""
+    saida, erro = [], None
     for cidade in EVENTIM_CIDADES:
         try:
             saida += _eventim_cidade(cidade)
         except Exception as e:
-            print(f"[eventim] {cidade}: {e}", flush=True)
+            erro = f"{cidade}: {e}"
+            print(f"[eventim] {erro}", flush=True)
             break        # sem credencial não adianta insistir nas outras cidades
-    return saida
+    return saida, erro
 
 
 def buscar(limite_por_cidade=20, com_preco=False):
-    """Devolve eventos normalizados, prontos para o feed."""
+    """Devolve (eventos, relatorio) normalizados, prontos para o feed.
+
+    O relatorio diz quanto cada plataforma entregou e qual foi o erro, se
+    houve. Raspagem de JSON embutido quebra quando a plataforma mexe no
+    markup, e sem esse retorno a falha ficava invisível: o app seguia
+    servindo só notícias, sem sinal nenhum de que os eventos pararam.
+    """
     vistos, eventos = set(), []
+    rel = {"sympla":  {"ok": False, "itens": 0, "cidades_ok": 0,
+                       "cidades": len(CIDADES_SYMPLA), "erro": None},
+           "eventim": {"ok": False, "itens": 0, "erro": None}}
+
     for slug, cidade in CIDADES_SYMPLA:
         try:
             pagina = _get(f"https://www.sympla.com.br/eventos/{slug}").replace('\\"', '"')
         except Exception as e:
+            rel["sympla"]["erro"] = rel["sympla"]["erro"] or f"{slug}: {e}"
             print(f"[sympla] {slug}: {e}", flush=True)
             continue
+        rel["sympla"]["cidades_ok"] += 1
 
         for ev in _objetos(pagina)[:limite_por_cidade]:
             url = (ev.get("url") or "").rstrip("\\")
@@ -172,11 +187,19 @@ def buscar(limite_por_cidade=20, com_preco=False):
                 "price": None,
             })
 
-    for ev in buscar_eventim():
+    rel["sympla"]["itens"] = len(eventos)
+    # cidade que respondeu mas não rendeu evento nenhum é sinal de markup mudado
+    rel["sympla"]["ok"] = rel["sympla"]["cidades_ok"] > 0 and len(eventos) > 0
+
+    do_eventim, erro_eventim = buscar_eventim()
+    rel["eventim"]["erro"] = erro_eventim
+    for ev in do_eventim:
         if ev["url"] not in vistos and _dist((ev["lat"], ev["lng"]), RP) <= RAIO_KM:
             vistos.add(ev["url"]); eventos.append(ev)
+            rel["eventim"]["itens"] += 1
+    rel["eventim"]["ok"] = erro_eventim is None
 
     if com_preco:
         for ev in eventos[:40]:          # melhor esforço, só nos primeiros
             ev["price"] = preco_do_evento(ev["url"])
-    return eventos
+    return eventos, rel
