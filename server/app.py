@@ -75,7 +75,9 @@ NOISE_TERMS = ["siga o ", "veja fotos", "veja as fotos", "assista ao vivo", "con
 # ------------------------------------------------- lugares -> pin no mapa
 # (label, termos que aparecem no texto, consulta enviada ao geocodificador)
 PLACES = [
-    ("Parque do Peão",          ["parque do peao", "festa do peao", "liga nacional de rodeio", "peao de barretos"], "Parque do Peao, Barretos, Sao Paulo", "Barretos"),
+    ("Parque do Peão",          ["parque do peao", "festa do peao", "liga nacional de rodeio", "peao de barretos", "barretao", "os independentes"], "Parque do Peao, Barretos, Sao Paulo", "Barretos"),
+    # o OSM não tem a Vila do Jon; ela fica no recinto da Festa do Peão
+    ("Vila do Jon",             ["vila do jon"],                              "Parque do Peao, Barretos, Sao Paulo", "Barretos"),
     ("Centro Cultural Palace",  ["centro cultural palace", "palace hotel"],   "Centro Cultural Palace, Ribeirao Preto", "Ribeirão Preto"),
     ("Casa da Cultura",         ["casa da cultura"],                          "Casa da Cultura, Ribeirao Preto", "Ribeirão Preto"),
     ("Paço Municipal",          ["prefeitura de ribeirao", "paco municipal", "paço municipal"], "Palacio Rio Branco, Ribeirao Preto", "Ribeirão Preto"),
@@ -622,11 +624,23 @@ def dentro(coords, limite_km=140):
     """Coordenada plausível para a região que o app cobre."""
     return bool(coords) and haversine(coords, RP_CENTRO) <= limite_km
 
+# Apelidos e lugares que identificam a cidade sozinhos. Sem isto, uma notícia
+# sobre o Barretão ou a Vila do Jon que não escreve "Barretos" era tratada como
+# de Ribeirão Preto, e o nome do lugar acabava geocodificado como bairro daqui.
+APELIDOS_CIDADE = {
+    "barretao": "Barretos", "festa do peao": "Barretos",
+    "parque do peao": "Barretos", "vila do jon": "Barretos",
+    "os independentes": "Barretos",
+}
+
 def cidade_do_texto(text):
     n = norm(text)
     for c in CIDADES:
         if re.search(r"\b" + re.escape(norm(c)) + r"\b", n):
             return c
+    for termo, cidade in APELIDOS_CIDADE.items():
+        if re.search(r"\b" + re.escape(termo) + r"\b", n):
+            return cidade
     return None
 
 def perto_da_cidade(coords, cidade, limite_km=35, so_cache=False):
