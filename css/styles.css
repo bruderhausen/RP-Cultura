@@ -54,7 +54,7 @@ img{max-width:100%;display:block}
 
 /* ================= SPLASH ================= */
 .splash{
-  position:fixed;inset:0;z-index:60;
+  position:fixed;inset:0;z-index:2000;
   background:radial-gradient(120% 100% at 50% 0%,var(--brand-2) 0%,var(--brand) 45%,#2C1794 100%);
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;
   color:#fff;
@@ -86,7 +86,7 @@ img{max-width:100%;display:block}
 
 /* ================= GUIA ================= */
 .guide{
-  position:fixed;inset:0;z-index:55;background:var(--surface);
+  position:fixed;inset:0;z-index:1900;background:var(--surface);
   display:flex;flex-direction:column;padding-top:calc(18px + var(--safe-t));
   animation:fadeIn .35s ease;
 }
@@ -245,7 +245,7 @@ img{max-width:100%;display:block}
 .empty{padding:34px 24px;text-align:center;color:var(--ink-3);font-size:14px}
 
 /* ================= MAPA ================= */
-.mapwrap{flex:1;min-height:0;position:relative;overflow:hidden;background:#E9E6F5}
+.mapwrap{flex:1;min-height:0;position:relative;overflow:hidden;background:#E9E6F5;z-index:0;isolation:isolate}
 .map{position:absolute;inset:0;background:#E9E6F5}
 .leaflet-container{font-family:var(--font);background:#E9E6F5}
 .leaflet-control-attribution{font-size:10px}
@@ -283,9 +283,9 @@ img{max-width:100%;display:block}
 .pin--ev .pin__pulse{background:var(--accent-2)}
 @keyframes pulse{0%{transform:scale(.6);opacity:.35}70%{transform:scale(3.2);opacity:0}100%{opacity:0}}
 
-.scrim{position:absolute;inset:0;background:rgba(20,10,50,.35);z-index:8;animation:fadeIn .25s ease}
+.scrim{position:absolute;inset:0;background:rgba(20,10,50,.35);z-index:890;animation:fadeIn .25s ease}
 .sheet{
-  position:absolute;left:0;right:0;bottom:0;z-index:9;background:var(--surface);
+  position:absolute;left:0;right:0;bottom:0;z-index:900;background:var(--surface);
   border-radius:var(--r-xl) var(--r-xl) 0 0;box-shadow:var(--sh-3);
   padding:8px 18px calc(18px + var(--tabh) + var(--safe-b));
   max-height:74%;overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;
@@ -310,7 +310,7 @@ img{max-width:100%;display:block}
 /* ================= TABBAR ================= */
 .tabbar{
   display:flex;background:var(--surface);border-top:1px solid var(--line);
-  padding-bottom:var(--safe-b);height:calc(var(--tabh) + var(--safe-b));flex:none;z-index:12
+  padding-bottom:var(--safe-b);height:calc(var(--tabh) + var(--safe-b));flex:none;z-index:800
 }
 .tab{
   flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
@@ -322,7 +322,7 @@ img{max-width:100%;display:block}
 
 /* ================= PÁGINAS EMPILHADAS ================= */
 .page{
-  position:absolute;inset:0;z-index:20;background:var(--bg);display:flex;flex-direction:column;
+  position:absolute;inset:0;z-index:1000;background:var(--bg);display:flex;flex-direction:column;
   animation:pageIn .28s cubic-bezier(.2,.85,.3,1)
 }
 @keyframes pageIn{from{transform:translateX(9%);opacity:.4}}
@@ -449,7 +449,7 @@ img{max-width:100%;display:block}
 .toast{
   position:absolute;left:50%;transform:translateX(-50%);bottom:calc(var(--tabh) + var(--safe-b) + 18px);
   background:var(--brand-ink);color:#fff;font-size:13.5px;font-weight:600;padding:11px 18px;border-radius:99px;
-  box-shadow:var(--sh-2);z-index:40;animation:toastIn .25s ease;max-width:86%;text-align:center
+  box-shadow:var(--sh-2);z-index:1100;animation:toastIn .25s ease;max-width:86%;text-align:center
 }
 @keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(12px)}}
 
