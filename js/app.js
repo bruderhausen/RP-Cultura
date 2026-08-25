@@ -289,8 +289,8 @@ function openArticle(id) {
         <div class="art__meta"><span class="src">${src.name}</span><i class="dot-sep"></i>${i.time}<i class="dot-sep"></i>${i.read}${i.place ? `<i class="dot-sep"></i>📍 ${i.place}` : ""} ${badge}</div>
         <p class="art__lead">${L.lead}</p>
         ${i.body.slice(0, 2).map(p => `<p>${p}</p>`).join("")}
-        <figure class="art__fig">${art(i)}</figure>
-        <p class="art__figcap">${i.figcap}</p>
+        ${i.body.length ? `<figure class="art__fig">${art(i)}</figure>
+        <p class="art__figcap">${i.figcap}</p>` : ""}
         ${i.body.slice(2).map(p => `<p>${p}</p>`).join("")}
         <a class="art__src" href="${i.url || src.url}" target="_blank" rel="noopener">
           <span><small>${t("source")}</small><b>${src.name}</b></span>

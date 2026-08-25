@@ -49,9 +49,15 @@ REGION_TERMS = [
 ]
 
 # ------------------------------------------------- categorias e eventos
+POLICIA_TERMS = ["acidente", "batida", "colisao", "capotamento", "atropelamento", "morre", "morreu",
+                 "morte", "mortes", "morto", "morta", "assalto", "roubo", "furto", "homicidio",
+                 "assassinato", "tiro", "tiros", "preso", "presa", "policia", "pm", "incendio",
+                 "operacao", "apreensao", "vitima", "vitimas", "feridos", "ferida", "ferido"]
+
 CATEGORY_RULES = [
+    ("Cidade",      POLICIA_TERMS),
     ("Show",        ["show", "banda", "cantor", "cantora", "turne", "turnê", "rock", "sertanejo", "rap", "samba", "dj ", "concerto"]),
-    ("Festival",    ["festival", "lollapalooza", "carnaval", "expo", "feira de musica", "festa"]),
+    ("Festival",    ["festival", "lollapalooza", "carnaval", "expo", "festa", "rodeio", "peao", "peoes"]),
     ("Gastronomia", ["gastronom", "restaurante", "chef", "culinar", "cerveja", "food", "feira de produtores", "bar "]),
     ("Cultura",     ["teatro", "museu", "exposi", "cinema", "livro", "arte", "cultural", "sarau", "danca", "dança", "biblioteca", "espetaculo", "espetáculo"]),
     ("Cidade",      ["prefeitura", "transito", "trânsito", "obra", "onibus", "ônibus", "saude", "saúde", "escola", "policia", "polícia", "chuva", "clima", "agua", "água"]),
@@ -351,8 +357,8 @@ def parse_feed(raw):
 # ---------------------------------------------------------------- regras
 MESES_PT = {"janeiro":1,"fevereiro":2,"marco":3,"abril":4,"maio":5,"junho":6,"julho":7,
             "agosto":8,"setembro":9,"outubro":10,"novembro":11,"dezembro":12}
-DATA_EXT_RE = re.compile(r"(\d{1,2})\s+de\s+([a-zç]+)", re.I)
-DATA_NUM_RE = re.compile(r"(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?")
+DATA_EXT_RE = re.compile(r"\b(\d{1,2})\s+de\s+([a-zç]+)", re.I)
+DATA_NUM_RE = re.compile(r"\b(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?\b")
 DIA_PAR_RE  = re.compile(r"\((\d{1,2})\)")
 
 def data_do_evento(text, publicado):
@@ -377,16 +383,21 @@ def data_do_evento(text, publicado):
     except ValueError:
         return None
 
+def tem_termo(n, termos):
+    return any(re.search(r"\b" + re.escape(t).replace(r"\ ", " ") + r"\b", n) for t in termos)
+
 def guess_category(text):
     n = norm(text)
     for cat, terms in CATEGORY_RULES:
-        if any(t in n for t in terms):
+        if tem_termo(n, terms):
             return cat
     return "Cidade"
 
 def is_event(text):
     n = norm(text)
-    return any(t in n for t in EVENT_TERMS)
+    if tem_termo(n, POLICIA_TERMS):
+        return False
+    return tem_termo(n, EVENT_TERMS)
 
 PREFIXO_RE = re.compile(r"^(fotos|video|videos|v[ií]deo|ao vivo|urgente|exclusivo|an[aá]lise)\s*:\s*", re.I)
 
@@ -398,7 +409,7 @@ def assinatura(titulo):
 def parecidos(a, b):
     if not a or not b:
         return False
-    return len(a & b) / max(len(a), len(b)) >= 0.7
+    return len(a & b) / max(len(a), len(b)) >= 0.6
 
 def is_noise(text):
     n = norm(text)
@@ -467,8 +478,7 @@ def guess_place(text, regional=False):
     return None
 
 def is_regional(text):
-    n = norm(text)
-    return any(t in n for t in REGION_TERMS)
+    return tem_termo(norm(text), REGION_TERMS)
 
 TONES = 6
 
@@ -596,8 +606,10 @@ def localizar(item):
     texto, coords = artigo_texto(item["url"])
     if not texto:
         return False
-    base = f"{item['title']} {item['lead']} {texto}"
-    place = guess_place(base, regional)
+    marca = re.compile(r"ribeirao preto e franca|g1 ribeirao|eptv", re.I)
+    cabeca = f"{item['title']} {item['lead']}"
+    corpo = marca.sub(" ", texto)[:2500]
+    place = guess_place(cabeca, regional) or guess_place(f"{cabeca} {corpo}", regional)
     if coords and dentro(coords):
         place = {"place": (place or {}).get("place") or cidade_do_texto(base) or "Ribeirão Preto",
                  "lat": coords[0], "lng": coords[1]}
