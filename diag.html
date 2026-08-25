@@ -120,6 +120,13 @@ async function carregar(){
         ["último erro", p.ultimo_erro || "nenhum"]]);
     })()),
 
+    card("Lembretes", (() => {
+      const l = d.lembretes || {};
+      return `<div class="n">${l.agendados ?? 0}<small>agendados</small></div>` + linhas([
+        ["antecedências", (l.antecedencias || []).join(", ") || "—"],
+        ["último erro", l.ultimo_erro || "nenhum"]]);
+    })()),
+
     card("Itens por fonte", linhas(
       Object.entries(d.feeds || {}).sort((a,b) => b[1]-a[1]))),
   ].join("");

@@ -20,6 +20,7 @@ from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 
 import eventos as plataformas
 import push
+import lembretes
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(ROOT, "data")
@@ -1219,6 +1220,7 @@ def health_payload():
         "feeds": por_fonte,
         "fontes_evento": _diag,
         "push": push.estado(),
+        "lembretes": lembretes.estado(),
         "alerts": alertas,
     }
 
@@ -1328,7 +1330,8 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_POST(self):
         path = self.path.split("?")[0]
-        if path not in ("/api/push/inscrever", "/api/push/sair"):
+        if path not in ("/api/push/inscrever", "/api/push/sair", "/api/push/aviso",
+                        "/api/lembrete", "/api/lembrete/sair"):
             return self.send_error(404)
         try:
             tam = int(self.headers.get("Content-Length") or 0)
@@ -1337,6 +1340,22 @@ class Handler(SimpleHTTPRequestHandler):
             return self._json({"ok": False, "erro": "json inválido"})
         if path == "/api/push/inscrever":
             return self._json({"ok": push.inscrever(corpo), "inscritos": push.quantos()})
+        if path == "/api/push/aviso":
+            # o service worker pergunta o que mostrar; sem nada guardado ele
+            # cai no texto genérico montado a partir do feed
+            return self._json({"aviso": push.pegar_aviso(corpo.get("endpoint", ""))})
+        if path == "/api/lembrete":
+            with _lock:
+                item = next((i for i in _state["items"]
+                             if i["id"] == corpo.get("evento")), None)
+            if not item:
+                return self._json({"ok": False, "erro": "evento não encontrado"})
+            ok, motivo = lembretes.marcar(corpo.get("endpoint", ""), item,
+                                          corpo.get("antecedencia", lembretes.PADRAO))
+            return self._json({"ok": ok, "erro": motivo})
+        if path == "/api/lembrete/sair":
+            return self._json({"ok": lembretes.desmarcar(corpo.get("endpoint", ""),
+                                                         corpo.get("evento", ""))})
         return self._json({"ok": push.sair(corpo.get("endpoint", "")),
                            "inscritos": push.quantos()})
 
@@ -1360,6 +1379,10 @@ class Handler(SimpleHTTPRequestHandler):
             return self._json(feed_payload())
         if path == "/api/health":
             return self._json(health_payload())
+        if path == "/api/lembretes":
+            endpoint = urllib.parse.parse_qs(self.path.partition("?")[2]).get("e", [""])[0]
+            return self._json({"ids": lembretes.marcados(endpoint),
+                               "antecedencias": sorted(lembretes.ANTECEDENCIA)})
         if path == "/api/push/chave":
             return self._json({"chave": push.VAPID_PUBLIC, "ativo": push.disponivel()})
         if path == "/api/refresh":
@@ -1397,6 +1420,8 @@ def main():
     load_store()
     load_geo()
     push.carregar()
+    lembretes.carregar()
+    threading.Thread(target=lembretes.loop, daemon=True).start()
     threading.Thread(target=refresh_loop, daemon=True).start()
     for _ in range(3):
         threading.Thread(target=worker_local, daemon=True).start()

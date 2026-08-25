@@ -10,9 +10,11 @@ que ele impede de voltar.
 import os
 import sys
 import unittest
+from datetime import datetime, timedelta, timezone
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "server"))
 import app  # noqa: E402
+import push as push_mod  # noqa: E402
 
 
 # Coordenadas reais, conferidas uma vez, para o geocodificador de mentira.
@@ -413,6 +415,95 @@ class TestDiagnostico(unittest.TestCase):
               "preciso": True, "published": "2026-08-20T10:00:00+00:00"}],
             {"sympla": {"ok": True, "itens": 0}})
         self.assertTrue(any("nenhum evento" in a for a in d["alerts"]))
+
+
+class TestLembretes(unittest.TestCase):
+    """O lembrete vive no servidor: é ele que sabe quando a hora chegou."""
+
+    def setUp(self):
+        import lembretes
+        self.lb = lembretes
+        lembretes._itens = {}
+        lembretes._gravar = lambda: None
+        self.enviados = []
+        self._avisar = push_mod.avisar_um
+        self._disp = push_mod.disponivel
+        push_mod.avisar_um = lambda e, ttl=3600: (self.enviados.append(e) or True)
+        push_mod.disponivel = lambda: True
+        self.addCleanup(setattr, push_mod, "avisar_um", self._avisar)
+        self.addCleanup(setattr, push_mod, "disponivel", self._disp)
+
+    def evento(self, daqui_horas=5, **extra):
+        quando = datetime.now(timezone.utc) + timedelta(hours=daqui_horas)
+        base = {"id": "sy1", "title": "Show A", "place": "Bar Dom Pedro",
+                "when": quando.isoformat()}
+        base.update(extra)
+        return base
+
+    def test_agenda_com_a_antecedencia_escolhida(self):
+        ok, _ = self.lb.marcar("https://p/a", self.evento(), "1h")
+        self.assertTrue(ok)
+        reg = list(self.lb._itens.values())[0]
+        inicio = datetime.fromisoformat(self.evento()["when"]).timestamp()
+        self.assertAlmostEqual(reg["quando"], inicio - 3600, delta=5)
+
+    def test_evento_que_ja_passou_nao_agenda(self):
+        ok, motivo = self.lb.marcar("https://p/a", self.evento(daqui_horas=-3), "1h")
+        self.assertFalse(ok)
+        self.assertEqual(motivo, "sem data futura")
+
+    def test_antecedencia_maior_que_o_tempo_restante_nao_agenda(self):
+        # evento em 2h com aviso de 1 dia: o disparo já ficou no passado
+        ok, motivo = self.lb.marcar("https://p/a", self.evento(daqui_horas=2), "1d")
+        self.assertFalse(ok)
+        self.assertEqual(motivo, "sem data futura")
+
+    def test_marcar_de_novo_troca_a_antecedencia_sem_duplicar(self):
+        self.lb.marcar("https://p/a", self.evento(), "1h")
+        self.lb.marcar("https://p/a", self.evento(), "30m")
+        self.assertEqual(self.lb.quantos(), 1)
+        self.assertEqual(list(self.lb._itens.values())[0]["antecedencia"], "30m")
+
+    def test_cada_aparelho_tem_a_propria_lista(self):
+        self.lb.marcar("https://p/a", self.evento(), "1h")
+        self.lb.marcar("https://p/b", self.evento(id="sy2"), "1h")
+        self.assertEqual(self.lb.marcados("https://p/a"), ["sy1"])
+        self.assertEqual(self.lb.marcados("https://p/b"), ["sy2"])
+
+    def test_dispara_no_horario_e_some_da_lista(self):
+        self.lb.marcar("https://p/a", self.evento(daqui_horas=5), "1h")
+        reg = list(self.lb._itens.values())[0]
+        enviados, descartados = self.lb.disparar(agora=reg["quando"] + 1)
+        self.assertEqual((enviados, descartados), (1, 0))
+        self.assertEqual(self.enviados, ["https://p/a"])
+        self.assertEqual(self.lb.quantos(), 0)
+
+    def test_nao_dispara_antes_da_hora(self):
+        self.lb.marcar("https://p/a", self.evento(daqui_horas=5), "1h")
+        reg = list(self.lb._itens.values())[0]
+        self.assertEqual(self.lb.disparar(agora=reg["quando"] - 60), (0, 0))
+        self.assertEqual(self.lb.quantos(), 1)
+
+    def test_lembrete_muito_atrasado_e_descartado_sem_avisar(self):
+        # servidor parado por horas: avisar de algo que já começou é pior
+        self.lb.marcar("https://p/a", self.evento(daqui_horas=5), "1h")
+        reg = list(self.lb._itens.values())[0]
+        enviados, descartados = self.lb.disparar(
+            agora=reg["quando"] + self.lb.ATRASO_MAXIMO + 60)
+        self.assertEqual((enviados, descartados), (0, 1))
+        self.assertEqual(self.enviados, [])
+
+    def test_texto_diz_qual_evento_e_quanto_falta(self):
+        self.lb.marcar("https://p/a", self.evento(), "30m")
+        titulo, corpo = self.lb._texto(list(self.lb._itens.values())[0])
+        self.assertEqual(titulo, "Show A")
+        self.assertIn("30 minutos", corpo)
+        self.assertIn("Bar Dom Pedro", corpo)
+
+    def test_aviso_e_consumido_uma_vez_so(self):
+        push_mod.guardar_aviso("https://p/a", "Show A", "Começa em 1 hora")
+        self.assertEqual(push_mod.pegar_aviso("https://p/a")["titulo"], "Show A")
+        self.assertIsNone(push_mod.pegar_aviso("https://p/a"))
 
 
 class TestPush(unittest.TestCase):

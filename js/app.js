@@ -7,7 +7,7 @@ const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 /* ---------------- estado ---------------- */
 const KEY = "rpcultural.v1";
 const S = Object.assign({
-  cat: "Todos", q: "", lang: "pt", screen: "home", cidade: "",
+  cat: "Todos", q: "", lang: "pt", screen: "home", cidade: "", antes: "1h", lembrados: [],
   saved: [], prefs: { noticias: true, eventos: true, alertas: false },
   interests: [], geo: null, user: null, avatar: null, guideSeen: false
 }, JSON.parse(localStorage.getItem(KEY) || "{}"));
@@ -155,6 +155,7 @@ function startApp() {
   renderChips(); renderHome(); renderMap(); renderProfile(); paintSavedCount(); applyLang();
   pintarCidade();
   if (window.paintLiveBadge) paintLiveBadge();
+  sincronizarLembretes();
   // iPhone não dispara o evento de instalação: mostramos o atalho mesmo assim
   if (!instalado() && /iphone|ipad|ipod/i.test(navigator.userAgent)) $("#btnInstalar").hidden = false;
 }
@@ -456,6 +457,8 @@ function agendaHTML(e) {
 /* clique em qualquer card */
 document.addEventListener("click", e => {
   // o atalho do local fica dentro do cartão, então precisa ser testado antes
+  const lb = e.target.closest("[data-lembrar]");
+  if (lb) { alternarLembrete(lb.dataset.lembrar); return; }
   const mp = e.target.closest("[data-mapa]");
   if (mp) { abrirNoMapa(mp.dataset.mapa); return; }
   const o = e.target.closest("[data-open]");
@@ -722,6 +725,10 @@ function openSheet(id, more = [], total = 0) {
     </a>
     <div class="sheet__acts" style="margin-top:14px">
       <button class="btn btn--ghost" id="sheetSave">${isSaved(i.id) ? t("saved2") + " ✓" : t("save")}</button>
+      ${i.kind === "evento" && i.when ? `<button class="btn btn--sino ${lembrado(i.id) ? "is-on" : ""}"
+        data-lembrar="${i.id}" aria-pressed="${lembrado(i.id)}">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 16v-5a6 6 0 1 0-12 0v5l-2 2h16l-2-2Z"/><path d="M10 21h4"/></svg>
+        ${lembrado(i.id) ? "Lembrando" : "Lembrar"}</button>` : ""}
       <button class="btn btn--primary" data-open="${i.id}">${t("openSource")}</button>
     </div>
     ${(more || []).map(byId).filter(Boolean).length ? `<div class="sheet__more">
@@ -771,10 +778,15 @@ $("#sheetClose").addEventListener("click", () => history.back());
 /* =========================================================
    PERFIL
    ========================================================= */
+function pintarPrefs() {
+  $$("[data-pref]").forEach(c => { c.checked = !!S.prefs[c.dataset.pref]; });
+}
+
 function renderProfile() {
   $("#profName").textContent = S.user ? S.user : t("visitor");
   $("#profSub").textContent  = "Suas preferências ficam salvas neste aparelho";
-  $$("[data-pref]").forEach(c => { c.checked = !!S.prefs[c.dataset.pref]; });
+  pintarPrefs();
+  pintarAntes();
   if (S.avatar) { $("#avatarImg").src = S.avatar; $("#avatarImg").hidden = false; $(".avatar__ph").style.display = "none"; }
   $("#interestChips").innerHTML = CATS.filter(c => c !== "Todos")
     .map(c => `<button class="chip${S.interests.includes(c) ? " is-on" : ""}" data-int="${c}">${catLabel(c)}</button>`).join("");
@@ -796,6 +808,83 @@ $$("[data-pref]").forEach(c => c.addEventListener("change", async () => {
   }
   toast(`${c.parentElement.querySelector("b").textContent}: ${c.checked ? "ativado" : "desativado"}`);
 }));
+
+/* ---------------- lembrete de evento ---------------- */
+const lembrado = id => S.lembrados.includes(id);
+
+async function meuEndpoint() {
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    return sub ? sub.endpoint : null;
+  } catch (e) { return null; }
+}
+
+async function alternarLembrete(id) {
+  const item = byId(id);
+  if (!item || !item.when) return;
+
+  // o lembrete chega por notificação: sem permissão não há como avisar
+  let endpoint = await meuEndpoint();
+  if (!endpoint) {
+    if (!await ligarPush()) return;
+    S.prefs.alertas = true; save(); pintarPrefs();
+    endpoint = await meuEndpoint();
+    if (!endpoint) return;
+  }
+
+  const ligando = !lembrado(id);
+  try {
+    const r = await fetch(ligando ? "api/lembrete" : "api/lembrete/sair", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ endpoint, evento: id, antecedencia: S.antes }),
+    });
+    const d = await r.json();
+    if (!d.ok) return toast(d.erro === "sem data futura"
+      ? "Esse evento já começou" : "Não consegui marcar o lembrete");
+  } catch (e) {
+    return toast("Sem conexão com o servidor");
+  }
+
+  S.lembrados = ligando ? [...S.lembrados, id] : S.lembrados.filter(x => x !== id);
+  save();
+  if (!$("#mapSheet").hidden) openSheet(id);
+  toast(ligando ? `Aviso ${rotuloAntes(S.antes)} antes` : "Lembrete removido");
+}
+
+const rotuloAntes = a => ({ "30m": "30 min", "1h": "1 hora",
+                            "3h": "3 horas", "1d": "1 dia" }[a] || a);
+
+function pintarAntes() {
+  $$("#antesLembrete .antes__op").forEach(b =>
+    b.classList.toggle("is-on", b.dataset.antes === S.antes));
+}
+
+$("#antesLembrete").addEventListener("click", async e => {
+  const b = e.target.closest("[data-antes]"); if (!b) return;
+  S.antes = b.dataset.antes; save(); pintarAntes();
+  // reagenda o que já estava marcado, senão a escolha nova só valeria daqui pra frente
+  const endpoint = await meuEndpoint();
+  if (endpoint && S.lembrados.length) {
+    await Promise.all(S.lembrados.map(id => fetch("api/lembrete", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ endpoint, evento: id, antecedencia: S.antes }),
+    }).catch(() => {})));
+  }
+  toast(`Aviso ${rotuloAntes(S.antes)} antes do evento`);
+});
+
+/* o servidor é a fonte da verdade: ele descarta o lembrete depois de disparar */
+async function sincronizarLembretes() {
+  const endpoint = await meuEndpoint();
+  if (!endpoint) { if (S.lembrados.length) { S.lembrados = []; save(); } return; }
+  try {
+    const r = await fetch("api/lembretes?e=" + encodeURIComponent(endpoint),
+                          { cache: "no-store" });
+    const d = await r.json();
+    if (Array.isArray(d.ids)) { S.lembrados = d.ids; save(); }
+  } catch (e) { /* offline: mantém o que já estava */ }
+}
 
 /* ---------------- notificação ---------------- */
 function bytesDaChave(base64) {

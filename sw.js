@@ -20,6 +20,19 @@ self.addEventListener("fetch", e => {
    payload e evita mandar conteúdo para o serviço de push do navegador. */
 async function montarAviso() {
   const padrao = { titulo: "RP Cultural", corpo: "Novidades na sua região", url: "./" };
+  // lembrete de evento tem texto próprio guardado no servidor; o push em si
+  // continua vazio, então nada de conteúdo passa pelo serviço do navegador
+  try {
+    const sub = await self.registration.pushManager.getSubscription();
+    if (sub) {
+      const r = await fetch("api/push/aviso", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ endpoint: sub.endpoint }),
+      });
+      const d = await r.json();
+      if (d.aviso) return d.aviso;
+    }
+  } catch (e) { /* segue para o texto genérico */ }
   try {
     const r = await fetch("api/feed", { cache: "no-store" });
     const d = await r.json();

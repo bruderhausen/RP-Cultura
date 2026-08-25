@@ -39,6 +39,7 @@ VAPID_SUB = os.environ.get("VAPID_SUB", "mailto:contato@rpcultural.app").strip()
 
 _lock = threading.Lock()
 _subs = {}          # endpoint -> {"endpoint":..., "criado":...}
+_avisos = {}        # endpoint -> {"titulo":..., "corpo":..., "url":...}
 _ultimo_erro = None
 
 
@@ -90,6 +91,41 @@ def sair(endpoint):
 
 def quantos():
     return len(_subs)
+
+
+def guardar_aviso(endpoint, titulo, corpo, url="./"):
+    """Texto que o service worker vai buscar quando o push chegar.
+
+    A mensagem enviada continua vazia; o conteúdo fica aqui e é entregue pela
+    própria origem. Assim o lembrete diz qual evento é, sem que o serviço de
+    push do navegador veja nada.
+    """
+    with _lock:
+        _avisos[endpoint] = {"titulo": titulo, "corpo": corpo, "url": url}
+
+
+def pegar_aviso(endpoint):
+    """Lê e consome. Sem aviso guardado, o worker cai no texto genérico."""
+    with _lock:
+        return _avisos.pop(endpoint, None)
+
+
+def avisar_um(endpoint, ttl=3600):
+    """Cutuca uma inscrição só. Devolve True quando o envio foi aceito."""
+    global _ultimo_erro
+    if not disponivel():
+        return False
+    try:
+        _enviar_um(endpoint, ttl)
+        return True
+    except urllib.error.HTTPError as e:
+        if e.code in (404, 410):
+            sair(endpoint)
+        else:
+            _ultimo_erro = f"HTTP {e.code}"
+    except Exception as e:
+        _ultimo_erro = str(e)[:120]
+    return False
 
 
 def disponivel():
