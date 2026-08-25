@@ -112,6 +112,10 @@ $("#guideTrack").addEventListener("scroll", () => {
 });
 
 /* ---------------- boot do app ---------------- */
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+}
+
 function startApp() {
   $("#app").hidden = false;
   history.replaceState({ root: 1 }, "");
@@ -385,9 +389,10 @@ $("#sheetClose").addEventListener("click", () => history.back());
   sh.addEventListener("touchmove", e => {
     if (y0 === null) return;
     dy = e.touches[0].clientY - y0;
+    if (dy > 0 && e.cancelable) e.preventDefault();   // impede o "puxar para atualizar"
     if (dy < -30) sh.classList.add("is-tall");
     if (dy > 0) sh.style.transform = `translateY(${dy}px)`;
-  }, { passive: true });
+  }, { passive: false });
   sh.addEventListener("touchend", () => {
     sh.style.transition = ""; sh.style.transform = "";
     if (dy > 90) history.back();

@@ -28,7 +28,7 @@
 
 *,*::before,*::after{box-sizing:border-box}
 [hidden]{display:none !important}
-html,body{height:100%}
+html,body{height:100%;overscroll-behavior:none}
 body{
   margin:0;background:var(--bg);color:var(--ink);
   font-family:var(--font);font-size:15px;line-height:1.45;
@@ -291,7 +291,7 @@ img{max-width:100%;display:block}
   position:absolute;left:0;right:0;bottom:0;z-index:900;background:var(--surface);
   border-radius:var(--r-xl) var(--r-xl) 0 0;box-shadow:var(--sh-3);
   padding:8px 18px calc(18px + var(--tabh) + var(--safe-b));
-  max-height:74%;overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;
+  max-height:74%;overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior:contain;
   transition:max-height .25s ease,transform .2s ease;animation:sheetUp .32s cubic-bezier(.2,.9,.3,1)
 }
 @keyframes sheetUp{from{transform:translateY(100%)}}
