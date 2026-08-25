@@ -556,15 +556,87 @@ $$("[data-pref]").forEach(c => c.addEventListener("change", () => {
   toast(`${c.parentElement.querySelector("b").textContent}: ${c.checked ? "ativado" : "desativado"}`);
 }));
 $("#avatarBtn").addEventListener("click", () => $("#avatarFile").click());
+/* ---- recorte circular da foto de perfil ---- */
+const CROP = 260;                       // diâmetro do recorte na tela
+let _cropEstado = null;
+
 $("#avatarFile").addEventListener("change", e => {
   const f = e.target.files[0]; if (!f) return;
   const r = new FileReader();
-  r.onload = () => {
-    S.avatar = r.result; save();
-    $("#avatarImg").src = r.result; $("#avatarImg").hidden = false;
-    $(".avatar__ph").style.display = "none"; toast("Foto atualizada");
-  };
+  r.onload = () => abrirRecorte(r.result);
   r.readAsDataURL(f);
+  e.target.value = "";
+});
+
+function abrirRecorte(src) {
+  const img = $("#cropImg");
+  img.onload = () => {
+    const base = CROP / Math.min(img.naturalWidth, img.naturalHeight);   // cobre o círculo
+    _cropEstado = { img, base, zoom: 1, x: 0, y: 0 };
+    const area = $("#cropArea").getBoundingClientRect();
+    _cropEstado.x = (area.width - img.naturalWidth * base) / 2;
+    _cropEstado.y = (area.height - img.naturalHeight * base) / 2;
+    $("#cropZoom").value = 1;
+    aplicarRecorte();
+  };
+  img.src = src;
+  $("#crop").hidden = false;
+}
+
+function aplicarRecorte() {
+  const c = _cropEstado; if (!c) return;
+  const area = $("#cropArea").getBoundingClientRect();
+  const e = c.base * c.zoom, w = c.img.naturalWidth * e, h = c.img.naturalHeight * e;
+  const bx = (area.width - CROP) / 2, by = (area.height - CROP) / 2;   // borda do círculo
+  c.x = Math.min(bx, Math.max(bx + CROP - w, c.x));                    // nunca deixa buraco
+  c.y = Math.min(by, Math.max(by + CROP - h, c.y));
+  c.img.style.transform = `translate(${c.x}px, ${c.y}px) scale(${e})`;
+}
+
+(function arrastarRecorte() {
+  const area = $("#cropArea");
+  let p0 = null, d0 = 0, z0 = 1;
+  const dist = t => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+  area.addEventListener("touchstart", ev => {
+    if (ev.touches.length === 2) { d0 = dist(ev.touches); z0 = _cropEstado.zoom; p0 = null; }
+    else { p0 = { x: ev.touches[0].clientX - _cropEstado.x, y: ev.touches[0].clientY - _cropEstado.y }; }
+  }, { passive: true });
+  area.addEventListener("touchmove", ev => {
+    if (!_cropEstado) return;
+    if (ev.touches.length === 2 && d0) {
+      _cropEstado.zoom = Math.min(4, Math.max(1, z0 * dist(ev.touches) / d0));
+      $("#cropZoom").value = _cropEstado.zoom;
+    } else if (p0) {
+      _cropEstado.x = ev.touches[0].clientX - p0.x;
+      _cropEstado.y = ev.touches[0].clientY - p0.y;
+    }
+    aplicarRecorte();
+    if (ev.cancelable) ev.preventDefault();
+  }, { passive: false });
+  area.addEventListener("mousedown", ev => {
+    p0 = { x: ev.clientX - _cropEstado.x, y: ev.clientY - _cropEstado.y };
+    const mover = m => { _cropEstado.x = m.clientX - p0.x; _cropEstado.y = m.clientY - p0.y; aplicarRecorte(); };
+    const soltar = () => { document.removeEventListener("mousemove", mover); document.removeEventListener("mouseup", soltar); };
+    document.addEventListener("mousemove", mover); document.addEventListener("mouseup", soltar);
+  });
+})();
+
+$("#cropZoom").addEventListener("input", e => {
+  if (!_cropEstado) return;
+  _cropEstado.zoom = +e.target.value; aplicarRecorte();
+});
+$("#cropCancel").addEventListener("click", () => { $("#crop").hidden = true; _cropEstado = null; });
+$("#cropOk").addEventListener("click", () => {
+  const c = _cropEstado; if (!c) return;
+  const area = $("#cropArea").getBoundingClientRect();
+  const e = c.base * c.zoom, lado = CROP / e;
+  const sx = ((area.width - CROP) / 2 - c.x) / e, sy = ((area.height - CROP) / 2 - c.y) / e;
+  const cv = document.createElement("canvas"); cv.width = cv.height = 320;
+  cv.getContext("2d").drawImage(c.img, sx, sy, lado, lado, 0, 0, 320, 320);
+  S.avatar = cv.toDataURL("image/jpeg", 0.88); save();
+  $("#avatarImg").src = S.avatar; $("#avatarImg").hidden = false;
+  $(".avatar__ph").style.display = "none";
+  $("#crop").hidden = true; _cropEstado = null; toast("Foto atualizada");
 });
 $("#replayGuide").addEventListener("click", () => { $("#app").hidden = true; openGuide(); });
 $("#authBtn")?.addEventListener("click", openAuth);

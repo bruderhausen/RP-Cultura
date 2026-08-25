@@ -200,6 +200,13 @@
   <section class="page" id="pageSaved" hidden></section>
   <section class="page page--auth" id="pageAuth" hidden></section>
 
+  <!-- recorte da foto de perfil -->
+  <div class="crop" id="crop" hidden>
+    <div class="crop__head"><button id="cropCancel">Cancelar</button><span>Ajuste a foto</span><button id="cropOk">Usar</button></div>
+    <div class="crop__area" id="cropArea"><img id="cropImg" alt=""><div class="crop__mask"></div></div>
+    <label class="crop__zoom">Zoom<input type="range" id="cropZoom" min="1" max="4" step="0.01" value="1"></label>
+  </div>
+
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 </div>
 

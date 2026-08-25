@@ -463,6 +463,21 @@ img{max-width:100%;display:block}
 .auth__go svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round}
 .auth__note{font-size:11.5px;color:var(--ink-3);text-align:center;max-width:30ch}
 
+/* --- recorte da foto --- */
+.crop{position:absolute;inset:0;z-index:1500;background:#14112B;display:flex;flex-direction:column;color:#fff}
+.crop__head{display:flex;align-items:center;justify-content:space-between;padding:calc(14px + var(--safe-t)) 18px 12px;font-size:15px}
+.crop__head button{font-weight:700;color:#fff;padding:6px 2px}
+.crop__head #cropOk{color:var(--accent)}
+.crop__area{position:relative;flex:1;overflow:hidden;touch-action:none;display:grid;place-items:center}
+.crop__area img{position:absolute;left:0;top:0;transform-origin:0 0;max-width:none;user-select:none;-webkit-user-drag:none}
+.crop__mask{position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(circle at center, transparent 0 var(--r), rgba(20,17,43,.75) var(--r));
+  --r:130px}
+.crop__mask::after{content:"";position:absolute;left:50%;top:50%;width:260px;height:260px;margin:-130px 0 0 -130px;
+  border:2px solid rgba(255,255,255,.9);border-radius:50%}
+.crop__zoom{display:flex;align-items:center;gap:12px;padding:16px 22px calc(26px + var(--safe-b));font-size:13px;color:rgba(255,255,255,.7)}
+.crop__zoom input{flex:1;accent-color:var(--accent)}
+
 /* --- toast --- */
 .toast{
   position:absolute;left:50%;transform:translateX(-50%);bottom:calc(var(--tabh) + var(--safe-b) + 18px);
