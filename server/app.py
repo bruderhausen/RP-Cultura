@@ -23,7 +23,7 @@ import eventos as plataformas
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(ROOT, "data")
 STORE = os.path.join(DATA_DIR, "news.json")
-STORE_VERSION = 2      # muda quando o formato/regra muda: histórico é refeito
+STORE_VERSION = 3      # muda quando o formato/regra muda: histórico é refeito
 
 PORT = int(os.environ.get("PORT", "5173"))
 REFRESH_SECONDS = int(os.environ.get("REFRESH_SECONDS", "300"))
@@ -74,6 +74,19 @@ NOISE_TERMS = ["siga o ", "veja fotos", "veja as fotos", "assista ao vivo", "con
 # (label, termos que aparecem no texto, consulta enviada ao geocodificador)
 PLACES = [
     ("Parque do Peão",          ["parque do peao", "festa do peao", "liga nacional de rodeio", "peao de barretos"], "Parque do Peao, Barretos, Sao Paulo", "Barretos"),
+    ("Centro Cultural Palace",  ["centro cultural palace", "palace hotel"],   "Centro Cultural Palace, Ribeirao Preto", "Ribeirão Preto"),
+    ("Casa da Cultura",         ["casa da cultura"],                          "Casa da Cultura, Ribeirao Preto", "Ribeirão Preto"),
+    ("Paço Municipal",          ["prefeitura de ribeirao", "paco municipal", "paço municipal"], "Palacio Rio Branco, Ribeirao Preto", "Ribeirão Preto"),
+    ("Mercado Municipal",       ["mercado municipal"],                        "Mercado Municipal, Ribeirao Preto", "Ribeirão Preto"),
+    ("Biblioteca Municipal",    ["biblioteca municipal", "biblioteca sinha junqueira"], "Biblioteca Municipal Altino Arantes, Ribeirao Preto", "Ribeirão Preto"),
+    ("Museu de Arte (MARP)",    ["marp", "museu de arte de ribeirao"],        "Museu de Arte de Ribeirao Preto", "Ribeirão Preto"),
+    ("Parque Maurilio Biagi",   ["maurilio biagi", "maurílio biagi"],         "Parque Maurilio Biagi, Ribeirao Preto", "Ribeirão Preto"),
+    ("Parque Curupira",         ["curupira"],                                 "Parque Curupira, Ribeirao Preto", "Ribeirão Preto"),
+    ("Parque Prefeito Luiz Roberto Jábali", ["parque do morro", "luiz roberto jabali"], "Parque Prefeito Luiz Roberto Jabali, Ribeirao Preto", "Ribeirão Preto"),
+    ("Teatro Municipal",        ["teatro municipal"],                         "Teatro Municipal, Ribeirao Preto", "Ribeirão Preto"),
+    ("Esplanada do Theatro",    ["esplanada do theatro", "esplanada do teatro"], "Esplanada do Theatro Pedro II, Ribeirao Preto", "Ribeirão Preto"),
+    ("Câmara Municipal",        ["camara municipal de ribeirao", "câmara municipal de ribeirão"], "Camara Municipal de Ribeirao Preto", "Ribeirão Preto"),
+    ("Rodoviária",              ["rodoviaria de ribeirao", "terminal rodoviario"], "Terminal Rodoviario, Ribeirao Preto", "Ribeirão Preto"),
     ("Theatro Pedro II",        ["theatro pedro", "teatro pedro"],            "Theatro Pedro II, Ribeirao Preto", "Ribeirão Preto"),
     ("Bosque Municipal",        ["bosque municipal", "zoologico de ribeirao", "bosque fabio barreto"], "Bosque Municipal Fabio Barreto, Ribeirao Preto", "Ribeirão Preto"),
     ("Parque Permanente",       ["parque permanente", "recinto de exposicoes"], "Parque Permanente de Exposicoes, Ribeirao Preto", "Ribeirão Preto"),
@@ -229,6 +242,30 @@ DEFAULT_GEO = {
     "Colégio Itamarati, Ribeirão Preto, SP|Ribeirão Preto": [
         -21.208645,
         -47.799529
+    ],
+    "Avenida Patriarca, Ribeirão Preto, SP|Ribeirão Preto": [
+        -21.179329,
+        -47.830237
+    ],
+    "Escola Egydio Pedreschi, Ribeirão Preto, SP|Ribeirão Preto": [
+        -21.20284,
+        -47.777887
+    ],
+    "Prefeitura de Ribeirao Preto": [
+        -21.164816,
+        -47.857608
+    ],
+    "Centro Cultural Palace, Ribeirao Preto": [
+        -21.174125,
+        -47.809539
+    ],
+    "Parque Maurilio Biagi, Ribeirao Preto": [
+        -21.176049,
+        -47.817588
+    ],
+    "Avenida Presidente Vargas, 1234, Ribeirão Preto, SP|Ribeirão Preto": [
+        -21.199259,
+        -47.808308
     ]
 }
 
