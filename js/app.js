@@ -75,7 +75,7 @@ window.addEventListener("load", () => {
       $("#splash").remove();
       if (S.guideSeen) startApp(); else openGuide();
     }, 520);
-  }, 3500);
+  }, 3250);
 });
 
 /* ---------------- guia ---------------- */
