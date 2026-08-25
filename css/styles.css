@@ -263,7 +263,7 @@ img{max-width:100%;display:block}
 .pinwrap .pin{background:none;box-shadow:none;width:auto;position:relative;transform:none;display:flex;flex-direction:column;align-items:center;animation:none}
 .pinwrap .pin:active{transform:scale(.94)}
 .pinwrap .pin__label{display:none}
-.pin__n{position:absolute;left:0;right:0;top:5px;text-align:center;font-size:11px;font-weight:800;
+.pinwrap .pin__n,.pin__n{position:absolute;z-index:300;left:0;right:0;top:5px;text-align:center;font-size:11px;font-weight:800;
   line-height:14px;color:var(--brand);pointer-events:none}
 .pin--ev .pin__n{color:#8A5A00}
 .sheet__more{display:flex;flex-direction:column;gap:6px;margin:2px 0 4px}
@@ -283,7 +283,8 @@ img{max-width:100%;display:block}
 }
 @keyframes pinIn{from{opacity:0;transform:translate(-50%,-140%) scale(.5)}}
 .pin:active{transform:translate(-50%,-100%) scale(.92)}
-.pin__svg{width:30px;height:41px;filter:drop-shadow(0 4px 8px rgba(36,17,103,.35))}
+.pinwrap .pin__svg{z-index:1}
+.pin__svg{position:relative;width:30px;height:41px;filter:drop-shadow(0 4px 8px rgba(36,17,103,.35))}
 .pin__shape{fill:var(--brand);stroke:#fff;stroke-width:2.2}
 .pin__hole{fill:#fff}
 .pin--ev .pin__shape{fill:var(--accent-2)}
