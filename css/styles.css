@@ -245,9 +245,9 @@ img{max-width:100%;display:block}
 .empty{padding:34px 24px;text-align:center;color:var(--ink-3);font-size:14px}
 
 /* ================= MAPA ================= */
-.mapwrap{flex:1;min-height:0;position:relative;overflow:hidden;background:#1A1830;z-index:0;isolation:isolate}
+.mapwrap{flex:1;min-height:0;position:relative;overflow:hidden;background:#EAF0F5;z-index:0;isolation:isolate}
 .map{position:absolute;inset:0;background:#E9E6F5}
-.leaflet-container{font-family:var(--font);background:#1A1830}
+.leaflet-container{font-family:var(--font);background:#EAF0F5}
 .leaflet-control-attribution{font-size:10px}
 .pinwrap{background:none;border:0}
 .pinwrap .pin{background:none;box-shadow:none;width:auto;position:relative;transform:none;display:flex;flex-direction:column;align-items:center;animation:none}
