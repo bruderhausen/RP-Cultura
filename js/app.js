@@ -315,17 +315,22 @@ function renderMap() {
     }).addTo(_map);
     L.control.zoom({ position: "bottomright" }).addTo(_map);
     _pinLayer = L.layerGroup().addTo(_map);
+    _map.on("zoomend", () => renderMap());
   }
   _pinLayer.clearLayers();
+  const longe = _map.getZoom() < 12;
   PINS.forEach(p => {
     if (p.lat == null) return;
+    // afastado demais, só os favoritos, para o mapa não virar um amontoado
+    if (longe && !isSaved(p.id) && !(p.more || []).some(isSaved)) return;
     const icon = L.divIcon({
       className: "pinwrap", iconSize: [30, 52], iconAnchor: [15, 44],
       html: `<span class="pin pin--${p.type}"><span class="pin__pulse"></span>
         <svg viewBox="0 0 26 36" class="pin__svg">
           <path class="pin__shape" d="M13 34.5S24 21.8 24 13A11 11 0 1 0 2 13c0 8.8 11 21.5 11 21.5z"/>
           <circle class="pin__hole" cx="13" cy="13" r="4.2"/></svg>
-        <span class="pin__label">${p.label}</span></span>`
+        <span class="pin__label">${p.label}</span>
+        ${(p.more || []).length ? `<b class="pin__n">${(p.more || []).length + 1}</b>` : ""}</span>`
     });
     L.marker([p.lat, p.lng], { icon }).addTo(_pinLayer).on("click", () => openSheet(p.id, p.more));
   });

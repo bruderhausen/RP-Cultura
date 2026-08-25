@@ -248,13 +248,13 @@ img{max-width:100%;display:block}
 .mapwrap{flex:1;min-height:0;position:relative;overflow:hidden;background:#F2F6FA;z-index:0;isolation:isolate}
 .map{position:absolute;inset:0;background:#E9E6F5}
 .leaflet-container{font-family:var(--font);background:#F2F6FA}
-/* base clara sem amarelo, com vias e detalhes puxados para o azul */
-.leaflet-tile-pane{filter:url(#azul)}
 .leaflet-control-attribution{font-size:10px}
 .pinwrap{background:none;border:0}
 .pinwrap .pin{background:none;box-shadow:none;width:auto;position:relative;transform:none;display:flex;flex-direction:column;align-items:center;animation:none}
 .pinwrap .pin:active{transform:scale(.94)}
 .pinwrap .pin__label{display:none}
+.pin__n{position:absolute;top:-4px;right:-8px;min-width:19px;height:19px;border-radius:99px;background:var(--brand-ink);
+  color:#fff;font-size:11px;font-weight:700;display:grid;place-items:center;padding:0 5px;border:2px solid #fff}
 .sheet__more{display:flex;flex-direction:column;gap:6px;margin:2px 0 4px}
 .sheet__more b{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3)}
 .sheet__more button{text-align:left;font-size:13.5px;font-weight:600;color:var(--brand-ink);background:var(--surface-2);border-radius:12px;padding:9px 12px;line-height:1.25}

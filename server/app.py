@@ -419,6 +419,11 @@ def guess_place(text, regional=False):
         c = geocode(f"{via}, {alvo}, SP", confere=alvo)
         if c and perto_da_cidade(c, alvo):
             return {"place": via, "lat": c[0], "lng": c[1]}
+
+    # 3) sem referência fina: fica no centro da cidade citada, com o nome dela
+    c = geocode(CIDADE_QUERY.get(alvo, ""))
+    if c:
+        return {"place": alvo, "lat": c[0], "lng": c[1]}
     return None
 
 def is_regional(text):
@@ -551,9 +556,9 @@ def feed_payload():
         g = grupos.setdefault(key, {"id": i["id"], "lat": key[0], "lng": key[1],
                                     "label": i["place"], "more": [],
                                     "type": "ev" if i["kind"] == "evento" else "news"})
-        if g["id"] != i["id"] and len(g["more"]) < 5:
+        if g["id"] != i["id"] and len(g["more"]) < 12:
             g["more"].append(i["id"])
-    pins = list(grupos.values())[:80]
+    pins = list(grupos.values())[:120]
     sources = {f["key"]: {"name": f["name"], "url": f["site"]} for f in FEEDS}
     return {"updated": updated, "days": HISTORY_DAYS, "refresh": REFRESH_SECONDS,
             "sources": sources, "news": news, "events": events, "pins": pins,

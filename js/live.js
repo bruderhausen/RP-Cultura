@@ -84,5 +84,9 @@ function connectStream() {
   if (await loadLive()) {
     connectStream();
     setInterval(() => { NEWS.forEach(i => i.time = ago(i.published)); paintLiveBadge(); }, 60000);
+    setInterval(() => loadLive(), 90000);                       // busca periódica
+    document.addEventListener("visibilitychange", () => {       // voltou para o app
+      if (!document.hidden) loadLive();
+    });
   }
 })();
