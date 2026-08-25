@@ -1003,18 +1003,37 @@ def feed_payload():
         updated = _state["updated"]
     news = [i for i in items if i["kind"] == "noticia"]
     events = [i for i in items if i["kind"] == "evento"]
-    # um pin por local, na coordenada exata; itens do mesmo lugar ficam juntos
+    # Um pin por local E por tipo. Antes a chave era só a coordenada e o tipo
+    # vinha do primeiro item do grupo: bastava um evento chegar primeiro para
+    # um monte de notícia virar pin amarelo de evento no mesmo balão.
     grupos = {}
     for i in items:
         if i.get("lat") is None:
             continue
-        key = (round(i["lat"], 5), round(i["lng"], 5))
+        tipo = "ev" if i["kind"] == "evento" else "news"
+        key = (round(i["lat"], 5), round(i["lng"], 5), tipo)
         g = grupos.setdefault(key, {"id": i["id"], "lat": key[0], "lng": key[1],
                                     "label": i["place"], "n": 0, "more": [],
-                                    "type": "ev" if i["kind"] == "evento" else "news"})
+                                    "type": tipo, "amplo": not i.get("preciso")})
         g["n"] += 1
+        if not i.get("preciso"):
+            g["amplo"] = True
         if g["id"] != i["id"] and len(g["more"]) < 24:
             g["more"].append(i["id"])
+
+    # dois tipos no mesmo ponto se sobrepõem e um esconde o outro
+    porponto = {}
+    for g in grupos.values():
+        porponto.setdefault((g["lat"], g["lng"]), []).append(g)
+    for juntos in porponto.values():
+        if len(juntos) < 2:
+            continue
+        juntos.sort(key=lambda g: g["type"])
+        for k, g in enumerate(juntos):
+            ang = 2 * math.pi * k / len(juntos)
+            g["lat"] = round(g["lat"] + 0.00040 * math.cos(ang), 6)
+            g["lng"] = round(g["lng"] + 0.00043 * math.sin(ang), 6)
+
     # `n` é o total real do local e alimenta o balão; `more` segue limitado
     # apenas para o payload não inchar
     todos = list(grupos.values())
