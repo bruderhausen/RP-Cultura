@@ -69,13 +69,29 @@ const paintSavedCount = () => { $("#savedCount").textContent = S.saved.length; }
    SPLASH → GUIA → APP
    ========================================================= */
 window.addEventListener("load", () => {
-  setTimeout(() => {
-    $("#splash").classList.add("is-out");
+  const sp = $("#splash");
+  // sem animação, a bola e a tinta não existem: não faz sentido esperar por elas
+  const parado = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (parado) {
     setTimeout(() => {
-      $("#splash").remove();
       if (S.guideSeen) startApp(); else openGuide();
-    }, 520);
-  }, 3250);
+      setTimeout(() => sp.remove(), 60);
+    }, 1200);
+    return;
+  }
+  setTimeout(() => {
+    sp.classList.add("is-throw");                  // a bola vem para cima do usuário
+    setTimeout(() => {
+      // a tela está inteira coberta pela bola e nada se move: é a janela certa
+      // para montar o app. Antes ele montava durante o fade e o custo de
+      // renderHome, renderMap e Leaflet aparecia como travada
+      if (S.guideSeen) startApp(); else openGuide();
+      setTimeout(() => {
+        sp.classList.add("is-paint");              // a tinta escorre e revela
+        setTimeout(() => sp.remove(), 1450);
+      }, 140);                                     // deixa o app pintar antes
+    }, 700);
+  }, 2950);
 });
 
 /* ---------------- guia ---------------- */

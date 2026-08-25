@@ -69,8 +69,50 @@ img{max-width:100%;display:block}
   content:"";position:absolute;inset:0;pointer-events:none;
   background:radial-gradient(78% 58% at 50% 40%,transparent 44%,rgba(12,4,52,.58) 100%);
 }
-.splash.is-out{animation:splashOut .55s cubic-bezier(.4,0,1,1) forwards}
-@keyframes splashOut{to{opacity:0;visibility:hidden;transform:scale(1.05)}}
+
+/* ---- saída: arremesso da bola + tinta escorrendo ----
+   A saída antiga era um fade da tela inteira. O app montava no mesmo
+   instante e a montagem aparecia como engasgo no meio do fade, com o
+   branco do app surgindo por baixo. Agora a bola cobre a tela primeiro:
+   o app monta atrás dela, sem nada em movimento, e só então a tinta cai. */
+.splash__ball{
+  position:absolute;left:50.2%;top:34.6%;width:32%;aspect-ratio:1;
+  margin:-16% 0 0 -16%;border-radius:50%;z-index:5;
+  background:radial-gradient(circle at 32% 28%,#FFE97A 0%,#FFC91E 45%,#FF9500 100%);
+  opacity:0;pointer-events:none;will-change:transform;
+}
+.splash.is-throw .splash__stage{animation:none;z-index:6}
+.splash.is-throw::after{opacity:0;transition:opacity .2s linear}
+.splash.is-throw .splash__ball{animation:ballThrow .7s cubic-bezier(.5,0,.3,1) forwards}
+@keyframes ballThrow{
+  0%{opacity:1;transform:scale(1)}
+  14%{opacity:1;transform:scale(.82)}     /* recua antes de ser lançada */
+  100%{opacity:1;transform:scale(32)}
+}
+/* a assinatura sai de cena enquanto a bola vem para frente */
+.splash.is-throw .splash__word,
+.splash.is-throw .splash__tag,
+.splash.is-throw .splash__bar,
+.splash.is-throw .splash__glow{animation:none;opacity:0;transition:opacity .26s ease}
+
+.splash__paint{position:absolute;inset:0;z-index:7;display:flex;opacity:0;pointer-events:none}
+.splash__paint i{
+  flex:1;position:relative;height:100%;
+  background:linear-gradient(180deg,#FFD645 0%,#FFC01E 55%,#FF9F00 100%);
+  will-change:transform;
+}
+.splash__paint i::after{           /* a ponta arredondada da tinta que escorre */
+  content:"";position:absolute;left:-1px;right:-1px;top:100%;height:var(--h,28px);
+  background:inherit;border-radius:0 0 50% 50%/0 0 100% 100%;
+}
+/* as tiras entram por cima da bola já cobrindo tudo, então a troca não pisca */
+.splash.is-paint .splash__paint{opacity:1;transition:opacity .14s linear}
+.splash.is-paint .splash__ball{opacity:0;transition:opacity .2s linear .12s}
+.splash.is-paint .splash__paint i{
+  animation:paintFall .9s cubic-bezier(.55,0,.85,.4) forwards;
+  animation-delay:calc(var(--k) * .04s);
+}
+@keyframes paintFall{to{transform:translateY(118%)}}
 
 .splash__glow{
   position:absolute;left:50%;top:41%;width:min(120vw,560px);aspect-ratio:1;
@@ -206,6 +248,7 @@ img{max-width:100%;display:block}
 
 @media (prefers-reduced-motion:reduce){
   .splash *,.splash::after,.splash__stage::after{animation:none !important}
+  .splash__ball,.splash__paint{display:none}
 }
 
 /* ================= GUIA ================= */
