@@ -20,6 +20,17 @@
 </head>
 <body>
 
+<!-- filtro que deixa o mapa branco com ruas em azul -->
+<svg width="0" height="0" aria-hidden="true" style="position:absolute">
+  <filter id="azul" color-interpolation-filters="sRGB">
+    <feComponentTransfer>
+      <feFuncR type="linear" slope="1.7" intercept="-0.7"/>
+      <feFuncG type="linear" slope="1.25" intercept="-0.25"/>
+      <feFuncB type="linear" slope="1.02" intercept="-0.02"/>
+    </feComponentTransfer>
+  </filter>
+</svg>
+
 <!-- ============ SPLASH ============ -->
 <div id="splash" class="splash">
   <div class="splash__logo">

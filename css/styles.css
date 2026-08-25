@@ -245,11 +245,11 @@ img{max-width:100%;display:block}
 .empty{padding:34px 24px;text-align:center;color:var(--ink-3);font-size:14px}
 
 /* ================= MAPA ================= */
-.mapwrap{flex:1;min-height:0;position:relative;overflow:hidden;background:#EAF0F5;z-index:0;isolation:isolate}
+.mapwrap{flex:1;min-height:0;position:relative;overflow:hidden;background:#F2F6FA;z-index:0;isolation:isolate}
 .map{position:absolute;inset:0;background:#E9E6F5}
-.leaflet-container{font-family:var(--font);background:#DCE6F2}
+.leaflet-container{font-family:var(--font);background:#F2F6FA}
 /* base clara sem amarelo, com vias e detalhes puxados para o azul */
-.leaflet-tile-pane{filter:sepia(.92) hue-rotate(179deg) saturate(2.6) brightness(1.03) contrast(1.3)}
+.leaflet-tile-pane{filter:url(#azul)}
 .leaflet-control-attribution{font-size:10px}
 .pinwrap{background:none;border:0}
 .pinwrap .pin{background:none;box-shadow:none;width:auto;position:relative;transform:none;display:flex;flex-direction:column;align-items:center;animation:none}
