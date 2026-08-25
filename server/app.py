@@ -1337,7 +1337,8 @@ class Handler(SimpleHTTPRequestHandler):
     def do_POST(self):
         path = self.path.split("?")[0]
         if path not in ("/api/push/inscrever", "/api/push/sair", "/api/push/aviso",
-                        "/api/lembrete", "/api/lembrete/sair"):
+                        "/api/lembrete", "/api/lembrete/sair",
+                        "/api/lembrete/sincronizar"):
             return self.send_error(404)
         try:
             tam = int(self.headers.get("Content-Length") or 0)
@@ -1359,6 +1360,16 @@ class Handler(SimpleHTTPRequestHandler):
             ok, motivo = lembretes.marcar(corpo.get("endpoint", ""), item,
                                           corpo.get("antecedencia", lembretes.PADRAO))
             return self._json({"ok": ok, "erro": motivo})
+        if path == "/api/lembrete/sincronizar":
+            pedidos = set(corpo.get("eventos") or [])
+            with _lock:
+                itens = [i for i in _state["items"] if i["id"] in pedidos]
+            marcados, removidos = lembretes.sincronizar(
+                corpo.get("endpoint", ""), itens,
+                corpo.get("antecedencia", lembretes.PADRAO))
+            return self._json({"ok": True, "marcados": marcados,
+                               "removidos": removidos,
+                               "ids": lembretes.marcados(corpo.get("endpoint", ""))})
         if path == "/api/lembrete/sair":
             return self._json({"ok": lembretes.desmarcar(corpo.get("endpoint", ""),
                                                          corpo.get("evento", ""))})

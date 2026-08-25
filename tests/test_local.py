@@ -534,6 +534,40 @@ class TestLembretes(unittest.TestCase):
         self.assertIn("30 minutos", corpo)
         self.assertIn("Bar Dom Pedro", corpo)
 
+    def test_sincronizar_espelha_a_lista_de_salvos(self):
+        # tirar o evento dos salvos tem que apagar o lembrete junto
+        a, b = self.evento(id="e1"), self.evento(id="e2")
+        self.assertEqual(self.lb.sincronizar("https://p/a", [a, b], "1h"), (2, 0))
+        self.assertEqual(self.lb.sincronizar("https://p/a", [a], "1h"), (1, 1))
+        self.assertEqual(self.lb.marcados("https://p/a"), ["e1"])
+
+    def test_sincronizar_troca_a_antecedencia_do_que_ja_estava(self):
+        e = self.evento(daqui_horas=48)
+        self.lb.sincronizar("https://p/a", [e], "1h")
+        self.lb.sincronizar("https://p/a", [e], "1d")
+        self.assertEqual(list(self.lb._itens.values())[0]["antecedencia"], "1d")
+
+    def test_antecedencia_que_nao_cabe_tira_o_evento_da_lista(self):
+        # evento em 5h com aviso de 1 dia: manter o agendamento de 1h antes
+        # entregaria um prazo que a pessoa não escolheu
+        e = self.evento(daqui_horas=5)
+        self.lb.sincronizar("https://p/a", [e], "1h")
+        self.assertEqual(self.lb.sincronizar("https://p/a", [e], "1d"), (0, 1))
+        self.assertEqual(self.lb.marcados("https://p/a"), [])
+
+    def test_desligar_o_aviso_limpa_tudo_do_aparelho(self):
+        self.lb.sincronizar("https://p/a", [self.evento(id="e1")], "1h")
+        self.lb.sincronizar("https://p/b", [self.evento(id="e2")], "1h")
+        self.lb.sincronizar("https://p/a", [], "1h")     # lista vazia: aviso off
+        self.assertEqual(self.lb.marcados("https://p/a"), [])
+        self.assertEqual(self.lb.marcados("https://p/b"), ["e2"])   # outro aparelho intacto
+
+    def test_evento_salvo_que_ja_passou_nao_entra(self):
+        futuro, passado = self.evento(id="e1"), self.evento(id="e2", daqui_horas=-4)
+        marcados, _ = self.lb.sincronizar("https://p/a", [futuro, passado], "1h")
+        self.assertEqual(marcados, 1)
+        self.assertEqual(self.lb.marcados("https://p/a"), ["e1"])
+
     def test_aviso_e_consumido_uma_vez_so(self):
         push_mod.guardar_aviso("https://p/a", "Show A", "Começa em 1 hora")
         self.assertEqual(push_mod.pegar_aviso("https://p/a")["titulo"], "Show A")

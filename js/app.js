@@ -7,7 +7,8 @@ const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 /* ---------------- estado ---------------- */
 const KEY = "rpcultural.v1";
 const S = Object.assign({
-  cat: "Todos", q: "", lang: "pt", screen: "home", cidade: "", antes: "1h", lembrados: [],
+  cat: "Todos", q: "", lang: "pt", screen: "home", cidade: "",
+  antes: "1h", avisarSalvos: false,
   saved: [], prefs: { noticias: true, eventos: true, alertas: false },
   interests: [], geo: null, user: null, avatar: null, guideSeen: false
 }, JSON.parse(localStorage.getItem(KEY) || "{}"));
@@ -61,8 +62,14 @@ function toggleSave(id) {
   if (i > -1) { S.saved.splice(i, 1); toast(t("remove")); }
   else { S.saved.unshift(id); toast(t("saved2") + " ✓"); }
   save(); paintSavedCount();
+  // o evento salvo é o que gera lembrete: não há mais botão separado
+  if (S.avisarSalvos) enviarLembretes();
   return isSaved(id);
 }
+
+/* eventos salvos que ainda vão acontecer: só esses podem ser avisados */
+const eventosParaAvisar = () => S.saved.map(byId)
+  .filter(i => i && i.kind === "evento" && i.when && new Date(i.when) > new Date());
 const paintSavedCount = () => { $("#savedCount").textContent = S.saved.length; };
 
 /* =========================================================
@@ -162,7 +169,7 @@ function startApp() {
   renderChips(); renderHome(); renderMap(); renderProfile(); paintSavedCount(); applyLang();
   pintarCidade();
   if (window.paintLiveBadge) paintLiveBadge();
-  sincronizarLembretes();
+  if (S.avisarSalvos) enviarLembretes();   // reagenda o que ainda vale
   // iPhone não dispara o evento de instalação: mostramos o atalho mesmo assim
   if (!instalado() && /iphone|ipad|ipod/i.test(navigator.userAgent)) $("#btnInstalar").hidden = false;
 }
@@ -464,8 +471,6 @@ function agendaHTML(e) {
 /* clique em qualquer card */
 document.addEventListener("click", e => {
   // o atalho do local fica dentro do cartão, então precisa ser testado antes
-  const lb = e.target.closest("[data-lembrar]");
-  if (lb) { alternarLembrete(lb.dataset.lembrar); return; }
   const mp = e.target.closest("[data-mapa]");
   if (mp) { abrirNoMapa(mp.dataset.mapa); return; }
   const o = e.target.closest("[data-open]");
@@ -732,10 +737,6 @@ function openSheet(id, more = [], total = 0) {
     </a>
     <div class="sheet__acts" style="margin-top:14px">
       <button class="btn btn--ghost" id="sheetSave">${isSaved(i.id) ? t("saved2") + " ✓" : t("save")}</button>
-      ${i.kind === "evento" && i.when ? `<button class="btn btn--sino ${lembrado(i.id) ? "is-on" : ""}"
-        data-lembrar="${i.id}" aria-pressed="${lembrado(i.id)}">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 16v-5a6 6 0 1 0-12 0v5l-2 2h16l-2-2Z"/><path d="M10 21h4"/></svg>
-        ${lembrado(i.id) ? "Lembrando" : "Lembrar"}</button>` : ""}
       <button class="btn btn--primary" data-open="${i.id}">${t("openSource")}</button>
     </div>
     ${(more || []).map(byId).filter(Boolean).length ? `<div class="sheet__more">
@@ -793,7 +794,6 @@ function renderProfile() {
   $("#profName").textContent = S.user ? S.user : t("visitor");
   $("#profSub").textContent  = "Suas preferências ficam salvas neste aparelho";
   pintarPrefs();
-  pintarAntes();
   if (S.avatar) { $("#avatarImg").src = S.avatar; $("#avatarImg").hidden = false; $(".avatar__ph").style.display = "none"; }
   $("#interestChips").innerHTML = CATS.filter(c => c !== "Todos")
     .map(c => `<button class="chip${S.interests.includes(c) ? " is-on" : ""}" data-int="${c}">${catLabel(c)}</button>`).join("");
@@ -816,9 +816,10 @@ $$("[data-pref]").forEach(c => c.addEventListener("change", async () => {
   toast(`${c.parentElement.querySelector("b").textContent}: ${c.checked ? "ativado" : "desativado"}`);
 }));
 
-/* ---------------- lembrete de evento ---------------- */
-const lembrado = id => S.lembrados.includes(id);
-
+/* ---------------- lembrete dos eventos salvos ----------------
+   Não há botão por evento: o que a pessoa salvou é o que ela quer
+   acompanhar. O interruptor na aba de eventos salvos liga o aviso para
+   todos eles de uma vez.                                              */
 async function meuEndpoint() {
   try {
     const reg = await navigator.serviceWorker.ready;
@@ -827,70 +828,39 @@ async function meuEndpoint() {
   } catch (e) { return null; }
 }
 
-async function alternarLembrete(id) {
-  const item = byId(id);
-  if (!item || !item.when) return;
-
-  // o lembrete chega por notificação: sem permissão não há como avisar
-  let endpoint = await meuEndpoint();
-  if (!endpoint) {
-    if (!await ligarPush()) return;
-    S.prefs.alertas = true; save(); pintarPrefs();
-    endpoint = await meuEndpoint();
-    if (!endpoint) return;
-  }
-
-  const ligando = !lembrado(id);
-  try {
-    const r = await fetch(ligando ? "api/lembrete" : "api/lembrete/sair", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ endpoint, evento: id, antecedencia: S.antes }),
-    });
-    const d = await r.json();
-    if (!d.ok) return toast(d.erro === "sem data futura"
-      ? "Esse evento já começou" : "Não consegui marcar o lembrete");
-  } catch (e) {
-    return toast("Sem conexão com o servidor");
-  }
-
-  S.lembrados = ligando ? [...S.lembrados, id] : S.lembrados.filter(x => x !== id);
-  save();
-  if (!$("#mapSheet").hidden) openSheet(id);
-  toast(ligando ? `Aviso ${rotuloAntes(S.antes)} antes` : "Lembrete removido");
-}
-
-const rotuloAntes = a => ({ "30m": "30 min", "1h": "1 hora",
+const rotuloAntes = a => ({ "30m": "30 minutos", "1h": "1 hora",
                             "3h": "3 horas", "1d": "1 dia" }[a] || a);
 
-function pintarAntes() {
-  $$("#antesLembrete .antes__op").forEach(b =>
-    b.classList.toggle("is-on", b.dataset.antes === S.antes));
+/* manda a lista inteira: o servidor a espelha, então remover dos salvos
+   também apaga o lembrete, sem chamada extra */
+async function enviarLembretes() {
+  const endpoint = await meuEndpoint();
+  if (!endpoint) return null;
+  try {
+    const r = await fetch("api/lembrete/sincronizar", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        endpoint,
+        eventos: S.avisarSalvos ? eventosParaAvisar().map(e => e.id) : [],
+        antecedencia: S.antes,
+      }),
+    });
+    return await r.json();
+  } catch (e) { return null; }
 }
 
-$("#antesLembrete").addEventListener("click", async e => {
-  const b = e.target.closest("[data-antes]"); if (!b) return;
-  S.antes = b.dataset.antes; save(); pintarAntes();
-  // reagenda o que já estava marcado, senão a escolha nova só valeria daqui pra frente
-  const endpoint = await meuEndpoint();
-  if (endpoint && S.lembrados.length) {
-    await Promise.all(S.lembrados.map(id => fetch("api/lembrete", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ endpoint, evento: id, antecedencia: S.antes }),
-    }).catch(() => {})));
+async function ligarAvisoSalvos(ligar) {
+  if (ligar) {
+    const endpoint = await meuEndpoint();
+    if (!endpoint && !await ligarPush()) return false;
+    S.prefs.alertas = true;
   }
-  toast(`Aviso ${rotuloAntes(S.antes)} antes do evento`);
-});
-
-/* o servidor é a fonte da verdade: ele descarta o lembrete depois de disparar */
-async function sincronizarLembretes() {
-  const endpoint = await meuEndpoint();
-  if (!endpoint) { if (S.lembrados.length) { S.lembrados = []; save(); } return; }
-  try {
-    const r = await fetch("api/lembretes?e=" + encodeURIComponent(endpoint),
-                          { cache: "no-store" });
-    const d = await r.json();
-    if (Array.isArray(d.ids)) { S.lembrados = d.ids; save(); }
-  } catch (e) { /* offline: mantém o que já estava */ }
+  S.avisarSalvos = ligar; save();
+  const d = await enviarLembretes();
+  if (ligar && !d) { S.avisarSalvos = false; save(); toast("Sem conexão com o servidor"); return false; }
+  pintarPrefs();
+  toast(ligar ? `Aviso ${rotuloAntes(S.antes)} antes` : "Avisos desligados");
+  return true;
 }
 
 /* ---------------- notificação ---------------- */
@@ -1048,6 +1018,7 @@ function openSaved() {
       <button data-st="noticia" class="${savedTab === "noticia" ? "is-on" : ""}">${t("savedNews")}</button>
       <button data-st="evento" class="${savedTab === "evento" ? "is-on" : ""}">${t("savedEvents")}</button>
     </div>
+    <div class="aviso-salvos" id="avisoSalvos" hidden></div>
     <div class="saved-list" id="savedList"></div>`);
   paintSaved();
   $("#savedTabs").addEventListener("click", e => {
@@ -1059,6 +1030,7 @@ function openSaved() {
 }
 function paintSaved() {
   const items = S.saved.map(byId).filter(i => i && i.kind === savedTab);
+  pintarAvisoSalvos();
   $("#savedList").innerHTML = items.length ? items.map(i => {
     const L = loc(i);
     return `<div class="savecard">
@@ -1075,6 +1047,40 @@ function paintSaved() {
   $$("#savedList [data-unsave]").forEach(b => b.addEventListener("click", ev => {
     ev.stopPropagation(); toggleSave(b.dataset.unsave); paintSaved();
   }));
+}
+
+/* o painel de aviso só faz sentido na aba de eventos: notícia não tem hora */
+function pintarAvisoSalvos() {
+  const caixa = $("#avisoSalvos");
+  if (!caixa) return;
+  const futuros = eventosParaAvisar().length;
+  caixa.hidden = savedTab !== "evento";
+  if (caixa.hidden) return;
+  caixa.innerHTML = `
+    <label class="pref">
+      <span><b>${t("warnMe")}</b><i>${futuros
+        ? `${futuros} ${futuros === 1 ? t("eventAhead") : t("eventsAhead")}`
+        : t("noneAhead")}</i></span>
+      <input type="checkbox" id="avisoSw" ${S.avisarSalvos ? "checked" : ""}>
+      <em class="sw"></em>
+    </label>
+    <div class="antes" id="antesLembrete" ${S.avisarSalvos ? "" : "hidden"}>
+      ${["30m", "1h", "3h", "1d"].map(a => `<button class="antes__op${
+        S.antes === a ? " is-on" : ""}" data-antes="${a}">${rotuloAntes(a)}</button>`).join("")}
+    </div>`;
+  $("#avisoSw").addEventListener("change", async e => {
+    const ok = await ligarAvisoSalvos(e.target.checked);
+    if (!ok && e.target.checked) e.target.checked = false;
+    paintSaved();
+  });
+  $("#antesLembrete").addEventListener("click", async e => {
+    const b = e.target.closest("[data-antes]"); if (!b) return;
+    S.antes = b.dataset.antes; save();
+    // reagenda o que já estava marcado, senão a escolha só valeria pros próximos
+    await enviarLembretes();
+    paintSaved();
+    toast(`Aviso ${rotuloAntes(S.antes)} antes`);
+  });
 }
 
 /* =========================================================

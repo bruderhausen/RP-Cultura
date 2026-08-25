@@ -108,6 +108,41 @@ def marcados(endpoint):
         return sorted(r["evento"] for r in _itens.values() if r["endpoint"] == endpoint)
 
 
+def sincronizar(endpoint, eventos, antecedencia=PADRAO):
+    """Faz a lista do aparelho ser exatamente `eventos`.
+
+    O app manda os eventos salvos inteiros a cada mudança, em vez de uma
+    chamada por item: assim ligar o aviso, desligar, salvar e remover passam
+    todos pelo mesmo caminho, e não sobra lembrete órfão de evento que a
+    pessoa já tirou dos salvos.
+
+    Tudo é reagendado do zero. Se a pessoa escolhe "1 dia antes" e o evento
+    começa em 5 horas, ele sai da lista em vez de continuar com a
+    antecedência anterior: avisar num prazo que ela não pediu é pior que não
+    avisar.
+
+    Devolve (marcados, removidos).
+    """
+    if not endpoint or not endpoint.startswith("https://"):
+        return 0, 0
+    with _lock:
+        antes = {r["evento"] for r in _itens.values() if r["endpoint"] == endpoint}
+    for id_evento in antes:
+        desmarcar(endpoint, id_evento)
+    marcados_agora = 0
+    for evento in (eventos or []):
+        if evento.get("id") and marcar(endpoint, evento, antecedencia)[0]:
+            marcados_agora += 1
+    with _lock:
+        depois = {r["evento"] for r in _itens.values() if r["endpoint"] == endpoint}
+    return marcados_agora, len(antes - depois)
+
+
+def limpar(endpoint):
+    """Tira tudo deste aparelho. Usado quando o aviso é desligado."""
+    return sincronizar(endpoint, [])[1]
+
+
 def quantos():
     return len(_itens)
 
