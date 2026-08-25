@@ -207,11 +207,11 @@ function porPerto(lista) {
 }
 
 function renderHome() {
-  // interesses afinam o feed, mas nunca o deixam vazio
+  // interesses só mudam a ordem: nada some da lista
   const porInteresse = l => {
     if (S.cat !== "Todos" || !S.interests.length) return l;
-    const f = l.filter(i => S.interests.includes(i.cat));
-    return f.length ? f : l;
+    return [...l].sort((a, b) =>
+      (S.interests.includes(b.cat) ? 1 : 0) - (S.interests.includes(a.cat) ? 1 : 0));
   };
   const news = porInteresse(NEWS.filter(match));
   const evs  = porPerto(porInteresse(EVENTS.filter(match)));
