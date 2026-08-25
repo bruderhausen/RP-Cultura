@@ -513,10 +513,37 @@ def is_noise(text):
 
 CIDADES = list(CIDADE_QUERY.keys())
 
+# Bairros sem prefixo, que o regex de via não alcança. Sem eles a notícia
+# cai no centro da cidade e todos os pins se empilham no mesmo ponto.
+BAIRROS_RP = [
+    "Campos Elíseos", "Ipiranga", "Sumarezinho", "Higienópolis", "Ribeirânia",
+    "Lagoinha", "Bonfim Paulista", "Alto do Ipiranga", "Monte Alegre",
+    "Quintino Facci", "Castelo Branco", "Presidente Dutra", "Adelino Simioni",
+    "Recreio Anhanguera", "Nova Aliança", "City Ribeirão", "Planalto Verde",
+    "Geraldo de Carvalho", "Avelino Palma", "Heitor Rigon", "Manoel Penna",
+    "Jóquei Clube", "Independência", "Palmares", "Simioni", "Vila Virgínia",
+    "Vila Tibério", "Vila Seixas", "Vila Amélia", "Vila Abranches", "Vila Elisa",
+    "Vila Lobato", "Vila Carvalho", "Vila Albertina", "Vila Mariana",
+    "Jardim Paulista", "Jardim Sumaré", "Jardim Irajá", "Jardim Canadá",
+    "Jardim Botânico", "Jardim Juliana", "Jardim América", "Jardim Antártica",
+    "Jardim Salgado Filho", "Jardim Aeroporto", "Jardim Macedo", "Jardim Zara",
+    "Jardim Progresso", "Jardim Interlagos", "Jardim Piratininga",
+    "Jardim Marchesi", "Jardim das Palmeiras", "Jardim Mosteiro",
+    "Parque Ribeirão Preto", "Parque dos Servidores", "Parque Bandeirantes",
+    "Parque Industrial Lagoinha", "Alto da Boa Vista", "Núcleo Branca Salles",
+]
+BAIRROS_RE = re.compile(
+    r"\b(?:no |na |do |da |em |bairro |zona )?"
+    r"(Jardim|Jd\.?|Vila|Vl\.?|Parque|Pq\.?|Residencial|Núcleo|Nucleo|Conjunto|Chácara|Chacara|Recanto|Recreio|City|Alto|Distrito)\s+"
+    r"((?:(?:de|da|do|dos|das)\s+)?[A-ZÁÉÍÓÚÂÊÔÃÕÇ][\wÀ-ÿ'.-]*"
+    r"(?:\s+(?:(?:de|da|do|dos|das|e)\b|[A-ZÁÉÍÓÚÂÊÔÃÕÇ][\wÀ-ÿ'.-]*)){0,3})")
+
+# Os conectivos levam  no fim: sem isso o "e" casava com o "em" de
+# "em Ribeirão Preto" e o nome da via saía com um "e" pendurado.
 VIA_RE = re.compile(
     r"\b(Rua|Avenida|Av\.|Praça|Praca|Alameda|Rodovia|Estrada|Largo|Parque|Teatro|Theatro|Museu|"
     r"Jardim|Vila|Bairro|Distrito|Terminal|Igreja|Escola|Colégio|Colegio|Faculdade|Sesc|Senac)\s+"
-    r"([A-ZÁÉÍÓÚÂÊÔÃÕÇ][\wÀ-ÿ'.-]*(?:\s+(?:de|da|do|dos|das|e|[A-ZÁÉÍÓÚÂÊÔÃÕÇ][\wÀ-ÿ'.-]*)){0,4})"
+    r"([A-ZÁÉÍÓÚÂÊÔÃÕÇ][\wÀ-ÿ'.-]*(?:\s+(?:(?:de|da|do|dos|das|e)\b|[A-ZÁÉÍÓÚÂÊÔÃÕÇ][\wÀ-ÿ'.-]*)){0,4})"
     r"(?:\s*,?\s*(?:n[ºo°.]?\s*)?(\d{1,5})\b)?")
 
 def haversine(a, b):
@@ -541,13 +568,19 @@ def perto_da_cidade(coords, cidade, limite_km=35, so_cache=False):
     return bool(coords and centro and haversine(coords, centro) <= limite_km)
 
 def guess_place(text, regional=False, so_cache=False):
-    """Só devolve local quando dá para confirmar. Sem confirmação, sem pin."""
+    """Devolve o local mais fino que der para confirmar.
+
+    A chave `preciso` diz se o ponto é de fato o lugar da notícia ou apenas
+    o centro da cidade. Sem ela, o item ficava com coordenada preenchida e
+    nunca entrava na fila do worker, então a busca fina no corpo da matéria
+    jamais rodava e todos os pins empilhavam no mesmo ponto do centro.
+    """
     n = norm(text)
     cidade = cidade_do_texto(text)
 
     # 1) lugar conhecido — precisa bater com a cidade citada (ou vir de feed regional sem outra cidade)
     for name, terms, query, cid in PLACES:
-        if not any(re.search(r"\b" + re.escape(t) + r"\b", n) for t in terms):
+        if not any(re.search(r"" + re.escape(t) + r"", n) for t in terms):
             continue
         if cidade and cidade != cid:
             continue
@@ -555,33 +588,62 @@ def guess_place(text, regional=False, so_cache=False):
             continue
         c = geocode(query, so_cache=so_cache)
         if c and perto_da_cidade(c, cid, 25, so_cache):
-            return {"place": name, "lat": c[0], "lng": c[1]}
+            return {"place": name, "lat": c[0], "lng": c[1], "preciso": True}
         return None
 
-    # 2) rua / bairro / equipamento citado no texto, dentro da cidade citada
     alvo = cidade or ("Ribeirão Preto" if regional else None)
     if not alvo:
         return None
+
+    # 2) rua com número: é o que localiza a quadra
     tentativas = 0
     for m in VIA_RE.finditer(text):
         via = f"{m.group(1)} {m.group(2)}".strip(" .,;")
         numero = m.group(3)
+        if len(via) < 9 or not numero or tentativas >= 3:
+            continue
+        tentativas += 1
+        c = geocode(f"{via}, {numero}, {alvo}, SP", confere=alvo, so_cache=so_cache)
+        if c and perto_da_cidade(c, alvo, so_cache=so_cache):
+            return {"place": f"{via}, {numero}", "lat": c[0], "lng": c[1], "preciso": True}
+
+    # 3) bairro com prefixo (Jardim, Vila, Parque...)
+    tentativas = 0
+    for m in BAIRROS_RE.finditer(text):
+        pref = {"Jd": "Jardim", "Jd.": "Jardim", "Vl": "Vila", "Vl.": "Vila",
+                "Pq": "Parque", "Pq.": "Parque"}.get(m.group(1), m.group(1))
+        bairro = f"{pref} {m.group(2)}".strip(" .,;")
+        if len(bairro) < 9 or tentativas >= 3:
+            continue
+        tentativas += 1
+        c = geocode(f"{bairro}, {alvo}, SP", confere=alvo, so_cache=so_cache)
+        if c and perto_da_cidade(c, alvo, 30, so_cache):
+            return {"place": bairro, "lat": c[0], "lng": c[1], "preciso": True}
+
+    # 4) bairro sem prefixo, pela lista da cidade
+    if alvo == "Ribeirão Preto":
+        for b in BAIRROS_RP:
+            if not re.search(r"" + re.escape(norm(b)) + r"", n):
+                continue
+            c = geocode(f"{b}, Ribeirao Preto, SP", confere=alvo, so_cache=so_cache)
+            if c and perto_da_cidade(c, alvo, 30, so_cache):
+                return {"place": b, "lat": c[0], "lng": c[1], "preciso": True}
+
+    # 5) rua sem número: fica na via, que já é melhor que o centro
+    tentativas = 0
+    for m in VIA_RE.finditer(text):
+        via = f"{m.group(1)} {m.group(2)}".strip(" .,;")
         if len(via) < 9 or tentativas >= 3:
             continue
         tentativas += 1
-        # com número o geocodificador acerta a quadra; sem ele, fica na via
-        if numero:
-            c = geocode(f"{via}, {numero}, {alvo}, SP", confere=alvo, so_cache=so_cache)
-            if c and perto_da_cidade(c, alvo, so_cache=so_cache):
-                return {"place": f"{via}, {numero}", "lat": c[0], "lng": c[1]}
         c = geocode(f"{via}, {alvo}, SP", confere=alvo, so_cache=so_cache)
         if c and perto_da_cidade(c, alvo, so_cache=so_cache):
-            return {"place": via, "lat": c[0], "lng": c[1]}
+            return {"place": via, "lat": c[0], "lng": c[1], "preciso": True}
 
-    # 3) sem referência fina: fica no centro da cidade citada, com o nome dela
+    # 6) sem referência fina: centro da cidade, marcado como impreciso
     c = geocode(CIDADE_QUERY.get(alvo, ""), so_cache=so_cache)
     if c:
-        return {"place": alvo, "lat": c[0], "lng": c[1]}
+        return {"place": alvo, "lat": c[0], "lng": c[1], "preciso": False}
     return None
 
 def is_regional(text):
@@ -617,6 +679,7 @@ def build_item(feed, raw_item):
         "place": (place or {}).get("place"),
         "lat": (place or {}).get("lat"),
         "lng": (place or {}).get("lng"),
+        "preciso": bool((place or {}).get("preciso")),
         "tone": int(iid[:2], 16) % TONES,
     }
 
@@ -731,7 +794,11 @@ def artigo_texto(url, limite=400000):
 def localizar(item):
     """Procura o local no corpo da matéria. Devolve True se achou coordenada.
     Itens que já vêm com coordenada da plataforma (Sympla, Eventim) ficam como estão."""
-    ja_tem_local = item.get("lat") is not None
+    # centro da cidade não conta como local encontrado: é justamente o caso
+    # que precisa da busca no corpo da matéria
+    ja_tem_local = item.get("lat") is not None and item.get("preciso")
+    if ja_tem_local and item.get("img"):
+        return False                       # nada a refinar nem a completar
     regional = any(f["key"] == item["src"] and f["regional"] for f in FEEDS)
     texto, coords, extra = artigo_texto(item["url"])
     mudou = False
@@ -748,12 +815,19 @@ def localizar(item):
     marca = re.compile(r"ribeirao preto e franca|g1 ribeirao|eptv", re.I)
     cabeca = f"{item['title']} {item['lead']}"
     corpo = marca.sub(" ", texto)[:2500]
-    place = guess_place(cabeca, regional) or guess_place(f"{cabeca} {corpo}", regional)
+    # O `or` curto-circuitava: o título sozinho já devolvia o centro da cidade,
+    # que é truthy, e o corpo da matéria (onde estão rua e bairro) nunca era
+    # lido. Era isso que empilhava quase todos os pins no mesmo ponto.
+    place = guess_place(cabeca, regional)
+    if not (place or {}).get("preciso"):
+        place = guess_place(f"{cabeca} {corpo}", regional) or place
     if coords and dentro(coords):
         place = {"place": (place or {}).get("place") or cidade_do_texto(cabeca) or "Ribeirão Preto",
-                 "lat": coords[0], "lng": coords[1]}
+                 "lat": coords[0], "lng": coords[1], "preciso": True}
     if not place or place.get("lat") is None:
         return mudou
+    if not place.get("preciso") and item.get("lat") is not None:
+        return mudou                      # já estava no centro, nada mudou
     with _lock:
         for i in _state["items"]:
             if i["id"] == item["id"]:
@@ -763,6 +837,7 @@ def localizar(item):
     return mudou
 
 _fila = queue.Queue()
+_ultimo_aviso_pins = 0.0
 
 def worker_local():
     while True:
@@ -770,7 +845,11 @@ def worker_local():
         try:
             if localizar(item):
                 save_store()
-                broadcast({"type": "pins"})
+                global _ultimo_aviso_pins
+                agora = time.time()
+                if agora - _ultimo_aviso_pins > 12:
+                    _ultimo_aviso_pins = agora
+                    broadcast({"type": "pins"})
         except Exception as e:
             print("[local]", e, flush=True)
         finally:
@@ -827,7 +906,7 @@ def refresh():
         broadcast({"type": "feed", "news": len(fresh) - n_ev, "events": n_ev,
                    "count": len(fresh), "updated": _state["updated"]})
     for i in fresh:                       # localização fina roda em segundo plano
-        if (i.get("lat") is None or not i.get("img")) and i.get("url", "").startswith("http"):
+        if (not i.get("preciso") or not i.get("img")) and i.get("url", "").startswith("http"):
             _fila.put(i)
     print(f"[refresh] {len(collected)} lidas, {len(fresh)} novas, {len(_state['items'])} no histórico", flush=True)
     return len(fresh)
