@@ -23,6 +23,7 @@ import eventos as plataformas
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(ROOT, "data")
 STORE = os.path.join(DATA_DIR, "news.json")
+STORE_VERSION = 2      # muda quando o formato/regra muda: histórico é refeito
 
 PORT = int(os.environ.get("PORT", "5173"))
 REFRESH_SECONDS = int(os.environ.get("REFRESH_SECONDS", "300"))
@@ -542,6 +543,8 @@ def load_store():
     try:
         with open(STORE, encoding="utf-8") as f:
             data = json.load(f)
+        if data.get("version") != STORE_VERSION:
+            raise ValueError("formato antigo")
         _state["items"] = data.get("items", [])
         _state["updated"] = data.get("updated")
     except Exception:
@@ -559,7 +562,7 @@ def save_store():
     os.makedirs(DATA_DIR, exist_ok=True)
     tmp = STORE + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
-        json.dump({"updated": _state["updated"], "items": _state["items"]}, f, ensure_ascii=False)
+        json.dump({"version": STORE_VERSION, "updated": _state["updated"], "items": _state["items"]}, f, ensure_ascii=False)
     os.replace(tmp, STORE)
     if GIST_ID and GIST_TOKEN:
         try:
