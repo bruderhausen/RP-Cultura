@@ -72,9 +72,8 @@ function connectStream() {
   const es = new EventSource(API + "stream");
   es.onmessage = ev => {
     let d = {}; try { d = JSON.parse(ev.data); } catch (e) { return; }
-    if (d.type === "news") {
-      loadLive(`${d.count} ${d.count === 1 ? "notícia nova" : "notícias novas"}`);
-    }
+    if (d.type === "news") loadLive(`${d.count} ${d.count === 1 ? "notícia nova" : "notícias novas"}`);
+    else loadLive();                       // pins recém-localizados
   };
   es.onerror = () => { es.close(); setTimeout(connectStream, 30000); };
 }

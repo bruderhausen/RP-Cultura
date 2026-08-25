@@ -493,6 +493,70 @@ def prune(items):
     kept.sort(key=lambda i: i["published"], reverse=True)
     return kept[:MAX_ITEMS]
 
+SCRIPT_RE = re.compile(r"<(script|style)[^>]*>.*?</>", re.S | re.I)
+LD_RE = re.compile(r'<script[^>]+application/ld\+json[^>]*>(.*?)</script>', re.S | re.I)
+GEO_META_RE = re.compile(r'name=["\']geo.position["\'][^>]*content=["\']([-0-9.]+)[;,]\s*([-0-9.]+)', re.I)
+
+def artigo_texto(url, limite=120000):
+    """Baixa a matéria e devolve o texto limpo (para achar rua, bairro, local)."""
+    try:
+        raw = fetch(url, timeout=15)[:limite]
+    except Exception:
+        return "", None
+    page = raw.decode("utf-8", "ignore")
+
+    m = GEO_META_RE.search(page)
+    coords = None
+    if m:
+        try:
+            coords = [round(float(m.group(1)), 6), round(float(m.group(2)), 6)]
+        except ValueError:
+            coords = None
+
+    for bloco in LD_RE.findall(page)[:3]:
+        for chave in ("addressLocality", "streetAddress", "name"):
+            achado = re.search(r'"%s"\s*:\s*"([^"]{4,80})"' % chave, bloco)
+            if achado:
+                page += " " + achado.group(1)
+
+    texto = TAG_RE.sub(" ", SCRIPT_RE.sub(" ", page))
+    return clean(html.unescape(texto), 6000), coords
+
+def localizar(item):
+    """Procura o local no corpo da matéria. Devolve True se achou coordenada."""
+    regional = any(f["key"] == item["src"] and f["regional"] for f in FEEDS)
+    texto, coords = artigo_texto(item["url"])
+    if not texto:
+        return False
+    base = f"{item['title']} {item['lead']} {texto}"
+    place = guess_place(base, regional)
+    if coords and dentro(coords):
+        place = {"place": (place or {}).get("place") or cidade_do_texto(base) or "Ribeirão Preto",
+                 "lat": coords[0], "lng": coords[1]}
+    if not place or place.get("lat") is None:
+        return False
+    with _lock:
+        for i in _state["items"]:
+            if i["id"] == item["id"]:
+                i.update(place)
+                i["fino"] = True
+                return True
+    return False
+
+_fila = queue.Queue()
+
+def worker_local():
+    while True:
+        item = _fila.get()
+        try:
+            if localizar(item):
+                save_store()
+                broadcast({"type": "pins"})
+        except Exception as e:
+            print("[local]", e, flush=True)
+        finally:
+            _fila.task_done()
+
 def refresh():
     """Lê todos os feeds e devolve quantas notícias novas entraram."""
     collected = []
@@ -521,6 +585,9 @@ def refresh():
         save_store()
     if fresh:
         broadcast({"type": "news", "count": len(fresh), "updated": _state["updated"]})
+    for i in fresh:                       # localização fina roda em segundo plano
+        if i.get("url", "").startswith("http"):
+            _fila.put(i)
     print(f"[refresh] {len(collected)} lidas, {len(fresh)} novas, {len(_state['items'])} no histórico", flush=True)
     return len(fresh)
 
@@ -654,6 +721,8 @@ def main():
     load_store()
     load_geo()
     threading.Thread(target=refresh_loop, daemon=True).start()
+    for _ in range(3):
+        threading.Thread(target=worker_local, daemon=True).start()
     print(f"RP Cultural em http://localhost:{PORT}  (atualiza a cada {REFRESH_SECONDS}s, histórico de {HISTORY_DAYS} dias)", flush=True)
     ThreadingHTTPServer(("0.0.0.0", PORT), Handler).serve_forever()
 
