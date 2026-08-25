@@ -236,7 +236,7 @@ function renderHome() {
       <div class="hero__in">
         <div class="hero__tags"><span class="tag">${hero.cat}</span><span class="tag tag--ghost">${hero.place || ""}</span></div>
         <h3>${L.title}</h3>
-        <div class="hero__meta"><span class="src">${SOURCES[hero.src].name}</span><i class="dot-sep"></i>${hero.time}<i class="dot-sep"></i>${hero.read}</div>
+        <div class="hero__meta"><span class="src">${SOURCES[hero.src].name}</span><i class="dot-sep"></i>${hero.time}</div>
       </div>`;
   }
 
@@ -267,7 +267,7 @@ function cardHTML(i) {
     <div class="card__body">
       <div class="card__cat">${i.cat}</div>
       <div class="card__title">${L.title}</div>
-      <div class="card__meta"><span class="src">${SOURCES[i.src].name}</span><i class="dot-sep"></i>${i.time}<i class="dot-sep"></i>${i.read}</div>
+      <div class="card__meta"><span class="src">${SOURCES[i.src].name}</span><i class="dot-sep"></i>${i.time}</div>
     </div></button>`;
 }
 
@@ -357,7 +357,7 @@ function openArticle(id) {
       ${i.credit ? `<p class="art__credito">Foto: ${i.credit}</p>` : ""}
       <div class="art__in">
         <h1>${L.title}</h1>
-        <div class="art__meta"><span class="src">${src.name}</span><i class="dot-sep"></i>${i.time}<i class="dot-sep"></i>${i.read}${i.place ? `<i class="dot-sep"></i>📍 ${i.place}` : ""} ${badge}</div>
+        <div class="art__meta"><span class="src">${src.name}</span><i class="dot-sep"></i>${i.time}${i.place ? `<i class="dot-sep"></i>📍 ${i.place}` : ""} ${badge}</div>
         <p class="art__lead">${L.lead}</p>
         ${i.body.slice(0, 2).map(p => `<p>${p}</p>`).join("")}
         ${i.body.length ? `<figure class="art__fig">${art(i)}</figure>
