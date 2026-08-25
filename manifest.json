@@ -2,7 +2,7 @@
   "name": "RP Cultural",
   "short_name": "RP Cultural",
   "description": "Notícias, eventos e cultura de Ribeirão Preto e região.",
-  "start_url": "./",
+  "start_url": "./?v=15",
   "display": "standalone",
   "background_color": "#4B2ED4",
   "theme_color": "#4B2ED4",

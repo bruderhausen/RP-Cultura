@@ -278,7 +278,7 @@ function openArticle(id) {
         <figure class="art__fig">${art(i)}</figure>
         <p class="art__figcap">${i.figcap}</p>
         ${i.body.slice(2).map(p => `<p>${p}</p>`).join("")}
-        <a class="art__src" href="${src.url}" target="_blank" rel="noopener">
+        <a class="art__src" href="${i.url || src.url}" target="_blank" rel="noopener">
           <span><small>${t("source")}</small><b>${src.name}</b></span>
           <span class="sourcelink">${t("openSource")}
             <svg viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>
@@ -305,8 +305,9 @@ function renderMap() {
   if (!_map) {
     _map = L.map("map", { zoomControl: false, attributionControl: true }).setView(RP, 13);
     setTimeout(() => _map.invalidateSize(), 300);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+      maxZoom: 20, subdomains: "abcd", detectRetina: true,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
     }).addTo(_map);
     L.control.zoom({ position: "bottomright" }).addTo(_map);
     _pinLayer = L.layerGroup().addTo(_map);
@@ -344,7 +345,7 @@ function openSheet(id) {
     <div class="sheet__row"><span class="tag">${i.cat}</span><span class="ev__p">📍 ${i.place}</span></div>
     <h3>${L.title}</h3>
     <p class="sheet__sum">${L.lead}</p>
-    <a class="sourcelink" href="${src.url}" target="_blank" rel="noopener">
+    <a class="sourcelink" href="${i.url || src.url}" target="_blank" rel="noopener">
       ${t("readAt")}: <b>${src.name}</b>
       <svg viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>
     </a>
