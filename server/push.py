@@ -128,6 +128,26 @@ def avisar_um(endpoint, ttl=3600):
     return False
 
 
+def avisar_todos(titulo, corpo, url="./", ttl=3600):
+    """Mesma mensagem para todo mundo. Devolve (enviados, falhas).
+
+    O texto é guardado por inscrição e buscado pelo service worker, igual ao
+    lembrete: o push em si continua vazio.
+    """
+    if not disponivel():
+        return 0, 0
+    with _lock:
+        alvos = list(_subs)
+    enviados = 0
+    for endpoint in alvos:
+        guardar_aviso(endpoint, titulo, corpo, url)
+        if avisar_um(endpoint, ttl):
+            enviados += 1
+        else:
+            pegar_aviso(endpoint)          # não deixa texto pendente sem push
+    return enviados, len(alvos) - enviados
+
+
 def disponivel():
     return bool(TEM_CRYPTO and VAPID_PUBLIC and VAPID_PRIVATE)
 

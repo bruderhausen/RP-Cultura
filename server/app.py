@@ -19,6 +19,7 @@ from email.utils import parsedate_to_datetime
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 
 import eventos as plataformas
+import hmac
 import push
 import lembretes
 
@@ -898,6 +899,10 @@ _lock = threading.Lock()
 _state = {"items": [], "updated": None}
 _subscribers = []
 
+# senha do painel de envio. Sem ela a rota fica desligada: um app com envio
+# em massa aberto é convite para mandarem qualquer coisa em nome do serviço.
+ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "").strip()
+
 GIST_ID = os.environ.get("GIST_ID", "")
 GIST_TOKEN = os.environ.get("GIST_TOKEN", "")
 
@@ -1226,6 +1231,7 @@ def health_payload():
         "feeds": por_fonte,
         "fontes_evento": _diag,
         "push": push.estado(),
+        "admin": {"ativo": bool(ADMIN_TOKEN)},
         "lembretes": lembretes.estado(),
         "alerts": alertas,
     }
@@ -1290,7 +1296,7 @@ def build_stamp():
     """Carimbo do build: muda sempre que css/js/html mudam, matando cache antigo."""
     h = hashlib.sha1()
     for rel in ("index.html", "css/styles.css", "js/app.js", "js/data.js", "js/i18n.js", "js/live.js",
-                "diag.html", "manifest.json", "assets/icon-192.png", "assets/icon-512.png", "assets/favicon-32.png"):
+                "diag.html", "admin.html", "manifest.json", "assets/icon-192.png", "assets/icon-512.png", "assets/favicon-32.png"):
         try:
             st = os.stat(os.path.join(ROOT, rel))
             h.update(f"{rel}{st.st_mtime_ns}{st.st_size}".encode())
@@ -1338,7 +1344,7 @@ class Handler(SimpleHTTPRequestHandler):
         path = self.path.split("?")[0]
         if path not in ("/api/push/inscrever", "/api/push/sair", "/api/push/aviso",
                         "/api/lembrete", "/api/lembrete/sair",
-                        "/api/lembrete/sincronizar"):
+                        "/api/lembrete/sincronizar", "/api/admin/enviar"):
             return self.send_error(404)
         try:
             tam = int(self.headers.get("Content-Length") or 0)
@@ -1360,6 +1366,23 @@ class Handler(SimpleHTTPRequestHandler):
             ok, motivo = lembretes.marcar(corpo.get("endpoint", ""), item,
                                           corpo.get("antecedencia", lembretes.PADRAO))
             return self._json({"ok": ok, "erro": motivo})
+        if path == "/api/admin/enviar":
+            if not ADMIN_TOKEN:
+                return self._json({"ok": False,
+                                   "erro": "ADMIN_TOKEN não configurado no servidor"}, 503)
+            # compare_digest para o tempo da comparação não entregar a senha
+            if not hmac.compare_digest(str(corpo.get("token", "")), ADMIN_TOKEN):
+                time.sleep(1)              # atrapalha quem fica tentando
+                return self._json({"ok": False, "erro": "senha incorreta"}, 401)
+            titulo = (corpo.get("titulo") or "").strip()[:80]
+            texto = (corpo.get("corpo") or "").strip()[:160]
+            if not titulo:
+                return self._json({"ok": False, "erro": "título vazio"}, 400)
+            enviados, falhas = push.avisar_todos(titulo, texto, corpo.get("url") or "./")
+            print(f"[admin] enviou '{titulo}' para {enviados} aparelhos "
+                  f"({falhas} falhas)", flush=True)
+            return self._json({"ok": True, "enviados": enviados, "falhas": falhas,
+                               "inscritos": push.quantos()})
         if path == "/api/lembrete/sincronizar":
             pedidos = set(corpo.get("eventos") or [])
             with _lock:

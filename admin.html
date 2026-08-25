@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>RP Cultural — envio</title>
+<style>
+:root{
+  --bg:#F6F5FB; --card:#fff; --ink:#14112B; --ink-2:#4A4666; --ink-3:#8C88A6;
+  --line:#E5E2F2; --brand:#4B2ED4; --ok:#0E7B63; --erro:#B0322A;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:15px/1.45 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  padding:18px 16px calc(28px + env(safe-area-inset-bottom))}
+.wrap{max-width:560px;margin:0 auto}
+h1{font-size:19px;margin:0 0 3px}
+.sub{color:var(--ink-3);font-size:13px;margin-bottom:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;
+  padding:16px;margin-bottom:12px}
+.card h2{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--ink-3);margin:0 0 12px}
+label{display:block;font-size:13px;font-weight:600;color:var(--ink-2);margin:0 0 6px}
+input,textarea{width:100%;font:inherit;color:var(--ink);background:var(--bg);
+  border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:12px}
+textarea{resize:vertical;min-height:78px}
+input:focus,textarea:focus{outline:2px solid var(--brand);outline-offset:1px;border-color:transparent}
+button{font:inherit;font-weight:700;border:0;border-radius:12px;padding:14px 16px;
+  width:100%;cursor:pointer;background:var(--brand);color:#fff;margin-bottom:8px}
+button.sec{background:var(--card);color:var(--brand);border:1px solid var(--line)}
+button:disabled{opacity:.55;cursor:default}
+.linha{display:flex;justify-content:space-between;gap:10px;padding:7px 0;
+  border-top:1px solid var(--line);font-size:13.5px}
+.linha:first-of-type{border-top:0}
+.linha b{font-variant-numeric:tabular-nums}
+.msg{border-radius:12px;padding:11px 14px;margin-bottom:12px;font-size:13.5px;display:none}
+.msg.ok{display:block;background:#E7F5F1;border:1px solid #BFE3D9;color:var(--ok)}
+.msg.ruim{display:block;background:#FDECEA;border:1px solid #F3C7C2;color:var(--erro)}
+.conta{font-size:12px;color:var(--ink-3);text-align:right;margin:-6px 0 10px}
+.previa{background:#151328;color:#fff;border-radius:14px;padding:12px 14px;margin-bottom:12px}
+.previa b{display:block;font-size:14px}
+.previa i{font-style:normal;font-size:12.5px;color:rgba(255,255,255,.7)}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#151328;--card:#1E1B36;--ink:#F2F1F8;--ink-2:#B9B5CE;--ink-3:#8681A0;--line:#2E2A4C}
+  .msg.ok{background:#17342D;border-color:#255245;color:#8FD9C6}
+  .msg.ruim{background:#3A1F1D;border-color:#5B2E29;color:#F0B4AE}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>RP Cultural — envio</h1>
+  <div class="sub" id="sub">carregando…</div>
+  <div class="msg" id="msg"></div>
+
+  <!-- ---- senha ---- -->
+  <div class="card" id="cardSenha">
+    <h2>Entrar</h2>
+    <label for="senha">Senha do painel</label>
+    <input type="password" id="senha" autocomplete="current-password" enterkeyhint="go">
+    <button id="entrar">Entrar</button>
+  </div>
+
+  <!-- ---- envio ---- -->
+  <div class="card" id="cardEnvio" hidden>
+    <h2>Enviar para todos</h2>
+    <label for="titulo">Título</label>
+    <input id="titulo" maxlength="80" placeholder="Ex.: Festa do Peão começa hoje">
+    <label for="corpo">Texto</label>
+    <textarea id="corpo" maxlength="160" placeholder="Ex.: Portões abrem às 19h no Parque do Peão"></textarea>
+    <div class="conta" id="conta">0/80 · 0/160</div>
+    <div class="previa">
+      <b id="pvTitulo">Título da notificação</b>
+      <i id="pvCorpo">O texto aparece aqui</i>
+    </div>
+    <button id="enviar">Enviar para todos</button>
+    <button class="sec" id="sair">Sair</button>
+  </div>
+
+  <!-- ---- este aparelho ---- -->
+  <div class="card">
+    <h2>Este aparelho</h2>
+    <div id="estadoLocal"></div>
+    <div style="height:12px"></div>
+    <button class="sec" id="ativar">Ativar notificação aqui</button>
+    <button class="sec" id="testarLocal">Testar sem servidor</button>
+  </div>
+
+  <!-- ---- servidor ---- -->
+  <div class="card">
+    <h2>Servidor</h2>
+    <div id="estadoServidor">—</div>
+  </div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = t => String(t ?? "").replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+const CHAVE = "rpcultural.admin";
+let senha = localStorage.getItem(CHAVE) || "";
+
+function aviso(texto, ruim) {
+  const el = $("#msg");
+  el.className = "msg " + (ruim ? "ruim" : "ok");
+  el.textContent = texto;
+  if (!ruim) setTimeout(() => { el.className = "msg"; }, 6000);
+}
+
+function linhas(pares) {
+  return pares.map(([k, v]) =>
+    `<div class="linha"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join("");
+}
+
+function mostrarLogado(sim) {
+  $("#cardSenha").hidden = sim;
+  $("#cardEnvio").hidden = !sim;
+}
+
+/* ---------------- estado ---------------- */
+async function carregarServidor() {
+  try {
+    const d = await (await fetch("api/health", { cache: "no-store" })).json();
+    const p = d.push || {}, l = d.lembretes || {};
+    $("#sub").textContent = `${p.inscritos ?? 0} aparelho(s) com notificação ligada`;
+    $("#estadoServidor").innerHTML = linhas([
+      ["push", p.ativo ? "ligado" : "desligado"],
+      ["motivo", p.motivo || "—"],
+      ["inscritos", p.inscritos ?? 0],
+      ["lembretes agendados", l.agendados ?? 0],
+      ["senha do painel", d.admin?.ativo ? "configurada" : "NÃO configurada"],
+      ["último erro de push", p.ultimo_erro || "nenhum"],
+    ]);
+    if (!d.admin?.ativo) {
+      aviso("ADMIN_TOKEN não está configurado no servidor: o envio fica bloqueado.", true);
+    }
+  } catch (e) {
+    $("#sub").textContent = "servidor fora do ar";
+    $("#estadoServidor").textContent = "não consegui falar com /api/health";
+  }
+}
+
+async function carregarLocal() {
+  const temSW = "serviceWorker" in navigator;
+  const temPush = "PushManager" in window;
+  let inscrito = false, escopo = "—";
+  if (temSW) {
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      escopo = new URL(reg.scope).pathname;
+      inscrito = !!(await reg.pushManager.getSubscription());
+    } catch (e) { escopo = "service worker não registrado"; }
+  }
+  $("#estadoLocal").innerHTML = linhas([
+    ["permissão", temSW ? Notification.permission : "—"],
+    ["service worker", temSW ? escopo : "não suportado"],
+    ["push", temPush ? "suportado" : "não suportado"],
+    ["inscrito", inscrito ? "sim" : "não"],
+    ["origem segura", window.isSecureContext ? "sim" : "NÃO (precisa de https)"],
+  ]);
+}
+
+/* ---------------- ações ---------------- */
+function bytesDaChave(base64) {
+  const txt = atob(base64.replace(/-/g, "+").replace(/_/g, "/") +
+                   "=".repeat((4 - base64.length % 4) % 4));
+  return Uint8Array.from(txt, c => c.charCodeAt(0));
+}
+
+$("#ativar").addEventListener("click", async () => {
+  try {
+    if (!("serviceWorker" in navigator)) return aviso("Este navegador não tem service worker.", true);
+    await navigator.serviceWorker.register("sw.js");
+    const reg = await navigator.serviceWorker.ready;
+    if (Notification.permission !== "granted" &&
+        await Notification.requestPermission() !== "granted") {
+      return aviso("Permissão negada. Libere nos ajustes do navegador.", true);
+    }
+    const chave = await (await fetch("api/push/chave")).json();
+    if (!chave.ativo) return aviso("Servidor sem chaves VAPID configuradas.", true);
+    const sub = await reg.pushManager.getSubscription() ||
+      await reg.pushManager.subscribe({
+        userVisibleOnly: true, applicationServerKey: bytesDaChave(chave.chave) });
+    await fetch("api/push/inscrever", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ endpoint: sub.endpoint }) });
+    aviso("Notificação ativada neste aparelho.");
+    carregarLocal(); carregarServidor();
+  } catch (e) {
+    aviso("Falhou: " + e.message, true);
+  }
+});
+
+/* prova que o aparelho consegue exibir notificação, sem passar pelo servidor.
+   Separa "o push não chegou" de "o sistema não mostra notificação". */
+$("#testarLocal").addEventListener("click", async () => {
+  try {
+    if (Notification.permission !== "granted" &&
+        await Notification.requestPermission() !== "granted") {
+      return aviso("Permissão negada.", true);
+    }
+    const reg = await navigator.serviceWorker.ready;
+    await reg.showNotification("Teste local", {
+      body: "Se você está vendo isto, o aparelho exibe notificações.",
+      icon: "assets/icon-192.png", badge: "assets/favicon-64.png", tag: "rpcultural-teste",
+    });
+    aviso("Disparei aqui mesmo. Se nada apareceu, o bloqueio é do sistema.");
+  } catch (e) {
+    aviso("Falhou: " + e.message, true);
+  }
+});
+
+$("#entrar").addEventListener("click", () => {
+  senha = $("#senha").value.trim();
+  if (!senha) return aviso("Digite a senha.", true);
+  localStorage.setItem(CHAVE, senha);
+  mostrarLogado(true);
+  $("#senha").value = "";
+});
+$("#senha").addEventListener("keydown", e => { if (e.key === "Enter") $("#entrar").click(); });
+
+$("#sair").addEventListener("click", () => {
+  senha = ""; localStorage.removeItem(CHAVE); mostrarLogado(false);
+});
+
+function atualizarPrevia() {
+  const t = $("#titulo").value.trim(), c = $("#corpo").value.trim();
+  $("#pvTitulo").textContent = t || "Título da notificação";
+  $("#pvCorpo").textContent = c || "O texto aparece aqui";
+  $("#conta").textContent = `${$("#titulo").value.length}/80 · ${$("#corpo").value.length}/160`;
+}
+$("#titulo").addEventListener("input", atualizarPrevia);
+$("#corpo").addEventListener("input", atualizarPrevia);
+
+$("#enviar").addEventListener("click", async () => {
+  const titulo = $("#titulo").value.trim();
+  if (!titulo) return aviso("O título é obrigatório.", true);
+  if (!confirm(`Enviar "${titulo}" para todos os aparelhos inscritos?`)) return;
+  $("#enviar").disabled = true;
+  try {
+    const r = await fetch("api/admin/enviar", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: senha, titulo, corpo: $("#corpo").value.trim() }),
+    });
+    const d = await r.json();
+    if (!d.ok) {
+      if (r.status === 401) { localStorage.removeItem(CHAVE); mostrarLogado(false); }
+      aviso(d.erro || "Não consegui enviar.", true);
+    } else {
+      aviso(`Enviado para ${d.enviados} de ${d.inscritos} aparelho(s).` +
+            (d.falhas ? ` ${d.falhas} falharam.` : ""));
+      $("#titulo").value = ""; $("#corpo").value = ""; atualizarPrevia();
+    }
+  } catch (e) {
+    aviso("Sem conexão com o servidor.", true);
+  }
+  $("#enviar").disabled = false;
+  carregarServidor();
+});
+
+mostrarLogado(!!senha);
+atualizarPrevia();
+carregarServidor();
+carregarLocal();
+setInterval(carregarServidor, 30000);
+</script>
+</body>
+</html>

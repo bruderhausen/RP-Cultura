@@ -19,5 +19,8 @@ services:
         sync: false
       - key: VAPID_SUB
         sync: false
+      # senha do painel /admin.html. Sem ela o envio em massa fica bloqueado.
+      - key: ADMIN_TOKEN
+        sync: false
       - key: HISTORY_DAYS
         value: "7"

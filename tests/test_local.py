@@ -611,6 +611,40 @@ class TestPush(unittest.TestCase):
         self.assertTrue(self.push.sair("https://push.exemplo/abc"))
         self.assertEqual(self.push.quantos(), 0)
 
+    def test_envio_em_massa_guarda_o_texto_por_inscricao(self):
+        pub, priv = self.push.gerar_par()
+        self.push.VAPID_PUBLIC, self.push.VAPID_PRIVATE = pub, priv
+        self.push._subs = {"https://p/a": {}, "https://p/b": {}}
+        self.push._avisos = {}
+        enviados = []
+        original = self.push._enviar_um
+        self.push._enviar_um = lambda e, ttl=3600: enviados.append(e)
+        try:
+            ok, falhas = self.push.avisar_todos("Aviso", "Texto do aviso")
+        finally:
+            self.push._enviar_um = original
+        self.assertEqual((ok, falhas), (2, 0))
+        self.assertEqual(sorted(enviados), ["https://p/a", "https://p/b"])
+        self.assertEqual(self.push.pegar_aviso("https://p/a")["titulo"], "Aviso")
+
+    def test_envio_que_falha_nao_deixa_texto_pendente(self):
+        # senão o próximo push legítimo mostraria a mensagem antiga
+        pub, priv = self.push.gerar_par()
+        self.push.VAPID_PUBLIC, self.push.VAPID_PRIVATE = pub, priv
+        self.push._subs = {"https://p/a": {}}
+        self.push._avisos = {}
+        original = self.push._enviar_um
+
+        def falha(endpoint, ttl=3600):
+            raise RuntimeError("rede fora")
+
+        self.push._enviar_um = falha
+        try:
+            self.assertEqual(self.push.avisar_todos("Aviso", "Texto"), (0, 1))
+        finally:
+            self.push._enviar_um = original
+        self.assertIsNone(self.push.pegar_aviso("https://p/a"))
+
     def test_sem_chave_o_modulo_fica_desligado_sem_quebrar(self):
         self.push.VAPID_PUBLIC = self.push.VAPID_PRIVATE = ""
         self.assertFalse(self.push.disponivel())
