@@ -562,16 +562,17 @@ BAIRROS_RP = [
 ]
 BAIRROS_RE = re.compile(
     r"\b(?:no |na |do |da |em |bairro |zona )?"
-    r"(Jardim|Jd\.?|Vila|Vl\.?|Parque|Pq\.?|Residencial|Núcleo|Nucleo|Conjunto|Chácara|Chacara|Recanto|Recreio|City|Alto|Distrito)\s+"
+    r"(Jardim|Jd\.?|Vila|Vl\.?|Parque|Pq\.?|Residencial|Núcleo|Nucleo|Conjunto|Chácara|Chacara|Recanto|Recreio|City|Alto)\s+"
     r"((?:(?:de|da|do|dos|das)\s+)?[A-ZÁÉÍÓÚÂÊÔÃÕÇ][\wÀ-ÿ'.-]*"
     r"(?:\s+(?:(?:de|da|do|dos|das|e)\b|[A-ZÁÉÍÓÚÂÊÔÃÕÇ][\wÀ-ÿ'.-]*)){0,3})")
 
-# Os conectivos levam  no fim: sem isso o "e" casava com o "em" de
-# "em Ribeirão Preto" e o nome da via saía com um "e" pendurado.
+# Os conectivos levam limite de palavra no fim: sem isso o "e" casava com
+# o "em" de "em Ribeirão Preto" e o nome da via saía com um "e" pendurado.
 VIA_RE = re.compile(
     r"\b(Rua|Avenida|Av\.|Praça|Praca|Alameda|Rodovia|Estrada|Largo|Parque|Teatro|Theatro|Museu|"
-    r"Jardim|Vila|Bairro|Distrito|Terminal|Igreja|Escola|Colégio|Colegio|Faculdade|Sesc|Senac)\s+"
-    r"([A-ZÁÉÍÓÚÂÊÔÃÕÇ][\wÀ-ÿ'.-]*(?:\s+(?:(?:de|da|do|dos|das|e)\b|[A-ZÁÉÍÓÚÂÊÔÃÕÇ][\wÀ-ÿ'.-]*)){0,4})"
+    r"Jardim|Vila|Bairro|Terminal|Igreja|Escola|Colégio|Colegio|Faculdade|Sesc|Senac)\s+"
+    r"([A-ZÁÉÍÓÚÂÊÔÃÕÇ][\wÀ-ÿ'.-]*"
+    r"(?:\s+(?:(?:de|da|do|dos|das|e)\b|[A-ZÁÉÍÓÚÂÊÔÃÕÇ][\wÀ-ÿ'.-]*)){0,4})"
     r"(?:\s*,?\s*(?:n[ºo°.]?\s*)?(\d{1,5})\b)?")
 
 def haversine(a, b):
@@ -617,7 +618,10 @@ def guess_place(text, regional=False, so_cache=False):
         c = geocode(query, confere=cid, so_cache=so_cache, granular=True)
         if c and perto_da_cidade(c, cid, 25, so_cache):
             return {"place": name, "lat": c[0], "lng": c[1], "preciso": True}
-        return None
+        # não deu para confirmar o lugar conhecido: segue para rua, bairro e
+        # centro. Um `return None` aqui tirava a notícia do mapa por inteiro,
+        # justamente as que citam um ponto famoso da cidade
+        break
 
     # feed nacional só chega aqui se passou pelo filtro de termos da região,
     # mas nem sempre cita a cidade: sem este segundo caso a notícia ficava sem
@@ -782,7 +786,10 @@ def prune(items):
     kept.sort(key=lambda i: i["published"], reverse=True)
     return kept[:MAX_ITEMS]
 
-SCRIPT_RE = re.compile(r"<(script|style)[^>]*>.*?</>", re.S | re.I)
+# o fechamento era "</>", que não existe em HTML: o regex nunca casava e o
+# texto da matéria seguia com todo o JSON-LD e o CSS embutidos da página
+SCRIPT_RE = re.compile(r"<(script|style)\b[^>]*>.*?</\1\s*>", re.S | re.I)
+P_RE = re.compile(r"<p[^>]*>(.*?)</p>", re.S | re.I)
 LD_RE = re.compile(r'<script[^>]+application/ld\+json[^>]*>(.*?)</script>', re.S | re.I)
 OG_IMG_RE = re.compile(
     "property=[\"']og:image[\"'][^>]*content=[\"']([^\"']+)", re.I)
@@ -809,11 +816,13 @@ def artigo_texto(url, limite=400000):
         except ValueError:
             coords = None
 
+    # endereço declarado no JSON-LD costuma ser o dado mais confiável da página
+    do_ld = []
     for bloco in LD_RE.findall(page)[:3]:
-        for chave in ("addressLocality", "streetAddress", "name"):
+        for chave in ("streetAddress", "addressLocality", "name"):
             achado = re.search(r'"%s"\s*:\s*"([^"]{4,80})"' % chave, bloco)
             if achado:
-                page += " " + achado.group(1)
+                do_ld.append(achado.group(1))
 
     extra = {}
     m = OG_IMG_RE.search(page) or OG_IMG2_RE.search(page)
@@ -823,8 +832,15 @@ def artigo_texto(url, limite=400000):
     if m:
         extra["credit"] = clean(m.group(1), 60)
 
-    texto = TAG_RE.sub(" ", SCRIPT_RE.sub(" ", page))
-    return clean(html.unescape(texto), 6000), coords, extra
+    # os parágrafos são o texto da notícia; o resto da página é menu e rodapé
+    limpo = SCRIPT_RE.sub(" ", page)
+    paragrafos = " ".join(P_RE.findall(limpo))
+    corpo = paragrafos if len(paragrafos) > 500 else limpo
+    texto = clean(html.unescape(TAG_RE.sub(" ", corpo)), 6000)
+    if do_ld:
+        # na frente: localizar() só olha o começo do corpo
+        texto = clean(html.unescape(" ".join(do_ld)), 300) + " " + texto
+    return texto, coords, extra
 
 def localizar(item):
     """Procura o local no corpo da matéria. Devolve True se achou coordenada.
@@ -850,7 +866,7 @@ def localizar(item):
         return mudou
     marca = re.compile(r"ribeirao preto e franca|g1 ribeirao|eptv", re.I)
     cabeca = f"{item['title']} {item['lead']}"
-    corpo = marca.sub(" ", texto)[:2500]
+    corpo = marca.sub(" ", texto)[:4000]
     # O `or` curto-circuitava: o título sozinho já devolvia o centro da cidade,
     # que é truthy, e o corpo da matéria (onde estão rua e bairro) nunca era
     # lido. Era isso que empilhava quase todos os pins no mesmo ponto.
