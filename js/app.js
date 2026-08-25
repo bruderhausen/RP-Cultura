@@ -450,31 +450,7 @@ function agendaHTML(e) {
         ${e.dist != null ? `<span class="ev__dist">${e.dist} km</span>` : ""}
       </div>
     </div>
-    <a class="ag__cal" href="${icsHref(e)}" download="${e.id}.ics"
-       title="Adicionar ao calendário" aria-label="Adicionar ao calendário">
-      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M12 14v4M10 16h4"/></svg>
-    </a>
   </article>`;
-}
-
-/* arquivo .ics gerado no próprio aparelho: não depende do servidor */
-function icsHref(e) {
-  const z = n => String(n).padStart(2, "0");
-  const stamp = d => `${d.getUTCFullYear()}${z(d.getUTCMonth() + 1)}${z(d.getUTCDate())}T` +
-                     `${z(d.getUTCHours())}${z(d.getUTCMinutes())}00Z`;
-  const ini = new Date(e.when);
-  const fim = new Date(ini.getTime() + 2 * 3600 * 1000);
-  const limpa = s => String(s || "").replace(/[\\\;,]/g, " ").replace(/[\r\n]+/g, " ");
-  const ics = [
-    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//RP Cultural//PT-BR",
-    "BEGIN:VEVENT", `UID:${e.id}@rpcultural`, `DTSTAMP:${stamp(new Date())}`,
-    `DTSTART:${stamp(ini)}`, `DTEND:${stamp(fim)}`,
-    `SUMMARY:${limpa(loc(e).title)}`,
-    `LOCATION:${limpa(e.address || e.place)}`,
-    `DESCRIPTION:${limpa(e.url)}`,
-    "END:VEVENT", "END:VCALENDAR",
-  ].join("\r\n");
-  return "data:text/calendar;charset=utf-8," + encodeURIComponent(ics);
 }
 
 /* clique em qualquer card */

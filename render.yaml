@@ -10,5 +10,14 @@ services:
     envVars:
       - key: REFRESH_SECONDS
         value: "300"
+      # sync: false faz o Render pedir o valor no painel em vez de guardar aqui.
+      # Chave privada não pode ir para o repositório: quem a tiver consegue
+      # mandar notificação em nome do app. Gerar com: python server/push.py
+      - key: VAPID_PUBLIC
+        sync: false
+      - key: VAPID_PRIVATE
+        sync: false
+      - key: VAPID_SUB
+        sync: false
       - key: HISTORY_DAYS
         value: "7"
