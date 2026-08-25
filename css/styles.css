@@ -364,12 +364,16 @@ img{max-width:100%;display:block}
 .src{font-weight:700;color:var(--ink-2)}
 
 /* --- rail de eventos --- */
-.rail{display:flex;gap:12px;overflow-x:auto;padding:2px 18px 6px;scroll-snap-type:x mandatory;scrollbar-width:none}
+.rail{display:flex;gap:12px;overflow-x:auto;padding:2px 18px 6px;scroll-snap-type:x mandatory;scrollbar-width:none;
+  /* sem isto o snap mandatory alinha o primeiro cartão no zero do scroll e
+     engole o padding lateral, desalinhando o rail das outras seções */
+  scroll-padding-inline:18px}
 .rail::-webkit-scrollbar{display:none}
 .ev{
   flex:none;width:172px;scroll-snap-align:start;background:var(--surface);border-radius:var(--r-m);
-  overflow:hidden;box-shadow:var(--sh-1);text-align:left;transition:transform .12s
+  overflow:hidden;box-shadow:var(--sh-1);text-align:left;transition:transform .12s;cursor:pointer
 }
+.ev:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
 .ev:active{transform:scale(.98)}
 .ev__img{height:104px;position:relative}
 .ev__date{
@@ -381,7 +385,16 @@ img{max-width:100%;display:block}
 .ev__in{padding:10px 12px 13px;display:flex;flex-direction:column;gap:5px}
 .ev__t{font-family:var(--display);font-size:14.5px;font-weight:700;line-height:1.2}
 .svg-ico{width:16px;height:16px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.ev__p{font-size:11.5px;color:var(--ink-3);display:flex;gap:5px;align-items:center}
+.ev__p{font-size:11.5px;color:var(--ink-3);display:flex;gap:5px;align-items:center;text-align:left}
+/* local com pin no mapa: vira atalho */
+.ev__p--map{
+  color:var(--brand);font-weight:600;align-self:flex-start;max-width:100%;
+  padding:2px 0;margin:-2px 0;border-radius:6px;
+  text-decoration:underline;text-decoration-color:rgba(75,46,212,.3);
+  text-underline-offset:3px;transition:color .12s
+}
+.ev__p--map:active{color:var(--brand-2)}
+.ev__p--map:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
 
 /* --- atualizações --- */
 .vertudo{display:flex;align-items:center;justify-content:center;gap:4px;margin:12px 18px 0;padding:14px;

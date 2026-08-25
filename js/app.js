@@ -265,16 +265,23 @@ function renderHome() {
   $("#verTodas").hidden = rest.length <= 3;
   $("#verTodas").firstChild.textContent = `Ver todas as notícias (${news.length}) `;
 
+  const ICONE_LOCAL = '<svg viewBox="0 0 24 24" class="svg-ico"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>';
+
   $("#eventRail").innerHTML = evs.map(e => {
     const L = loc(e);
-    return `<button class="ev" data-open="${e.id}">
+    // o evento já tem pin no mapa: o local vira atalho para ele.
+    // o cartão deixa de ser <button> porque button não pode conter button
+    const local = e.lat != null
+      ? `<button class="ev__p ev__p--map" data-mapa="${e.id}" title="Ver no mapa">${ICONE_LOCAL} ${e.place}</button>`
+      : `<span class="ev__p">${ICONE_LOCAL} ${e.place}</span>`;
+    return `<div class="ev" role="button" tabindex="0" data-open="${e.id}">
       <div class="ev__img">${art(e, `<span class="ev__date"><b>${e.day}</b><i>${e.month}</i></span>`)}</div>
       <div class="ev__in"><div class="ev__t">${L.title}</div>
-        <div class="ev__p"><svg viewBox="0 0 24 24" class="svg-ico"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"></path><circle cx="12" cy="10" r="3"></circle></svg> ${e.place}</div>
+        ${local}
         <div class="ev__foot">${e.price ? `<span class="tag tag--price">${e.price}</span>`
           : e.src === "sympla" ? `<span class="tag tag--ghost2">Ingressos</span>` : ""}
           ${e.dist != null ? `<span class="ev__dist">${e.dist} km</span>` : ""}</div></div>
-    </button>`;
+    </div>`;
   }).join("") || `<div class="empty">${t("emptyFeed")}</div>`;
 
 }
@@ -346,6 +353,9 @@ $("#verTodas").addEventListener("click", () => {
 
 /* clique em qualquer card */
 document.addEventListener("click", e => {
+  // o atalho do local fica dentro do cartão, então precisa ser testado antes
+  const mp = e.target.closest("[data-mapa]");
+  if (mp) { abrirNoMapa(mp.dataset.mapa); return; }
   const o = e.target.closest("[data-open]");
   if (o) { openArticle(o.dataset.open); return; }
   const h = e.target.closest("#heroCard");
@@ -443,6 +453,32 @@ function renderMap() {
     L.marker([p.lat, p.lng], { icon, zIndexOffset: (p.more || []).length ? 600 : 0 }).addTo(_pinLayer).on("click", () => openSheet(p.id, p.more));
   });
 }
+
+/* leva ao mapa e abre a ficha em cima do pin que já existe para o evento */
+function abrirNoMapa(id) {
+  const i = byId(id);
+  if (!i || i.lat == null) return;
+  _seguindo = false;              // ele quer ver o evento, não a própria posição
+  go("mapa");
+  $$(".tab").forEach(b => b.classList.toggle("is-on", b.dataset.go === "mapa"));
+  setTimeout(() => {
+    if (!_map) return;
+    _map.invalidateSize();
+    _map.setView([i.lat, i.lng], 16);
+    const p = PINS.find(x => x.id === id || (x.more || []).includes(id));
+    openSheet(id, p ? p.more : []);
+  }, 160);
+}
+
+/* o cartão de evento é uma div com role=button: Enter e espaço não
+   disparam clique sozinhos como fariam num <button> */
+document.addEventListener("keydown", e => {
+  if (e.key !== "Enter" && e.key !== " ") return;
+  const b = e.target.closest('[role="button"][data-open]');
+  if (!b) return;
+  e.preventDefault();
+  b.click();
+});
 
 function refreshMapSize() {
   if (_map) setTimeout(() => _map.invalidateSize(), 80);
