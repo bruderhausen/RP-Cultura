@@ -64,45 +64,37 @@ NOISE_TERMS = ["siga o ", "veja fotos", "veja as fotos", "assista ao vivo", "con
 # ------------------------------------------------- lugares -> pin no mapa
 # (label, termos que aparecem no texto, consulta enviada ao geocodificador)
 PLACES = [
-    ("Parque do Peão",          ["parque do peao", "festa do peao", "liga nacional de rodeio", "peao de barretos"], "Parque do Peao, Barretos, Sao Paulo"),
-    ("Santa Casa",              ["santa casa"],                               "Santa Casa de Misericordia de Ribeirao Preto"),
-    ("Arena Eurobike",          ["arena eurobike", "botafogo-sp", "botafogo sp"], "Arena Eurobike, Ribeirao Preto"),
-    ("Aeroporto Leite Lopes",   ["aeroporto"],                                "Aeroporto Leite Lopes, Ribeirao Preto"),
-    ("Prefeitura de RP",        ["prefeitura de ribeirao", "paco municipal"], "Prefeitura de Ribeirao Preto"),
-    ("Câmara Municipal",        ["camara municipal"],                         "Camara Municipal de Ribeirao Preto"),
-    ("Sesc Ribeirão",           ["sesc"],                                     "Sesc Ribeirao Preto"),
-    ("Unaerp",                  ["unaerp"],                                   "UNAERP, Ribeirao Preto"),
-    ("Theatro Pedro II",        ["theatro pedro", "teatro pedro"],            "Theatro Pedro II, Ribeirao Preto"),
-    ("Bosque Municipal",        ["bosque", "zoologico", "zoológico"],         "Bosque Municipal Fabio Barreto, Ribeirao Preto"),
-    ("Parque Permanente",       ["parque permanente", "recinto"],             "Parque Permanente de Exposicoes, Ribeirao Preto"),
-    ("Choperia Pinguim",        ["pinguim", "choperia"],                      "Choperia Pinguim, Ribeirao Preto"),
-    ("Museu do Café",           ["museu do cafe", "museu do café"],           "Museu do Cafe, Ribeirao Preto"),
-    ("Praça XV",                ["praca xv", "praça xv", "quarteirao paulista", "quarteirão paulista"], "Praca XV de Novembro, Ribeirao Preto"),
-    ("Campus da USP",           ["usp", "campus universitario"],              "Universidade de Sao Paulo, Ribeirao Preto"),
-    ("Av. Independência",       ["independencia", "independência"],           "Avenida Independencia, Ribeirao Preto"),
-    ("Av. Nove de Julho",       ["nove de julho"],                            "Avenida Nove de Julho, Ribeirao Preto"),
-    ("Av. Francisco Junqueira", ["francisco junqueira"],                      "Avenida Francisco Junqueira, Ribeirao Preto"),
-    ("Ribeirão Shopping",       ["ribeirao shopping", "ribeirãoshopping"],    "RibeiraoShopping, Ribeirao Preto"),
-    ("Shopping Santa Úrsula",   ["santa ursula", "santa úrsula"],             "Shopping Santa Ursula, Ribeirao Preto"),
-    ("Estádio Santa Cruz",      ["botafogo", "santa cruz", "estadio"],        "Estadio Doutor Oswaldo Scatena, Ribeirao Preto"),
-    ("Terminal Central",        ["terminal central", "rodoviaria", "rodoviária"], "Terminal Rodoviario, Ribeirao Preto"),
-    ("Hospital das Clínicas",   ["hospital das clinicas", "hc de ribeirao", "hcrp"], "Hospital das Clinicas de Ribeirao Preto"),
-    ("Vila Virgínia",           ["vila virginia", "vila virgínia"],           "Vila Virginia, Ribeirao Preto"),
-    ("Campos Elíseos",          ["campos eliseos", "campos elíseos"],         "Campos Eliseos, Ribeirao Preto"),
-    ("Jardim Paulista",         ["jardim paulista"],                          "Jardim Paulista, Ribeirao Preto"),
-    ("Centro",                  ["centro de ribeirao", "centro da cidade"],   "Centro, Ribeirao Preto"),
-    ("Franca",                  ["franca"],                                   "Franca, Sao Paulo"),
-    ("Sertãozinho",             ["sertaozinho", "sertãozinho"],               "Sertaozinho, Sao Paulo"),
-    ("Barretos",                ["barretos"],                                 "Barretos, Sao Paulo"),
-    ("Batatais",                ["batatais"],                                 "Batatais, Sao Paulo"),
-    ("Cravinhos",               ["cravinhos"],                                "Cravinhos, Sao Paulo"),
-    ("Jardinópolis",            ["jardinopolis", "jardinópolis"],             "Jardinopolis, Sao Paulo"),
-    ("Brodowski",               ["brodowski"],                                "Brodowski, Sao Paulo"),
-    ("Serrana",                 ["serrana"],                                  "Serrana, Sao Paulo"),
-    ("Araraquara",              ["araraquara"],                               "Araraquara, Sao Paulo"),
-    ("São Carlos",              ["sao carlos", "são carlos"],                 "Sao Carlos, Sao Paulo"),
-    ("Ribeirão Preto",          ["ribeirao preto", "ribeirão preto"],         "Ribeirao Preto, Sao Paulo"),
+    ("Parque do Peão",          ["parque do peao", "festa do peao", "liga nacional de rodeio", "peao de barretos"], "Parque do Peao, Barretos, Sao Paulo", "Barretos"),
+    ("Theatro Pedro II",        ["theatro pedro", "teatro pedro"],            "Theatro Pedro II, Ribeirao Preto", "Ribeirão Preto"),
+    ("Bosque Municipal",        ["bosque municipal", "zoologico de ribeirao", "bosque fabio barreto"], "Bosque Municipal Fabio Barreto, Ribeirao Preto", "Ribeirão Preto"),
+    ("Parque Permanente",       ["parque permanente", "recinto de exposicoes"], "Parque Permanente de Exposicoes, Ribeirao Preto", "Ribeirão Preto"),
+    ("Choperia Pinguim",        ["choperia pinguim"],                         "Choperia Pinguim, Ribeirao Preto", "Ribeirão Preto"),
+    ("Museu do Café",           ["museu do cafe", "museu do café"],           "Museu do Cafe, Ribeirao Preto", "Ribeirão Preto"),
+    ("Praça XV",                ["praca xv", "praça xv", "quarteirao paulista", "quarteirão paulista"], "Praca XV de Novembro, Ribeirao Preto", "Ribeirão Preto"),
+    ("Campus da USP",           ["usp de ribeirao", "campus da usp", "usp ribeirao"], "Universidade de Sao Paulo, Ribeirao Preto", "Ribeirão Preto"),
+    ("Hospital das Clínicas",   ["hospital das clinicas de ribeirao", "hc de ribeirao", "hcrp"], "Hospital das Clinicas de Ribeirao Preto", "Ribeirão Preto"),
+    ("Santa Casa",              ["santa casa de ribeirao"],                   "Santa Casa de Misericordia de Ribeirao Preto", "Ribeirão Preto"),
+    ("Arena Eurobike",          ["arena eurobike"],                           "Arena Eurobike, Ribeirao Preto", "Ribeirão Preto"),
+    ("Estádio Santa Cruz",      ["estadio santa cruz", "botafogo-sp", "botafogo de ribeirao"], "Estadio Doutor Oswaldo Scatena, Ribeirao Preto", "Ribeirão Preto"),
+    ("Aeroporto Leite Lopes",   ["aeroporto leite lopes", "aeroporto de ribeirao"], "Aeroporto Leite Lopes, Ribeirao Preto", "Ribeirão Preto"),
+    ("Prefeitura de RP",        ["prefeitura de ribeirao", "paco municipal de ribeirao"], "Prefeitura de Ribeirao Preto", "Ribeirão Preto"),
+    ("Câmara Municipal",        ["camara municipal de ribeirao"],             "Camara Municipal de Ribeirao Preto", "Ribeirão Preto"),
+    ("Sesc Ribeirão",           ["sesc ribeirao", "sesc ribeirão"],           "Sesc Ribeirao Preto", "Ribeirão Preto"),
+    ("Unaerp",                  ["unaerp"],                                   "UNAERP, Ribeirao Preto", "Ribeirão Preto"),
+    ("RibeirãoShopping",        ["ribeirao shopping", "ribeirãoshopping"],    "RibeiraoShopping, Ribeirao Preto", "Ribeirão Preto"),
+    ("Shopping Santa Úrsula",   ["shopping santa ursula", "shopping santa úrsula"], "Shopping Santa Ursula, Ribeirao Preto", "Ribeirão Preto"),
+    ("Terminal Central",        ["terminal central", "rodoviaria de ribeirao"], "Terminal Rodoviario, Ribeirao Preto", "Ribeirão Preto"),
 ]
+
+# centro de cada cidade, usado só para conferir se o resultado do geocoder faz sentido
+CIDADE_QUERY = {
+    "Ribeirão Preto": "Ribeirao Preto, Sao Paulo", "Franca": "Franca, Sao Paulo",
+    "Sertãozinho": "Sertaozinho, Sao Paulo", "Barretos": "Barretos, Sao Paulo",
+    "Batatais": "Batatais, Sao Paulo", "Cravinhos": "Cravinhos, Sao Paulo",
+    "Jardinópolis": "Jardinopolis, Sao Paulo", "Brodowski": "Brodowski, Sao Paulo",
+    "Serrana": "Serrana, Sao Paulo", "Araraquara": "Araraquara, Sao Paulo",
+    "São Carlos": "Sao Carlos, Sao Paulo",
+}
 
 DEFAULT_GEO = {
     "Universidade de Sao Paulo, Ribeirao Preto": [
@@ -224,6 +216,10 @@ DEFAULT_GEO = {
     "Aeroporto Leite Lopes, Ribeirao Preto": [
         -21.133302,
         -47.774683
+    ],
+    "Colégio Itamarati, Ribeirão Preto, SP|Ribeirão Preto": [
+        -21.208645,
+        -47.799529
     ]
 }
 
@@ -240,22 +236,29 @@ def load_geo():
     except Exception:
         pass
 
-def geocode(query):
-    """Coordenadas reais via Nominatim (OpenStreetMap), com cache em disco."""
+def geocode(query, confere=None):
+    """Coordenadas reais via Nominatim (OpenStreetMap), com cache em disco.
+    `confere` exige que a cidade apareça no endereço devolvido."""
+    if not query:
+        return None
+    chave = query + ("|" + confere if confere else "")
     with _geo_lock:
-        if query in _geo:
-            return _geo[query]
+        if chave in _geo:
+            return _geo[chave]
     url = ("https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br&q="
            + urllib.parse.quote(query))
     result = None
     try:
         data = json.loads(fetch(url, timeout=15).decode("utf-8"))
         if data:
-            result = [round(float(data[0]["lat"]), 6), round(float(data[0]["lon"]), 6)]
+            achado = data[0]
+            nome = norm(achado.get("display_name", ""))
+            if not confere or norm(confere) in nome:
+                result = [round(float(achado["lat"]), 6), round(float(achado["lon"]), 6)]
     except Exception as e:
         print(f"[geo] {query}: {e}", flush=True)
     with _geo_lock:
-        _geo[query] = result
+        _geo[chave] = result
         os.makedirs(DATA_DIR, exist_ok=True)
         with open(GEO_CACHE, "w", encoding="utf-8") as f:
             json.dump(_geo, f, ensure_ascii=False)
@@ -361,54 +364,61 @@ def is_noise(text):
     n = norm(text)
     return any(t in n for t in NOISE_TERMS)
 
-CIDADES = ["Franca", "Sertãozinho", "Barretos", "Batatais", "Cravinhos", "Jardinópolis",
-           "Brodowski", "Serrana", "Araraquara", "São Carlos", "Ribeirão Preto"]
+CIDADES = list(CIDADE_QUERY.keys())
 
 VIA_RE = re.compile(
-    r"(Rua|Avenida|Av\.|Praça|Praca|Alameda|Rodovia|Estrada|Largo|Parque|Teatro|Theatro|Museu|"
-    r"Shopping|Hospital|Estádio|Estadio|Jardim|Vila|Bairro|Distrito|Terminal|Aeroporto|Igreja|"
-    r"Escola|Colégio|Colegio|Faculdade|Universidade|Câmara|Camara|Prefeitura|Sesc|Senac|Centro)\s+"
-    r"([A-ZÁÉÍÓÚÂÊÔÃÕÇ][\wÀ-ÿ'’.-]*(?:\s+(?:de|da|do|dos|das|e|[A-ZÁÉÍÓÚÂÊÔÃÕÇ][\wÀ-ÿ'’.-]*)){0,4})")
+    r"\b(Rua|Avenida|Av\.|Praça|Praca|Alameda|Rodovia|Estrada|Largo|Parque|Teatro|Theatro|Museu|"
+    r"Jardim|Vila|Bairro|Distrito|Terminal|Igreja|Escola|Colégio|Colegio|Faculdade|Sesc|Senac)\s+"
+    r"([A-ZÁÉÍÓÚÂÊÔÃÕÇ][\wÀ-ÿ'.-]*(?:\s+(?:de|da|do|dos|das|e|[A-ZÁÉÍÓÚÂÊÔÃÕÇ][\wÀ-ÿ'.-]*)){0,4})")
 
-BBOX = (-22.6, -19.6, -49.8, -46.6)   # lat_min, lat_max, lng_min, lng_max
-
-def dentro(c):
-    return c and BBOX[0] <= c[0] <= BBOX[1] and BBOX[2] <= c[1] <= BBOX[3]
+def haversine(a, b):
+    from math import radians, sin, cos, asin, sqrt
+    la1, lo1, la2, lo2 = map(radians, [a[0], a[1], b[0], b[1]])
+    h = sin((la2 - la1) / 2) ** 2 + cos(la1) * cos(la2) * sin((lo2 - lo1) / 2) ** 2
+    return 6371 * 2 * asin(sqrt(h))
 
 def cidade_do_texto(text):
     n = norm(text)
     for c in CIDADES:
-        if norm(c) in n:
+        if re.search(r"\b" + re.escape(norm(c)) + r"\b", n):
             return c
-    return "Ribeirão Preto"
+    return None
 
-def guess_place(text):
-    """1) lugar conhecido  2) rua/avenida/equipamento citado  3) cidade."""
+def perto_da_cidade(coords, cidade, limite_km=35):
+    centro = geocode(CIDADE_QUERY.get(cidade, ""))
+    return bool(coords and centro and haversine(coords, centro) <= limite_km)
+
+def guess_place(text, regional=False):
+    """Só devolve local quando dá para confirmar. Sem confirmação, sem pin."""
     n = norm(text)
-    for name, terms, query in PLACES:
-        if name in CIDADES:
-            continue
-        if any(t in n for t in terms):
-            c = geocode(query)
-            if dentro(c):
-                return {"place": name, "lat": c[0], "lng": c[1]}
-
     cidade = cidade_do_texto(text)
+
+    # 1) lugar conhecido — precisa bater com a cidade citada (ou vir de feed regional sem outra cidade)
+    for name, terms, query, cid in PLACES:
+        if not any(re.search(r"\b" + re.escape(t) + r"\b", n) for t in terms):
+            continue
+        if cidade and cidade != cid:
+            continue
+        if not cidade and not regional:
+            continue
+        c = geocode(query)
+        if c and perto_da_cidade(c, cid, 25):
+            return {"place": name, "lat": c[0], "lng": c[1]}
+        return None
+
+    # 2) rua / bairro / equipamento citado no texto, dentro da cidade citada
+    alvo = cidade or ("Ribeirão Preto" if regional else None)
+    if not alvo:
+        return None
     tentativas = 0
     for m in VIA_RE.finditer(text):
         via = f"{m.group(1)} {m.group(2)}".strip(" .,;")
-        if len(via) < 8 or tentativas >= 3:
+        if len(via) < 9 or tentativas >= 3:
             continue
         tentativas += 1
-        c = geocode(f"{via}, {cidade}, SP")
-        if dentro(c):
+        c = geocode(f"{via}, {alvo}, SP", confere=alvo)
+        if c and perto_da_cidade(c, alvo):
             return {"place": via, "lat": c[0], "lng": c[1]}
-
-    for name, terms, query in PLACES:
-        if name in CIDADES and any(t in n for t in terms):
-            c = geocode(query)
-            if dentro(c):
-                return {"place": name, "lat": c[0], "lng": c[1]}
     return None
 
 def is_regional(text):
@@ -426,7 +436,7 @@ def build_item(feed, raw_item):
     if is_noise(raw_item["title"]):
         return None
     iid = hashlib.sha1(raw_item["link"].encode()).hexdigest()[:12]
-    place = guess_place(text)
+    place = guess_place(text, feed["regional"])
     return {
         "id": iid,
         "kind": "evento" if is_event(text) else "noticia",

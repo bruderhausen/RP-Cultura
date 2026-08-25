@@ -10,7 +10,7 @@ const UI = {
   pt: {
     search: "Eventos perto de mim", main: "Principais notícias", events: "Eventos na região",
     updates: "Atualizações da região", swipe: "deslize →", home: "Início", map: "Mapa", profile: "Perfil",
-    mapHint: "Toque em um pin para ver a notícia do local", news: "Notícia", event: "Evento",
+    mapHint: "Só aparecem notícias com local confirmado", news: "Notícia", event: "Evento",
     saved: "Salvos", savedNews: "Notícias", savedEvents: "Eventos",
     receive: "O que você quer receber", interests: "Seus interesses", guideAgain: "Rever o guia do app",
     authCta: "Entre ou cadastre-se", visitor: "Visitante", visitorSub: "Entre para salvar e personalizar",
@@ -23,7 +23,7 @@ const UI = {
   en: {
     search: "Events near me", main: "Top stories", events: "Events nearby",
     updates: "Regional updates", swipe: "swipe →", home: "Home", map: "Map", profile: "Profile",
-    mapHint: "Tap a pin to read the local story", news: "Story", event: "Event",
+    mapHint: "Only stories with a confirmed location", news: "Story", event: "Event",
     saved: "Saved", savedNews: "News", savedEvents: "Events",
     receive: "What you want to receive", interests: "Your interests", guideAgain: "See the app guide again",
     authCta: "Sign in or sign up", visitor: "Guest", visitorSub: "Sign in to save and personalize",
@@ -36,7 +36,7 @@ const UI = {
   es: {
     search: "Eventos cerca de mí", main: "Noticias principales", events: "Eventos en la región",
     updates: "Actualizaciones de la región", swipe: "desliza →", home: "Inicio", map: "Mapa", profile: "Perfil",
-    mapHint: "Toca un pin para ver la noticia del lugar", news: "Noticia", event: "Evento",
+    mapHint: "Solo noticias con lugar confirmado", news: "Noticia", event: "Evento",
     saved: "Guardados", savedNews: "Noticias", savedEvents: "Eventos",
     receive: "Qué quieres recibir", interests: "Tus intereses", guideAgain: "Ver la guía otra vez",
     authCta: "Entra o regístrate", visitor: "Visitante", visitorSub: "Entra para guardar y personalizar",
