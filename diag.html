@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RP Cultural — diagnóstico</title>
+<style>
+:root{
+  --bg:#F6F5FB; --card:#fff; --ink:#14112B; --ink-2:#4A4666; --ink-3:#8C88A6;
+  --line:#E5E2F2; --brand:#4B2ED4; --ok:#0E7B63; --alerta:#B0322A; --aviso:#9A6500;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:15px/1.45 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:20px}
+h1{font-size:19px;margin:0 0 2px}
+.sub{color:var(--ink-3);font-size:13px;margin-bottom:18px}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));max-width:1000px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.card h2{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--ink-3);margin:0 0 10px}
+.n{font-size:26px;font-weight:800;line-height:1}
+.n small{font-size:13px;font-weight:600;color:var(--ink-3);margin-left:4px}
+.linha{display:flex;justify-content:space-between;gap:10px;padding:5px 0;
+  border-top:1px solid var(--line);font-size:13.5px}
+.linha:first-of-type{border-top:0}
+.linha b{font-variant-numeric:tabular-nums}
+.alertas{max-width:1000px;margin:0 0 12px}
+.alerta{background:#FDECEA;border:1px solid #F3C7C2;color:var(--alerta);
+  border-radius:12px;padding:10px 14px;margin-bottom:8px;font-size:13.5px}
+.ok{background:#E7F5F1;border:1px solid #BFE3D9;color:var(--ok);
+  border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:13.5px}
+.pill{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px}
+.pill--ok{background:#E7F5F1;color:var(--ok)}
+.pill--ruim{background:#FDECEA;color:var(--alerta)}
+.rodape{color:var(--ink-3);font-size:12px;margin-top:18px;max-width:1000px}
+.barra{height:7px;border-radius:99px;background:var(--line);overflow:hidden;margin-top:9px}
+.barra i{display:block;height:100%;background:var(--brand)}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#151328;--card:#1E1B36;--ink:#F2F1F8;--ink-2:#B9B5CE;--ink-3:#8681A0;--line:#2E2A4C}
+  .alerta{background:#3A1F1D;border-color:#5B2E29;color:#F0B4AE}
+  .ok{background:#17342D;border-color:#255245;color:#8FD9C6}
+  .pill--ok{background:#17342D;color:#8FD9C6} .pill--ruim{background:#3A1F1D;color:#F0B4AE}
+}
+</style>
+</head>
+<body>
+<h1>RP Cultural — diagnóstico</h1>
+<div class="sub" id="sub">carregando…</div>
+<div class="alertas" id="alertas"></div>
+<div class="grid" id="grid"></div>
+<div class="rodape">Atualiza sozinho a cada 30s. Fonte: <code>/api/health</code>.</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = t => String(t).replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+
+function quando(iso){
+  if(!iso) return "nunca";
+  const min = Math.round((Date.now() - new Date(iso)) / 60000);
+  if(min < 1) return "agora";
+  if(min < 60) return `há ${min} min`;
+  const h = Math.round(min/60);
+  return h < 24 ? `há ${h} h` : `há ${Math.round(h/24)} d`;
+}
+
+function card(titulo, corpo){ return `<div class="card"><h2>${titulo}</h2>${corpo}</div>`; }
+function linhas(par){
+  return par.map(([k,v]) => `<div class="linha"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join("");
+}
+
+async function carregar(){
+  let d;
+  try{
+    d = await (await fetch("api/health", {cache:"no-store"})).json();
+  }catch(e){
+    $("#sub").textContent = "servidor fora do ar";
+    $("#alertas").innerHTML = `<div class="alerta">Não consegui falar com /api/health: ${esc(e.message)}</div>`;
+    return;
+  }
+
+  $("#sub").textContent =
+    `última coleta ${quando(d.updated)} · ciclo de ${d.refresh}s · regras de local v${d.geo_versao}`;
+
+  const alertas = d.alerts || [];
+  $("#alertas").innerHTML = alertas.length
+    ? alertas.map(a => `<div class="alerta">${esc(a)}</div>`).join("")
+    : `<div class="ok">Nenhum alerta. Coleta e localização rodando.</div>`;
+
+  const L = d.local || {}, I = d.itens || {};
+  const comCoord = L.com_coordenada || 0;
+  const pct = comCoord ? Math.round(100 * (L.proprio || 0) / comCoord) : 0;
+
+  const fontes = Object.entries(d.fontes_evento?.fontes || {}).map(([nome, f]) =>
+    `<div class="linha"><span>${esc(nome)}</span>
+      <b><span class="pill ${f.ok ? "pill--ok" : "pill--ruim"}">${f.ok ? "ok" : "falha"}</span>
+      ${esc(f.itens ?? 0)}</b></div>`).join("") || `<div class="linha"><span>sem dados</span><b>—</b></div>`;
+
+  $("#grid").innerHTML = [
+    card("Conteúdo", `<div class="n">${I.total ?? 0}<small>itens</small></div>` +
+      linhas([["notícias", I.noticias ?? 0], ["eventos", I.eventos ?? 0]])),
+
+    card("Precisão do mapa",
+      `<div class="n">${pct}<small>% em local próprio</small></div>
+       <div class="barra"><i style="width:${pct}%"></i></div>` +
+      linhas([["local próprio", L.proprio ?? 0],
+              ["centro da cidade", L.centro_da_cidade ?? 0],
+              ["sem coordenada", L.sem_coordenada ?? 0]])),
+
+    card("Fila de refino", `<div class="n">${d.fila_refino ?? 0}<small>na fila</small></div>` +
+      linhas([["cache de endereços", d.geocodificador?.cache ?? 0],
+              ["consultas em espera", d.geocodificador?.em_espera ?? 0]])),
+
+    card("Plataformas de evento", fontes),
+
+    card("Itens por fonte", linhas(
+      Object.entries(d.feeds || {}).sort((a,b) => b[1]-a[1]))),
+  ].join("");
+}
+
+carregar();
+setInterval(carregar, 30000);
+</script>
+</body>
+</html>

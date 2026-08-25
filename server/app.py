@@ -1159,6 +1159,46 @@ def broadcast(payload):
         except Exception:
             pass
 
+def health_payload():
+    """Diagnóstico da coleta. Fica fora do handler para ser testável."""
+    # sempre 200: o Render usa esta rota como healthCheck e derrubaria
+    # o serviço por causa de uma raspagem de evento quebrada
+    with _lock:
+        itens = list(_state["items"])
+        updated = _state["updated"]
+    alertas = []
+    if _diag["erro_geral"]:
+        alertas.append("eventos: " + _diag["erro_geral"])
+    for nome, f in (_diag["fontes"] or {}).items():
+        if not f.get("ok"):
+            alertas.append(f"{nome}: {f.get('erro') or 'zero itens'}")
+    por_fonte = {}
+    for i in itens:
+        por_fonte[i.get("src", "?")] = por_fonte.get(i.get("src", "?"), 0) + 1
+    finos = sum(1 for i in itens if i.get("preciso"))
+    com_local = sum(1 for i in itens if i.get("lat") is not None)
+    eventos_n = sum(1 for i in itens if i.get("kind") == "evento")
+    if com_local and finos / com_local < 0.15:
+        alertas.append(f"só {finos} de {com_local} itens com local próprio")
+    if not eventos_n:
+        alertas.append("nenhum evento no histórico")
+    return {
+        "ok": True,
+        "updated": updated,
+        "refresh": REFRESH_SECONDS,
+        "geo_versao": GEO_VERSAO,
+        "itens": {"total": len(itens), "noticias": len(itens) - eventos_n,
+                  "eventos": eventos_n},
+        "local": {"com_coordenada": com_local, "proprio": finos,
+                  "centro_da_cidade": com_local - finos,
+                  "sem_coordenada": len(itens) - com_local},
+        "fila_refino": _fila.qsize(),
+        "geocodificador": {"cache": len(_geo), "em_espera": len(_geo_falhas)},
+        "feeds": por_fonte,
+        "fontes_evento": _diag,
+        "alerts": alertas,
+    }
+
 # ---------------------------------------------------------------- API
 def feed_payload():
     with _lock:
@@ -1212,7 +1252,7 @@ def build_stamp():
     """Carimbo do build: muda sempre que css/js/html mudam, matando cache antigo."""
     h = hashlib.sha1()
     for rel in ("index.html", "css/styles.css", "js/app.js", "js/data.js", "js/i18n.js", "js/live.js",
-                "manifest.json", "assets/icon-192.png", "assets/icon-512.png", "assets/favicon-32.png"):
+                "diag.html", "manifest.json", "assets/icon-192.png", "assets/icon-512.png", "assets/favicon-32.png"):
         try:
             st = os.stat(os.path.join(ROOT, rel))
             h.update(f"{rel}{st.st_mtime_ns}{st.st_size}".encode())
@@ -1275,19 +1315,7 @@ class Handler(SimpleHTTPRequestHandler):
         if path == "/api/feed":
             return self._json(feed_payload())
         if path == "/api/health":
-            # sempre 200: o Render usa esta rota como healthCheck e derrubaria
-            # o serviço por causa de uma raspagem de evento quebrada
-            alertas = []
-            if _diag["erro_geral"]:
-                alertas.append("eventos: " + _diag["erro_geral"])
-            for nome, f in (_diag["fontes"] or {}).items():
-                if not f.get("ok"):
-                    alertas.append(f"{nome}: {f.get('erro') or 'zero itens'}")
-            return self._json({"ok": True, "items": len(_state["items"]),
-                               "events": sum(1 for i in _state["items"]
-                                             if i.get("kind") == "evento"),
-                               "sources": _diag, "alerts": alertas,
-                               "updated": _state["updated"]})
+            return self._json(health_payload())
         if path == "/api/refresh":
             return self._json({"new": refresh(), "updated": _state["updated"]})
         if path == "/api/stream":
