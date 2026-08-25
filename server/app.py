@@ -349,6 +349,34 @@ def parse_feed(raw):
     return out
 
 # ---------------------------------------------------------------- regras
+MESES_PT = {"janeiro":1,"fevereiro":2,"marco":3,"abril":4,"maio":5,"junho":6,"julho":7,
+            "agosto":8,"setembro":9,"outubro":10,"novembro":11,"dezembro":12}
+DATA_EXT_RE = re.compile(r"(\d{1,2})\s+de\s+([a-zç]+)", re.I)
+DATA_NUM_RE = re.compile(r"(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?")
+DIA_PAR_RE  = re.compile(r"\((\d{1,2})\)")
+
+def data_do_evento(text, publicado):
+    """Quando o evento acontece, lido do texto. Sem pista, devolve None."""
+    base = datetime.fromisoformat(publicado)
+    n = norm(text)
+    m = DATA_EXT_RE.search(n)
+    if m and norm(m.group(2)) in MESES_PT:
+        dia, mes = int(m.group(1)), MESES_PT[norm(m.group(2))]
+    else:
+        m = DATA_NUM_RE.search(text)
+        if m:
+            dia, mes = int(m.group(1)), int(m.group(2))
+        else:
+            m = DIA_PAR_RE.search(text)
+            if not m:
+                return None
+            dia, mes = int(m.group(1)), base.month
+    try:
+        ano = base.year + (1 if mes < base.month - 6 else 0)
+        return datetime(ano, mes, min(dia, 28 if mes == 2 else 30), 12, tzinfo=timezone.utc).isoformat()
+    except ValueError:
+        return None
+
 def guess_category(text):
     n = norm(text)
     for cat, terms in CATEGORY_RULES:
@@ -359,6 +387,18 @@ def guess_category(text):
 def is_event(text):
     n = norm(text)
     return any(t in n for t in EVENT_TERMS)
+
+PREFIXO_RE = re.compile(r"^(fotos|video|videos|v[ií]deo|ao vivo|urgente|exclusivo|an[aá]lise)\s*:\s*", re.I)
+
+def assinatura(titulo):
+    t = PREFIXO_RE.sub("", titulo or "")
+    palavras = [w for w in re.findall(r"[a-z0-9]+", norm(t)) if len(w) > 3]
+    return frozenset(palavras[:12])
+
+def parecidos(a, b):
+    if not a or not b:
+        return False
+    return len(a & b) / max(len(a), len(b)) >= 0.7
 
 def is_noise(text):
     n = norm(text)
@@ -407,7 +447,7 @@ def guess_place(text, regional=False):
         return None
 
     # 2) rua / bairro / equipamento citado no texto, dentro da cidade citada
-    alvo = cidade or ("Ribeirão Preto" if regional else None)
+    alvo = cidade
     if not alvo:
         return None
     tentativas = 0
@@ -441,6 +481,7 @@ def build_item(feed, raw_item):
     if is_noise(raw_item["title"]):
         return None
     iid = hashlib.sha1(raw_item["link"].encode()).hexdigest()[:12]
+    quando = data_do_evento(text, raw_item["published"] or datetime.now(timezone.utc).isoformat()) if is_event(text) else None
     place = guess_place(text, feed["regional"])
     return {
         "id": iid,
@@ -454,6 +495,7 @@ def build_item(feed, raw_item):
         "srcName": feed["name"],
         "srcSite": feed["site"],
         "published": raw_item["published"] or datetime.now(timezone.utc).isoformat(),
+        "when": quando,
         "place": (place or {}).get("place"),
         "lat": (place or {}).get("lat"),
         "lng": (place or {}).get("lng"),
@@ -465,6 +507,18 @@ _lock = threading.Lock()
 _state = {"items": [], "updated": None}
 _subscribers = []
 
+GIST_ID = os.environ.get("GIST_ID", "")
+GIST_TOKEN = os.environ.get("GIST_TOKEN", "")
+
+def gist(metodo, corpo=None):
+    req = urllib.request.Request(
+        f"https://api.github.com/gists/{GIST_ID}", method=metodo,
+        data=json.dumps(corpo).encode() if corpo else None,
+        headers={**UA, "Authorization": f"Bearer {GIST_TOKEN}",
+                 "Accept": "application/vnd.github+json"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        return json.loads(r.read().decode())
+
 def load_store():
     try:
         with open(STORE, encoding="utf-8") as f:
@@ -473,6 +527,14 @@ def load_store():
         _state["updated"] = data.get("updated")
     except Exception:
         pass
+    if not _state["items"] and GIST_ID and GIST_TOKEN:
+        try:                                   # historico guardado fora do disco efemero
+            dados = json.loads(gist("GET")["files"]["news.json"]["content"])
+            _state["items"] = dados.get("items", [])
+            _state["updated"] = dados.get("updated")
+            print(f"[gist] {len(_state['items'])} itens recuperados", flush=True)
+        except Exception as e:
+            print("[gist]", e, flush=True)
 
 def save_store():
     os.makedirs(DATA_DIR, exist_ok=True)
@@ -480,6 +542,12 @@ def save_store():
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump({"updated": _state["updated"], "items": _state["items"]}, f, ensure_ascii=False)
     os.replace(tmp, STORE)
+    if GIST_ID and GIST_TOKEN:
+        try:
+            gist("PATCH", {"files": {"news.json": {"content": json.dumps(
+                {"updated": _state["updated"], "items": _state["items"][:200]}, ensure_ascii=False)}}})
+        except Exception as e:
+            print("[gist]", e, flush=True)
 
 def prune(items):
     limit = datetime.now(timezone.utc) - timedelta(days=HISTORY_DAYS)
@@ -571,13 +639,13 @@ def refresh():
 
     with _lock:
         known = {i["id"] for i in _state["items"]}
-        titles = {norm(i["title"]) for i in _state["items"]}
+        assinaturas = [assinatura(i["title"]) for i in _state["items"]]
         fresh = []
         for i in collected:
-            t = norm(i["title"])
-            if i["id"] in known or t in titles:
+            a = assinatura(i["title"])
+            if i["id"] in known or any(parecidos(a, b) for b in assinaturas):
                 continue
-            known.add(i["id"]); titles.add(t)
+            known.add(i["id"]); assinaturas.append(a)
             fresh.append(i)
         merged = prune(fresh + _state["items"])
         _state["items"] = merged

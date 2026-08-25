@@ -17,11 +17,20 @@ function ago(iso) {
   return dias === 1 ? "ontem" : `há ${dias} dias`;
 }
 
+function quando(iso) {
+  const d = new Date(iso), hoje = new Date();
+  const dias = Math.round((d - hoje) / 86400000);
+  const data = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
+  if (dias === 0) return "hoje";
+  if (dias === 1) return "amanhã";
+  return dias > 0 ? `${data}` : data;
+}
+
 function shape(i) {
-  const d = new Date(i.published);
+  const d = new Date(i.when || i.published);
   const palavras = (i.lead || "").split(/\s+/).length;
   return Object.assign({}, i, {
-    time: ago(i.published),
+    time: i.when ? quando(i.when) : ago(i.published),
     read: `${Math.max(1, Math.round(palavras / 180))} min`,
     body: [],
     figcap: [i.srcName, i.place].filter(Boolean).join(" · "),
@@ -38,13 +47,28 @@ function paintLiveBadge() {
   el.innerHTML = `<i></i> ao vivo · ${ago(liveUpdated)}`;
 }
 
+function semServidor(ligado) {
+  const el = document.getElementById("liveBadge");
+  if (!el) return;
+  el.hidden = false;
+  el.classList.toggle("live--off", ligado);
+  if (ligado) el.innerHTML = "sem conexão com o servidor";
+}
+
 async function loadLive(aviso) {
   let data;
   try {
     const r = await fetch(API + "feed", { cache: "no-store" });
     if (!r.ok) throw new Error(r.status);
     data = await r.json();
-  } catch (e) { return false; }
+  } catch (e) {
+    // nunca mostrar o conteúdo de demonstração como se fosse notícia real
+    NEWS = []; EVENTS = []; ALL = []; PINS = []; UPDATES = [];
+    if (!document.getElementById("app").hidden) { renderHome(); renderMap(); }
+    semServidor(true);
+    setTimeout(() => loadLive(), 15000);
+    return false;
+  }
   if (!data.news.length && !data.events.length) return false;
 
   SOURCES = data.sources;
@@ -58,6 +82,7 @@ async function loadLive(aviso) {
     s: `${i.srcName} · ${i.time}`
   }));
   liveUpdated = data.updated;
+  semServidor(false);
 
   if (!document.getElementById("app").hidden) {
     renderHome(); renderMap(); paintLiveBadge();

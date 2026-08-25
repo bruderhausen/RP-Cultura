@@ -9,7 +9,7 @@ const KEY = "rpcultural.v1";
 const S = Object.assign({
   cat: "Todos", q: "", lang: "pt", screen: "home",
   saved: [], prefs: { noticias: true, eventos: true, alertas: false },
-  interests: ["Show", "Cultura"], user: null, avatar: null, guideSeen: false
+  interests: [], user: null, avatar: null, guideSeen: false
 }, JSON.parse(localStorage.getItem(KEY) || "{}"));
 
 const save = () => localStorage.setItem(KEY, JSON.stringify(S));
@@ -185,6 +185,8 @@ $("#searchInput").addEventListener("input", e => { S.q = e.target.value.trim().t
 $("#regionBtn").addEventListener("click", () => toast("Ribeirão Preto e região · protótipo"));
 
 function match(i) {
+  if (i.kind === "noticia" && !S.prefs.noticias) return false;
+  if (i.kind === "evento" && !S.prefs.eventos) return false;
   const okCat = S.cat === "Todos" || i.cat === S.cat;
   const L = loc(i);
   const okQ = !S.q || (L.title + " " + L.lead + " " + (i.place || "")).toLowerCase().includes(S.q);
@@ -192,8 +194,14 @@ function match(i) {
 }
 
 function renderHome() {
-  const news = NEWS.filter(match);
-  const evs  = EVENTS.filter(match);
+  // interesses afinam o feed, mas nunca o deixam vazio
+  const porInteresse = l => {
+    if (S.cat !== "Todos" || !S.interests.length) return l;
+    const f = l.filter(i => S.interests.includes(i.cat));
+    return f.length ? f : l;
+  };
+  const news = porInteresse(NEWS.filter(match));
+  const evs  = porInteresse(EVENTS.filter(match));
   const hero = news[0] || evs[0];
 
   $("#heroCard").hidden = !hero;
@@ -269,6 +277,8 @@ function openArticle(id) {
     <div class="page__bar">
       <button class="circbtn" data-back aria-label="Voltar"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
       <h1>${i.kind === "evento" ? t("event") : t("news")}</h1>
+      <button class="circbtn" id="shareBtn" aria-label="Compartilhar">
+        <svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.8l7.6-4.4M8.2 13.2l7.6 4.4"/></svg></button>
       <button class="circbtn${isSaved(i.id) ? " is-on" : ""}" id="saveBtn" aria-label="${t("save")}">
         <svg viewBox="0 0 24 24"><path d="M7 4h10v16l-5-4-5 4z"/></svg></button>
     </div>
@@ -293,6 +303,11 @@ function openArticle(id) {
         <div class="list related">${related.map(cardHTML).join("")}</div>` : ""}
     </div>`);
 
+  $("#shareBtn").addEventListener("click", async () => {
+    const dados = { title: L.title, text: L.lead, url: i.url || src.url };
+    if (navigator.share) { try { await navigator.share(dados); } catch (e) {} }
+    else { navigator.clipboard?.writeText(dados.url); toast("Link copiado"); }
+  });
   $("#saveBtn").addEventListener("click", () => {
     $("#saveBtn").classList.toggle("is-on", toggleSave(i.id));
   });
@@ -421,10 +436,10 @@ $("#interestChips").addEventListener("click", e => {
   const b = e.target.closest("[data-int]"); if (!b) return;
   const c = b.dataset.int, i = S.interests.indexOf(c);
   i > -1 ? S.interests.splice(i, 1) : S.interests.push(c);
-  save(); b.classList.toggle("is-on");
+  save(); b.classList.toggle("is-on"); renderHome();
 });
 $$("[data-pref]").forEach(c => c.addEventListener("change", () => {
-  S.prefs[c.dataset.pref] = c.checked; save();
+  S.prefs[c.dataset.pref] = c.checked; save(); renderHome();
   toast(`${c.parentElement.querySelector("b").textContent}: ${c.checked ? "ativado" : "desativado"}`);
 }));
 $("#avatarBtn").addEventListener("click", () => $("#avatarFile").click());
