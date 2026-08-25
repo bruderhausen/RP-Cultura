@@ -263,9 +263,11 @@ img{max-width:100%;display:block}
 .pinwrap .pin{background:none;box-shadow:none;width:auto;position:relative;transform:none;display:flex;flex-direction:column;align-items:center;animation:none}
 .pinwrap .pin:active{transform:scale(.94)}
 .pinwrap .pin__label{display:none}
-.pinwrap .pin__n,.pin__n{position:absolute;z-index:300;left:0;right:0;top:5px;text-align:center;font-size:11px;font-weight:800;
-  line-height:14px;color:var(--brand);pointer-events:none}
-.pin--ev .pin__n{color:#8A5A00}
+.pinwrap .pin__n,.pin__n{position:absolute;z-index:300;top:-5px;right:-9px;min-width:19px;height:19px;
+  padding:0 5px;border-radius:99px;border:2px solid #fff;background:var(--brand-ink);color:#fff;
+  font-size:11px;font-weight:700;line-height:15px;text-align:center;pointer-events:none;
+  box-shadow:0 2px 6px rgba(36,17,103,.35)}
+.pin--ev .pin__n{background:#8A5A00}
 .sheet__more{display:flex;flex-direction:column;gap:6px;margin:2px 0 4px}
 .sheet__more b{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3)}
 .sheet__more button{text-align:left;font-size:13.5px;font-weight:600;color:var(--brand-ink);background:var(--surface-2);border-radius:12px;padding:9px 12px;line-height:1.25}
