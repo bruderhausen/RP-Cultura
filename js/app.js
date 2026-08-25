@@ -136,7 +136,11 @@ function go(name) {
   $$(".screen").forEach(s => { s.hidden = s.dataset.screen !== name; });
   $$(".tab").forEach(b => b.classList.toggle("is-on", b.dataset.go === name));
   if (name === "perfil") renderProfile();
-  if (name === "mapa") refreshMapSize();
+  if (name === "mapa") {
+    refreshMapSize();
+    if (!S.geo && !S.geoNegado) pedirLocalizacao(true, true);   // pede ao abrir o mapa
+    else marcarUsuario(false);
+  }
 }
 
 /* páginas empilhadas — cada camada aberta vira um passo no histórico,
@@ -392,8 +396,10 @@ function marcarUsuario(centralizar) {
   if (!_map || !S.geo) return;
   const [lat, lng, prec] = S.geo;
   if (!_euMarker) {
-    _euMarker = L.circleMarker([lat, lng], {
-      radius: 8, color: "#fff", weight: 3, fillColor: "#1A73E8", fillOpacity: 1
+    _euMarker = L.marker([lat, lng], {
+      zIndexOffset: 1000,
+      icon: L.divIcon({ className: "euwrap", iconSize: [22, 22], iconAnchor: [11, 11],
+        html: '<span class="eu"><i></i></span>' })
     }).addTo(_map).bindTooltip("Você está aqui");
     _euCirculo = L.circle([lat, lng], { radius: prec || 120, color: "#1A73E8",
       weight: 1, fillColor: "#1A73E8", fillOpacity: .12 }).addTo(_map);
@@ -404,15 +410,25 @@ function marcarUsuario(centralizar) {
   if (centralizar) _map.setView([lat, lng], 14);
 }
 
-function pedirLocalizacao(centralizar = true) {
-  if (!navigator.geolocation) return toast("Este aparelho não informa a localização");
-  toast("Buscando sua localização…");
-  navigator.geolocation.getCurrentPosition(pos => {
+let _watch = null;
+
+function pedirLocalizacao(centralizar = true, silencioso = false) {
+  if (!navigator.geolocation) return silencioso || toast("Este aparelho não informa a localização");
+  if (!silencioso) toast("Buscando sua localização…");
+  const guardar = (pos, centrar) => {
     S.geo = [+pos.coords.latitude.toFixed(6), +pos.coords.longitude.toFixed(6),
              Math.round(pos.coords.accuracy || 120)];
-    save(); marcarUsuario(centralizar); renderHome();
-    toast("Mostrando o que está perto de você");
-  }, () => toast("Não consegui acessar sua localização"),
+    save(); marcarUsuario(centrar); renderHome();
+  };
+  navigator.geolocation.getCurrentPosition(pos => {
+    guardar(pos, centralizar);
+    if (!silencioso) toast("Mostrando o que está perto de você");
+    // segue acompanhando o usuário enquanto o app estiver aberto
+    if (_watch === null) {
+      _watch = navigator.geolocation.watchPosition(p => guardar(p, false), () => {},
+        { enableHighAccuracy: true, maximumAge: 15000, timeout: 20000 });
+    }
+  }, () => { S.geoNegado = true; save(); if (!silencioso) toast("Não consegui acessar sua localização"); },
      { enableHighAccuracy: true, timeout: 9000, maximumAge: 300000 });
 }
 

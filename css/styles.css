@@ -257,6 +257,11 @@ img{max-width:100%;display:block}
 .leaflet-container{font-family:var(--font);background:#F2F6FA}
 .leaflet-control-attribution{font-size:10px}
 .pinwrap{background:none;border:0}
+.euwrap{background:none;border:0}
+.eu{display:block;width:22px;height:22px;border-radius:50%;background:#1A73E8;border:3px solid #fff;
+  box-shadow:0 2px 8px rgba(26,115,232,.55);position:relative}
+.eu i{position:absolute;inset:-9px;border-radius:50%;border:2px solid rgba(26,115,232,.5);animation:euPulso 2s ease-out infinite}
+@keyframes euPulso{0%{transform:scale(.6);opacity:.9}70%{transform:scale(1.6);opacity:0}100%{opacity:0}}
 .pinwrap .pin{background:none;box-shadow:none;width:auto;position:relative;transform:none;display:flex;flex-direction:column;align-items:center;animation:none}
 .pinwrap .pin:active{transform:scale(.94)}
 .pinwrap .pin__label{display:none}

@@ -462,7 +462,7 @@ def guess_place(text, regional=False):
         return None
 
     # 2) rua / bairro / equipamento citado no texto, dentro da cidade citada
-    alvo = cidade
+    alvo = cidade or ("Ribeirão Preto" if regional else None)
     if not alvo:
         return None
     tentativas = 0
