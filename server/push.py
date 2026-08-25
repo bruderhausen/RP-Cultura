@@ -37,6 +37,16 @@ VAPID_PUBLIC = os.environ.get("VAPID_PUBLIC", "").strip()
 VAPID_PRIVATE = os.environ.get("VAPID_PRIVATE", "").strip()
 VAPID_SUB = os.environ.get("VAPID_SUB", "mailto:contato@rpcultural.app").strip()
 
+# O disco do Render free é apagado a cada restart, e o serviço hiberna sozinho
+# quando fica sem tráfego. Sem uma cópia fora do container, toda inscrição some
+# e ninguém mais recebe nada. app.py injeta aqui a leitura e a gravação remotas.
+_backup_ler = None
+_backup_gravar = None
+
+def configurar_backup(ler, gravar):
+    global _backup_ler, _backup_gravar
+    _backup_ler, _backup_gravar = ler, gravar
+
 _lock = threading.Lock()
 _subs = {}          # endpoint -> {"endpoint":..., "criado":...}
 _avisos = {}        # endpoint -> {"titulo":..., "corpo":..., "url":...}
@@ -54,12 +64,20 @@ def b64e(dados):
 
 # ---------------------------------------------------------------- inscrições
 def carregar():
+    """Disco primeiro; se estiver vazio, tenta a cópia remota."""
     global _subs
     try:
         with open(ARQUIVO, encoding="utf-8") as f:
             _subs = {s["endpoint"]: s for s in json.load(f)}
     except Exception:
         _subs = {}
+    if not _subs and _backup_ler:
+        try:
+            _subs = {s["endpoint"]: s for s in (_backup_ler("subs.json") or [])}
+            if _subs:
+                print(f"[push] {len(_subs)} inscrições recuperadas do backup", flush=True)
+        except Exception as e:
+            print("[push] backup:", e, flush=True)
 
 
 def _gravar():
@@ -68,6 +86,11 @@ def _gravar():
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(list(_subs.values()), f, ensure_ascii=False)
     os.replace(tmp, ARQUIVO)
+    if _backup_gravar:
+        try:
+            _backup_gravar("subs.json", list(_subs.values()))
+        except Exception as e:
+            print("[push] backup:", e, flush=True)
 
 
 def inscrever(sub):

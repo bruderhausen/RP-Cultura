@@ -169,7 +169,7 @@ function startApp() {
   renderChips(); renderHome(); renderMap(); renderProfile(); paintSavedCount(); applyLang();
   pintarCidade();
   if (window.paintLiveBadge) paintLiveBadge();
-  if (S.avisarSalvos) enviarLembretes();   // reagenda o que ainda vale
+  garantirInscricao();
   // iPhone não dispara o evento de instalação: mostramos o atalho mesmo assim
   if (!instalado() && /iphone|ipad|ipod/i.test(navigator.userAgent)) $("#btnInstalar").hidden = false;
 }
@@ -848,6 +848,43 @@ async function enviarLembretes() {
     return await r.json();
   } catch (e) { return null; }
 }
+
+/* Reinscreve em silêncio a cada abertura.
+
+   O servidor pode ter esquecido o aparelho: no plano free o container é
+   recriado e o disco vai junto. O navegador também renova a inscrição por
+   conta própria de tempos em tempos. Em qualquer um dos casos a pessoa
+   continuaria com o interruptor ligado e sem receber nada. */
+async function garantirInscricao() {
+  if (!S.prefs.alertas) return;
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+  if (Notification.permission !== "granted") return;   // sem permissão, nada a fazer
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      const chave = await (await fetch("api/push/chave", { cache: "no-store" })).json();
+      if (!chave.ativo) return;
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true, applicationServerKey: bytesDaChave(chave.chave) });
+    }
+    // sempre reenvia: é barato e cobre o servidor que perdeu a lista
+    await fetch("api/push/inscrever", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ endpoint: sub.endpoint }) });
+    if (S.avisarSalvos) await enviarLembretes();
+  } catch (e) { /* offline: tenta de novo na próxima abertura */ }
+}
+
+/* o navegador pode trocar a inscrição sozinho; sem isto o aparelho fica mudo */
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.addEventListener("message", e => {
+    if (e.data === "reinscrever") garantirInscricao();
+  });
+}
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) garantirInscricao();
+});
 
 async function ligarAvisoSalvos(ligar) {
   if (ligar) {

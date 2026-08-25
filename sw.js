@@ -61,6 +61,15 @@ self.addEventListener("push", e => {
   })));
 });
 
+/* o navegador troca a inscrição por conta própria; avisa a página para
+   registrar o endereço novo no servidor, senão o aparelho para de receber */
+self.addEventListener("pushsubscriptionchange", e => {
+  e.waitUntil((async () => {
+    const abas = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    abas.forEach(aba => aba.postMessage("reinscrever"));
+  })());
+});
+
 self.addEventListener("notificationclick", e => {
   e.notification.close();
   const alvo = new URL(e.notification.data?.url || "./", self.location).href;

@@ -38,12 +38,19 @@ def _chave(endpoint, id_evento):
 
 
 def carregar():
+    """Disco primeiro; se estiver vazio, tenta a cópia remota de push.py."""
     global _itens
     try:
         with open(ARQUIVO, encoding="utf-8") as f:
             _itens = {_chave(r["endpoint"], r["evento"]): r for r in json.load(f)}
     except Exception:
         _itens = {}
+    if not _itens and push._backup_ler:
+        try:
+            _itens = {_chave(r["endpoint"], r["evento"]): r
+                      for r in (push._backup_ler("lembretes.json") or [])}
+        except Exception as e:
+            print("[lembretes] backup:", e, flush=True)
 
 
 def _gravar():
@@ -52,6 +59,11 @@ def _gravar():
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(list(_itens.values()), f, ensure_ascii=False)
     os.replace(tmp, ARQUIVO)
+    if push._backup_gravar:
+        try:
+            push._backup_gravar("lembretes.json", list(_itens.values()))
+        except Exception as e:
+            print("[lembretes] backup:", e, flush=True)
 
 
 def quando_avisar(inicio_iso, rotulo):

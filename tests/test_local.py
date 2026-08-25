@@ -603,6 +603,7 @@ class TestPush(unittest.TestCase):
 
     def test_inscricao_precisa_de_endpoint_https(self):
         self.push._subs = {}
+        self.addCleanup(setattr, self.push, "_gravar", self.push._gravar)
         self.push._gravar = lambda: None
         self.assertFalse(self.push.inscrever({}))
         self.assertFalse(self.push.inscrever({"endpoint": "http://inseguro"}))
@@ -644,6 +645,23 @@ class TestPush(unittest.TestCase):
         finally:
             self.push._enviar_um = original
         self.assertIsNone(self.push.pegar_aviso("https://p/a"))
+
+    def test_inscricoes_sobrevivem_ao_disco_apagado(self):
+        # o container do Render free é recriado e leva /app/data junto
+        remoto = {}
+        self.push.configurar_backup(lambda nome: remoto.get(nome),
+                                    lambda nome, dados: remoto.update({nome: dados}))
+        self.addCleanup(self.push.configurar_backup, None, None)
+        self.push._subs = {}
+        self.addCleanup(setattr, self.push, "ARQUIVO", self.push.ARQUIVO)
+        self.push.inscrever({"endpoint": "https://push.exemplo/abc"})
+        self.assertEqual(remoto["subs.json"][0]["endpoint"], "https://push.exemplo/abc")
+
+        # disco vazio no boot seguinte: a lista tem que voltar do backup
+        self.push._subs = {}
+        self.push.ARQUIVO = os.path.join(self.push.DATA_DIR, "nao-existe.json")
+        self.push.carregar()
+        self.assertEqual(self.push.quantos(), 1)
 
     def test_sem_chave_o_modulo_fica_desligado_sem_quebrar(self):
         self.push.VAPID_PUBLIC = self.push.VAPID_PRIVATE = ""

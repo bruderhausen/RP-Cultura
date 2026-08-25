@@ -925,6 +925,24 @@ def gist(metodo, corpo=None):
     with urllib.request.urlopen(req, timeout=30) as r:
         return json.loads(r.read().decode())
 
+def gist_ler(nome):
+    """Lê um arquivo do gist de backup. None quando não há gist configurado."""
+    if not (GIST_ID and GIST_TOKEN):
+        return None
+    arquivo = (gist("GET").get("files") or {}).get(nome)
+    if not arquivo:
+        return None
+    if arquivo.get("truncated") and arquivo.get("raw_url"):
+        return json.loads(fetch(arquivo["raw_url"], timeout=30).decode("utf-8"))
+    return json.loads(arquivo.get("content") or "null")
+
+
+def gist_gravar(nome, dados):
+    if not (GIST_ID and GIST_TOKEN):
+        return
+    gist("PATCH", {"files": {nome: {"content": json.dumps(dados, ensure_ascii=False)}}})
+
+
 def load_store():
     try:
         with open(STORE, encoding="utf-8") as f:
@@ -1226,6 +1244,8 @@ def health_payload():
         alertas.append("nenhum evento no histórico")
     if not push.disponivel():
         alertas.append("push desligado: " + (push.estado()["motivo"] or "?"))
+    if push.quantos() and not (GIST_ID and GIST_TOKEN):
+        alertas.append("sem backup: as inscrições somem no próximo restart")
     return {
         "ok": True,
         "updated": updated,
@@ -1242,6 +1262,7 @@ def health_payload():
         "fontes_evento": _diag,
         "push": push.estado(),
         "admin": {"ativo": bool(ADMIN_TOKEN)},
+        "backup": {"ativo": bool(GIST_ID and GIST_TOKEN)},
         "lembretes": lembretes.estado(),
         "alerts": alertas,
     }
@@ -1469,6 +1490,11 @@ class Handler(SimpleHTTPRequestHandler):
 def main():
     load_store()
     load_geo()
+    # a cópia remota é o que faz a inscrição sobreviver ao restart do Render
+    push.configurar_backup(gist_ler, gist_gravar)
+    if not (GIST_ID and GIST_TOKEN):
+        print("[push] sem GIST_ID/GIST_TOKEN: inscrições se perdem a cada restart",
+              flush=True)
     push.carregar()
     lembretes.carregar()
     threading.Thread(target=lembretes.loop, daemon=True).start()
