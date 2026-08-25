@@ -1,8 +1,12 @@
 services:
   - type: web
-    name: rpcultural
+    name: rpcultura
     runtime: docker
     plan: free
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    autoDeploy: true
     envVars:
       - key: REFRESH_SECONDS
         value: "300"
