@@ -997,10 +997,8 @@ def feed_payload():
         key = (round(i["lat"], 5), round(i["lng"], 5), tipo)
         g = grupos.setdefault(key, {"id": i["id"], "lat": key[0], "lng": key[1],
                                     "label": i["place"], "n": 0, "more": [],
-                                    "type": tipo, "amplo": not i.get("preciso")})
+                                    "type": tipo})
         g["n"] += 1
-        if not i.get("preciso"):
-            g["amplo"] = True
         if g["id"] != i["id"] and len(g["more"]) < 24:
             g["more"].append(i["id"])
 

@@ -459,7 +459,7 @@ function renderMap() {
     if (longe && !isSaved(p.id) && !(p.more || []).some(isSaved)) return;
     const icon = L.divIcon({
       className: "pinwrap", iconSize: [36, 46], iconAnchor: [18, 40],
-      html: `<span class="pin pin--${p.type}${p.amplo ? " pin--amplo" : ""}"><span class="pin__pulse"></span>
+      html: `<span class="pin pin--${p.type}"><span class="pin__pulse"></span>
         <svg viewBox="0 0 32 40" class="pin__svg">
           <path class="pin__shape" d="M16 2C8.268 2 2 8.268 2 16c0 9.5 14 22 14 22s14-12.5 14-22C30 8.268 23.732 2 16 2z"/>
           <circle class="pin__hole" cx="16" cy="15" r="5"/></svg>

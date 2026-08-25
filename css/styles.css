@@ -543,12 +543,6 @@ img{max-width:100%;display:block}
   background:var(--brand);opacity:0;animation:pulse 2.5s cubic-bezier(0.2,0.8,0.2,1) infinite
 }
 .pin--ev .pin__pulse{background:var(--accent-2)}
-/* pin sem endereço próprio: fica no centro da cidade e só junta o que não deu
-   para localizar. Fica apagado para não competir com os pins de lugar real */
-.pin--amplo .pin__shape{fill:var(--ink-3);stroke:#fff}
-.pin--amplo .pin__pulse{display:none}
-.pin--amplo .pin__n{background:var(--ink-2)}
-.pin--amplo .pin__svg{opacity:.85;filter:drop-shadow(0 4px 10px rgba(36,17,103,.22))}
 @keyframes pulse{0%{transform:scale(.8);opacity:.6}60%{transform:scale(3.5);opacity:0}100%{opacity:0}}
 
 .scrim{position:absolute;inset:0;background:rgba(20,10,50,.35);z-index:890;animation:fadeIn .25s ease}
