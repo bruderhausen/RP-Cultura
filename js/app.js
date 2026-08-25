@@ -432,9 +432,9 @@ function renderMap() {
       html: `<span class="pin pin--${p.type}"><span class="pin__pulse"></span>
         <svg viewBox="0 0 26 36" class="pin__svg">
           <path class="pin__shape" d="M13 34.5S24 21.8 24 13A11 11 0 1 0 2 13c0 8.8 11 21.5 11 21.5z"/>
-          <circle class="pin__hole" cx="13" cy="13" r="4.2"/></svg>
+          <circle class="pin__hole" cx="13" cy="13" r="6.4"/></svg>
         <span class="pin__label">${p.label}</span>
-        ${(p.more || []).length ? `<b class="pin__n">${(p.more || []).length + 1}</b>` : ""}</span>`
+        ${(p.more || []).length ? `<b class="pin__n">${Math.min(99, (p.more || []).length + 1)}</b>` : ""}</span>`
     });
     L.marker([p.lat, p.lng], { icon }).addTo(_pinLayer).on("click", () => openSheet(p.id, p.more));
   });
