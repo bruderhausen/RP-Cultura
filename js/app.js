@@ -114,6 +114,8 @@ $("#guideTrack").addEventListener("scroll", () => {
 /* ---------------- boot do app ---------------- */
 function startApp() {
   $("#app").hidden = false;
+  history.replaceState({ root: 1 }, "");
+  pushLayer();   // passo extra: o primeiro "voltar" nunca sai do app
   renderChips(); renderHome(); renderMap(); renderProfile(); paintSavedCount(); applyLang();
   if (window.paintLiveBadge) paintLiveBadge();
 }
@@ -133,12 +135,31 @@ function go(name) {
   if (name === "mapa") refreshMapSize();
 }
 
-/* páginas empilhadas */
+/* páginas empilhadas — cada camada aberta vira um passo no histórico,
+   para o botão voltar do celular fechar a camada em vez de sair do app */
+const pushLayer = () => history.pushState({ layer: Date.now() }, "");
+
 function openPage(el, html) {
+  pushLayer();
   el.innerHTML = html; el.hidden = false;
   el.scrollTop = 0;
-  el.querySelector("[data-back]")?.addEventListener("click", () => closePage(el));
+  el.querySelector("[data-back]")?.addEventListener("click", () => history.back());
 }
+function openLayer() {
+  return [$("#pageArticle"), $("#pageSaved"), $("#pageAuth")].find(p => !p.hidden);
+}
+
+let sairEm = 0;
+window.addEventListener("popstate", () => {
+  const page = openLayer();
+  if (page) return closePage(page);
+  if (!$("#mapSheet").hidden) return closeSheet();
+  if (Date.now() < sairEm) return;            // segundo toque: sai do app
+  sairEm = Date.now() + 2500;
+  pushLayer();
+  toast("Toque em voltar de novo para sair");
+});
+
 function closePage(el) {
   el.classList.add("is-closing");
   setTimeout(() => { el.hidden = true; el.classList.remove("is-closing"); el.innerHTML = ""; }, 220);
@@ -316,6 +337,7 @@ $("#mapRecenter").addEventListener("click", () => {
 
 function openSheet(id) {
   const i = byId(id); if (!i) return;
+  if ($("#mapSheet").hidden) pushLayer();
   const L = loc(i), src = SOURCES[i.src];
   $("#mapSheetBody").innerHTML = `
     <div class="sheet__img">${art(i)}</div>
@@ -338,12 +360,35 @@ function openSheet(id) {
   });
 }
 function closeSheet() {
+  $("#mapSheet").classList.remove("is-tall");
+  $("#mapSheet").style.transform = "";
   $("#mapSheet").hidden = true; $("#mapScrim").hidden = true;
   $("#mapLegend").classList.remove("is-hidden");
   $$(".pin").forEach(p => p.classList.remove("is-on"));
 }
-$("#mapScrim").addEventListener("click", closeSheet);
-$("#sheetClose").addEventListener("click", closeSheet);
+$("#mapScrim").addEventListener("click", () => history.back());
+$("#sheetClose").addEventListener("click", () => history.back());
+
+/* arrastar a aba: para cima expande, para baixo fecha */
+(function sheetDrag() {
+  const sh = $("#mapSheet");
+  let y0 = null, dy = 0;
+  sh.addEventListener("touchstart", e => {
+    if (sh.scrollTop > 0) { y0 = null; return; }
+    y0 = e.touches[0].clientY; dy = 0; sh.style.transition = "none";
+  }, { passive: true });
+  sh.addEventListener("touchmove", e => {
+    if (y0 === null) return;
+    dy = e.touches[0].clientY - y0;
+    if (dy < -30) sh.classList.add("is-tall");
+    if (dy > 0) sh.style.transform = `translateY(${dy}px)`;
+  }, { passive: true });
+  sh.addEventListener("touchend", () => {
+    sh.style.transition = ""; sh.style.transform = "";
+    if (dy > 90) history.back();
+    y0 = null; dy = 0;
+  }, { passive: true });
+})();
 
 /* =========================================================
    PERFIL

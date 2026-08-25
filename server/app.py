@@ -489,6 +489,12 @@ class Handler(SimpleHTTPRequestHandler):
     def log_message(self, *a):
         pass
 
+    def end_headers(self):
+        # o app é atualizado com frequência: nada de HTML/CSS/JS velho em cache
+        if self.path.split("?")[0].endswith((".html", ".css", ".js", ".json", "/")):
+            self.send_header("Cache-Control", "no-cache, must-revalidate")
+        super().end_headers()
+
     def _json(self, obj, code=200):
         body = json.dumps(obj, ensure_ascii=False).encode()
         self.send_response(code)

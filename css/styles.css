@@ -169,7 +169,7 @@ img{max-width:100%;display:block}
 .chip:active{transform:scale(.96)}
 
 /* --- scroll --- */
-.scrollarea{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:8px}
+.scrollarea{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;padding-bottom:8px}
 .pad{height:calc(var(--tabh) + var(--safe-b) + 18px)}
 .sec-head{display:flex;align-items:baseline;justify-content:space-between;padding:20px 18px 10px}
 .sec-head h2{font-size:17px;font-weight:700}
@@ -288,9 +288,11 @@ img{max-width:100%;display:block}
   position:absolute;left:0;right:0;bottom:0;z-index:9;background:var(--surface);
   border-radius:var(--r-xl) var(--r-xl) 0 0;box-shadow:var(--sh-3);
   padding:8px 18px calc(18px + var(--tabh) + var(--safe-b));
-  max-height:74%;overflow-y:auto;animation:sheetUp .32s cubic-bezier(.2,.9,.3,1)
+  max-height:74%;overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;
+  transition:max-height .25s ease,transform .2s ease;animation:sheetUp .32s cubic-bezier(.2,.9,.3,1)
 }
 @keyframes sheetUp{from{transform:translateY(100%)}}
+.sheet.is-tall{max-height:94%}
 .sheet__grab{display:block;width:44px;height:5px;border-radius:9px;background:var(--line);margin:4px auto 12px}
 .sheet__img{height:150px;border-radius:var(--r-m);overflow:hidden;position:relative;margin-bottom:12px}
 .sheet h3{font-size:20px;font-weight:800;line-height:1.15;margin-bottom:6px}
@@ -340,7 +342,7 @@ img{max-width:100%;display:block}
 .circbtn.is-on svg{fill:currentColor;stroke:currentColor}
 
 /* --- artigo --- */
-.art{flex:1;min-height:0;overflow-y:auto;padding:0 0 34px}
+.art{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;padding:0 0 34px}
 .art__hero{height:220px;position:relative;margin:0 16px;border-radius:var(--r-l);overflow:hidden;box-shadow:var(--sh-2)}
 .art__cat{position:absolute;left:12px;bottom:12px}
 .art__in{padding:18px}
@@ -365,7 +367,7 @@ img{max-width:100%;display:block}
   color:var(--ink-3);box-shadow:var(--sh-1);transition:.18s
 }
 .tabs button.is-on{background:var(--brand);color:#fff}
-.saved-list{flex:1;min-height:0;overflow-y:auto;padding:0 0 30px}
+.saved-list{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;padding:0 0 30px}
 .savecard{
   display:flex;gap:12px;background:var(--surface);border-radius:var(--r-m);padding:11px;margin:0 18px 10px;
   box-shadow:var(--sh-1);align-items:center;text-align:left
