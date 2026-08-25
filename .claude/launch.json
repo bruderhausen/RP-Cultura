@@ -1,11 +1,6 @@
 {
   "version": "0.0.1",
   "configurations": [
-    {
-      "name": "rpcultural",
-      "runtimeExecutable": "python",
-      "runtimeArgs": ["server/app.py"],
-      "port": 5173
-    }
+    { "name": "static", "runtimeExecutable": "python", "runtimeArgs": ["-m","http.server","5599"], "port": 5599 }
   ]
 }

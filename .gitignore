@@ -1,3 +1,7 @@
 data/
 __pycache__/
 *.pyc
+
+# skills instaladas via npx skills (symlinks + codigo de terceiros)
+.agents/
+.claude/skills/

@@ -11,13 +11,16 @@
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="preload" as="image" href="assets/mark-ring.webp">
+<link rel="preload" as="image" href="assets/mark-pin.webp">
+<link rel="preload" as="image" href="assets/mark-dot.webp">
 <link rel="manifest" href="manifest.json">
-<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png?v=1">
-<link rel="icon" type="image/png" sizes="64x64" href="assets/favicon-64.png?v=1">
-<link rel="apple-touch-icon" href="assets/favicon-180.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png?v=2">
+<link rel="icon" type="image/png" sizes="64x64" href="assets/favicon-64.png?v=2">
+<link rel="apple-touch-icon" href="assets/favicon-180.png?v=2">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="stylesheet" href="css/styles.css?v=15">
+<link rel="stylesheet" href="css/styles.css?v=21">
 </head>
 <body>
 
@@ -35,12 +38,25 @@
 </svg>
 
 <!-- ============ SPLASH ============ -->
-<div id="splash" class="splash">
-  <div class="splash__brand">
-    <img src="assets/logo.webp" alt="RP Cultural" class="splash__img">
-    <span class="splash__brilho"></span>
+<div id="splash" class="splash" role="status" aria-label="RP Cultural">
+  <span class="splash__glow" aria-hidden="true"></span>
+
+  <div class="splash__stage">
+    <div class="mark">
+      <img class="mark__ring" src="assets/mark-ring.webp" alt="" aria-hidden="true" decoding="sync">
+      <img class="mark__pin"  src="assets/mark-pin.webp"  alt="" aria-hidden="true" decoding="sync">
+      <img class="mark__dot"  src="assets/mark-dot.webp"  alt="" aria-hidden="true" decoding="sync">
+      <span class="mark__shine" aria-hidden="true"></span>
+    </div>
   </div>
-  <div class="splash__tag">notícias e cultura da sua região</div>
+
+  <div class="splash__word" aria-hidden="true">
+    <span class="splash__rp"><i style="--i:0">R</i><i style="--i:1">P</i></span><span class="splash__sp"></span><span class="splash__cult"><i style="--i:2">C</i><i style="--i:3">u</i><i style="--i:4">l</i><i style="--i:5">t</i><i style="--i:6">u</i><i style="--i:7">r</i><i style="--i:8">a</i><i style="--i:9">l</i></span>
+  </div>
+
+  <p class="splash__tag">a cidade em um só lugar</p>
+
+  <span class="splash__bar" aria-hidden="true"><i></i></span>
 </div>
 
 <!-- ============ GUIA DO APP ============ -->
