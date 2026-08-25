@@ -216,3 +216,7 @@ const TONES = [
 ];
 
 let ALL = [...NEWS, ...EVENTS];
+
+/* [nome, quantidade] por município, vindo de /api/feed. Alimenta o filtro de
+   cidade; sem servidor, fica vazio e o filtro não aparece. */
+let CIDADES = [];

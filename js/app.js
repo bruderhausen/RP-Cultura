@@ -7,7 +7,7 @@ const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 /* ---------------- estado ---------------- */
 const KEY = "rpcultural.v1";
 const S = Object.assign({
-  cat: "Todos", q: "", lang: "pt", screen: "home",
+  cat: "Todos", q: "", lang: "pt", screen: "home", cidade: "",
   saved: [], prefs: { noticias: true, eventos: true, alertas: false },
   interests: [], geo: null, user: null, avatar: null, guideSeen: false
 }, JSON.parse(localStorage.getItem(KEY) || "{}"));
@@ -153,6 +153,7 @@ function startApp() {
   history.replaceState({ root: 1 }, "");
   pushLayer();   // passo extra: o primeiro "voltar" nunca sai do app
   renderChips(); renderHome(); renderMap(); renderProfile(); paintSavedCount(); applyLang();
+  pintarCidade();
   if (window.paintLiveBadge) paintLiveBadge();
   // iPhone não dispara o evento de instalação: mostramos o atalho mesmo assim
   if (!instalado() && /iphone|ipad|ipod/i.test(navigator.userAgent)) $("#btnInstalar").hidden = false;
@@ -227,11 +228,39 @@ $("#catChips").addEventListener("click", e => {
   S.cat = b.dataset.cat; save(); renderChips(); renderHome();
 });
 $("#searchInput").addEventListener("input", e => { S.q = e.target.value.trim().toLowerCase(); renderHome(); });
-$("#regionBtn").addEventListener("click", () => pedirLocalizacao(false));
+/* ---------------- filtro de cidade ---------------- */
+function pintarCidade() {
+  $("#regionLabel").textContent = S.cidade ? S.cidade.split(" ")[0] : t("allCities");
+  $("#regionBtn").classList.toggle("is-on", !!S.cidade);
+}
+
+$("#regionBtn").addEventListener("click", () => {
+  const lista = CIDADES.length ? CIDADES : [];
+  if (!lista.length) return pedirLocalizacao(false);   // sem servidor, sem filtro
+  const total = lista.reduce((s, [, n]) => s + n, 0);
+  openPage($("#pageSaved"), `
+    <div class="page__bar">
+      <button class="circbtn" data-back aria-label="Voltar"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <h1>${t("chooseCity")}</h1><span style="width:38px"></span>
+    </div>
+    <div class="saved-list"><div class="cidades" id="listaCidades">
+      <button class="cidade ${S.cidade ? "" : "is-on"}" data-cidade="">
+        ${t("allCities")}<b>${total}</b></button>
+      ${lista.map(([nome, n]) => `<button class="cidade ${S.cidade === nome ? "is-on" : ""}"
+        data-cidade="${nome}">${nome}<b>${n}</b></button>`).join("")}
+    </div></div>`);
+  $("#listaCidades").addEventListener("click", e => {
+    const b = e.target.closest("[data-cidade]"); if (!b) return;
+    S.cidade = b.dataset.cidade; save();
+    pintarCidade(); renderHome(); renderMap();
+    history.back();
+  });
+});
 
 function match(i) {
   if (i.kind === "noticia" && !S.prefs.noticias) return false;
   if (i.kind === "evento" && !S.prefs.eventos) return false;
+  if (S.cidade && i.cidade !== S.cidade) return false;
   const okCat = S.cat === "Todos" || i.cat === S.cat;
   const L = loc(i);
   const okQ = !S.q || (L.title + " " + L.lead + " " + (i.place || "")).toLowerCase().includes(S.q);
@@ -367,6 +396,87 @@ $("#verTodas").addEventListener("click", () => {
   listar();
 });
 
+/* ---------------- agenda de eventos por dia ---------------- */
+$("#verAgenda").addEventListener("click", () => {
+  // só eventos de plataforma têm data marcada; é o que dá para agendar
+  const evs = EVENTS.filter(match).filter(e => e.when)
+    .sort((a, b) => new Date(a.when) - new Date(b.when));
+  const dias = [...new Set(evs.map(e => diaChave(e.when)))];
+  let diaAtivo = dias[0];
+
+  const listar = () => {
+    const doDia = evs.filter(e => diaChave(e.when) === diaAtivo);
+    $("#listaAgenda").innerHTML = doDia.length
+      ? doDia.map(agendaHTML).join("")
+      : `<div class="empty">${t("noEvents")}</div>`;
+    $$("#chipsAgenda .chip").forEach(c => c.classList.toggle("is-on", c.dataset.dia === diaAtivo));
+  };
+
+  openPage($("#pageSaved"), `
+    <div class="page__bar">
+      <button class="circbtn" data-back aria-label="Voltar"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <h1>${t("agenda")}</h1><span style="width:38px"></span>
+    </div>
+    <div class="chips" id="chipsAgenda">
+      ${dias.map(d => `<button class="chip" data-dia="${d}">${rotuloDia(d)}
+        <b>${evs.filter(e => diaChave(e.when) === d).length}</b></button>`).join("")}
+    </div>
+    <div class="saved-list"><div class="agenda" id="listaAgenda"></div></div>`);
+
+  $("#chipsAgenda").addEventListener("click", e => {
+    const b = e.target.closest("[data-dia]"); if (!b) return;
+    diaAtivo = b.dataset.dia; listar();
+  });
+  listar();
+});
+
+function horaDe(iso) {
+  return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
+function agendaHTML(e) {
+  const L = loc(e);
+  const local = e.lat != null
+    ? `<button class="ag__local" data-mapa="${e.id}">${e.place}</button>`
+    : `<span class="ag__local ag__local--seco">${e.place}</span>`;
+  return `<article class="ag">
+    <div class="ag__hora">${horaDe(e.when)}</div>
+    <div class="ag__corpo" role="button" tabindex="0" data-open="${e.id}">
+      <div class="ag__t">${L.title}</div>
+      ${local}
+      <div class="ag__pe">
+        ${e.price ? `<span class="tag tag--price">${e.price}</span>` : ""}
+        <span class="ag__fonte">${SOURCES[e.src] ? SOURCES[e.src].name : e.srcName || ""}</span>
+        ${e.dist != null ? `<span class="ev__dist">${e.dist} km</span>` : ""}
+      </div>
+    </div>
+    <a class="ag__cal" href="${icsHref(e)}" download="${e.id}.ics"
+       title="Adicionar ao calendário" aria-label="Adicionar ao calendário">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M12 14v4M10 16h4"/></svg>
+    </a>
+  </article>`;
+}
+
+/* arquivo .ics gerado no próprio aparelho: não depende do servidor */
+function icsHref(e) {
+  const z = n => String(n).padStart(2, "0");
+  const stamp = d => `${d.getUTCFullYear()}${z(d.getUTCMonth() + 1)}${z(d.getUTCDate())}T` +
+                     `${z(d.getUTCHours())}${z(d.getUTCMinutes())}00Z`;
+  const ini = new Date(e.when);
+  const fim = new Date(ini.getTime() + 2 * 3600 * 1000);
+  const limpa = s => String(s || "").replace(/[\\\;,]/g, " ").replace(/[\r\n]+/g, " ");
+  const ics = [
+    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//RP Cultural//PT-BR",
+    "BEGIN:VEVENT", `UID:${e.id}@rpcultural`, `DTSTAMP:${stamp(new Date())}`,
+    `DTSTART:${stamp(ini)}`, `DTEND:${stamp(fim)}`,
+    `SUMMARY:${limpa(loc(e).title)}`,
+    `LOCATION:${limpa(e.address || e.place)}`,
+    `DESCRIPTION:${limpa(e.url)}`,
+    "END:VEVENT", "END:VCALENDAR",
+  ].join("\r\n");
+  return "data:text/calendar;charset=utf-8," + encodeURIComponent(ics);
+}
+
 /* clique em qualquer card */
 document.addEventListener("click", e => {
   // o atalho do local fica dentro do cartão, então precisa ser testado antes
@@ -457,6 +567,8 @@ function renderMap() {
     if (p.lat == null) return;
     // afastado demais, só os favoritos, para o mapa não virar um amontoado
     if (longe && !isSaved(p.id) && !(p.more || []).some(isSaved)) return;
+    // o pin some quando nenhum item dele passa no filtro de cidade
+    if (S.cidade && ![p.id, ...(p.more || [])].some(id => { const i = byId(id); return i && i.cidade === S.cidade; })) return;
     const icon = L.divIcon({
       className: "pinwrap", iconSize: [36, 46], iconAnchor: [18, 40],
       html: `<span class="pin pin--${p.type}"><span class="pin__pulse"></span>
@@ -698,10 +810,71 @@ $("#interestChips").addEventListener("click", e => {
   i > -1 ? S.interests.splice(i, 1) : S.interests.push(c);
   save(); b.classList.toggle("is-on"); renderHome();
 });
-$$("[data-pref]").forEach(c => c.addEventListener("change", () => {
+$$("[data-pref]").forEach(c => c.addEventListener("change", async () => {
   S.prefs[c.dataset.pref] = c.checked; save(); renderHome();
+  // "Alertas da região" é o único que precisa de permissão do sistema:
+  // os outros dois só filtram o que já está na tela
+  if (c.dataset.pref === "alertas") {
+    const ok = c.checked ? await ligarPush() : await desligarPush();
+    if (c.checked && !ok) { c.checked = false; S.prefs.alertas = false; save(); return; }
+  }
   toast(`${c.parentElement.querySelector("b").textContent}: ${c.checked ? "ativado" : "desativado"}`);
 }));
+
+/* ---------------- notificação ---------------- */
+function bytesDaChave(base64) {
+  const txt = atob(base64.replace(/-/g, "+").replace(/_/g, "/") +
+                   "=".repeat((4 - base64.length % 4) % 4));
+  return Uint8Array.from(txt, c => c.charCodeAt(0));
+}
+
+async function ligarPush() {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+    toast("Este aparelho não aceita notificações"); return false;
+  }
+  let chave;
+  try {
+    const r = await fetch("api/push/chave", { cache: "no-store" });
+    chave = await r.json();
+  } catch (e) { chave = null; }
+  if (!chave || !chave.ativo) { toast("Notificações indisponíveis no momento"); return false; }
+
+  if (Notification.permission === "denied") {
+    toast("Libere as notificações nos ajustes do navegador"); return false;
+  }
+  if (Notification.permission !== "granted" &&
+      await Notification.requestPermission() !== "granted") return false;
+
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription() ||
+      await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: bytesDaChave(chave.chave),
+      });
+    await fetch("api/push/inscrever", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ endpoint: sub.endpoint }),
+    });
+    return true;
+  } catch (e) {
+    toast("Não consegui ativar as notificações"); return false;
+  }
+}
+
+async function desligarPush() {
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if (!sub) return true;
+    await fetch("api/push/sair", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ endpoint: sub.endpoint }),
+    });
+    await sub.unsubscribe();
+  } catch (e) { /* já estava fora */ }
+  return true;
+}
 $("#avatarBtn").addEventListener("click", () => $("#avatarFile").click());
 /* ---- recorte circular da foto de perfil ---- */
 const CROP = 260;                       // diâmetro do recorte na tela

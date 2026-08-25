@@ -398,6 +398,41 @@ img{max-width:100%;display:block}
 .sec-head{display:flex;align-items:baseline;justify-content:space-between;padding:20px 18px 10px}
 .sec-head h2{font-size:17px;font-weight:700}
 .sec-head__hint{font-size:12px;color:var(--ink-3)}
+.sec-head__link{display:inline-flex;align-items:center;gap:2px;font-size:13px;
+  font-weight:700;color:var(--brand)}
+.sec-head__link svg{width:15px;height:15px;fill:none;stroke:currentColor;
+  stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+
+/* --- filtro de cidade --- */
+.cidades{display:flex;flex-direction:column;gap:8px;padding:4px 18px 24px}
+.cidade{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  background:var(--surface);border-radius:var(--r-m);padding:14px 16px;
+  box-shadow:var(--sh-1);font-size:15px;font-weight:600;text-align:left}
+.cidade b{font-size:12.5px;font-weight:700;color:var(--ink-3);
+  background:var(--surface-2);border-radius:99px;padding:3px 10px}
+.cidade.is-on{background:var(--brand);color:#fff}
+.cidade.is-on b{background:rgba(255,255,255,.22);color:#fff}
+.regionbtn.is-on{background:var(--brand);color:#fff}
+
+/* --- agenda por dia --- */
+.agenda{display:flex;flex-direction:column;gap:10px;padding:4px 18px 24px}
+.ag{display:flex;align-items:stretch;gap:12px;background:var(--surface);
+  border-radius:var(--r-m);padding:12px 14px;box-shadow:var(--sh-1)}
+.ag__hora{flex:none;width:46px;font-family:var(--display);font-size:15px;
+  font-weight:800;color:var(--brand);padding-top:1px}
+.ag__corpo{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px;cursor:pointer}
+.ag__corpo:focus-visible{outline:2px solid var(--brand);outline-offset:3px;border-radius:8px}
+.ag__t{font-family:var(--display);font-size:15px;font-weight:700;line-height:1.22}
+.ag__local{align-self:flex-start;max-width:100%;font-size:12px;font-weight:600;
+  color:var(--brand);text-align:left;text-decoration:underline;
+  text-decoration-color:rgba(75,46,212,.3);text-underline-offset:3px}
+.ag__local--seco{color:var(--ink-3);text-decoration:none;font-weight:500}
+.ag__pe{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:1px}
+.ag__fonte{font-size:11.5px;font-weight:700;color:var(--ink-3)}
+.ag__cal{flex:none;align-self:center;width:38px;height:38px;border-radius:50%;
+  display:grid;place-items:center;background:var(--surface-2);color:var(--brand)}
+.ag__cal svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.9;
+  stroke-linecap:round;stroke-linejoin:round}
 
 /* --- hero --- */
 .hero{

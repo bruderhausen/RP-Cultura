@@ -112,6 +112,14 @@ async function carregar(){
 
     card("Plataformas de evento", fontes),
 
+    card("Notificação", (() => {
+      const p = d.push || {};
+      return `<div class="n">${p.inscritos ?? 0}<small>inscritos</small></div>` + linhas([
+        ["estado", p.ativo ? "ligado" : "desligado"],
+        ["motivo", p.motivo || "—"],
+        ["último erro", p.ultimo_erro || "nenhum"]]);
+    })()),
+
     card("Itens por fonte", linhas(
       Object.entries(d.feeds || {}).sort((a,b) => b[1]-a[1]))),
   ].join("");

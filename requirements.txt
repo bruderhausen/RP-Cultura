@@ -1,0 +1,3 @@
+# Só o push precisa de dependência externa: o VAPID exige assinatura ES256,
+# que a biblioteca padrão não tem. Sem ela o app roda igual, só sem push.
+cryptography>=42,<46

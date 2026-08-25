@@ -13,3 +13,49 @@ self.addEventListener("fetch", e => {
     }).catch(() => caches.match(req))
   );
 });
+
+/* ---------------- notificação ----------------
+   O push chega vazio de propósito: o servidor só avisa que entrou coisa nova.
+   O texto é montado aqui, a partir do feed, o que dispensa criptografar
+   payload e evita mandar conteúdo para o serviço de push do navegador. */
+async function montarAviso() {
+  const padrao = { titulo: "RP Cultural", corpo: "Novidades na sua região", url: "./" };
+  try {
+    const r = await fetch("api/feed", { cache: "no-store" });
+    const d = await r.json();
+    const item = (d.news || [])[0] || (d.events || [])[0];
+    if (!item) return padrao;
+    const quantos = (d.news || []).length + (d.events || []).length;
+    return {
+      titulo: item.title,
+      corpo: [item.place, quantos > 1 ? `e mais ${quantos - 1} no app` : null]
+        .filter(Boolean).join(" · "),
+      url: "./",
+    };
+  } catch (e) {
+    return padrao;
+  }
+}
+
+self.addEventListener("push", e => {
+  e.waitUntil(montarAviso().then(a => self.registration.showNotification(a.titulo, {
+    body: a.corpo,
+    icon: "assets/icon-192.png",
+    badge: "assets/favicon-64.png",
+    tag: "rpcultural-feed",       // uma notificação por vez, sem empilhar
+    renotify: true,
+    data: { url: a.url },
+  })));
+});
+
+self.addEventListener("notificationclick", e => {
+  e.notification.close();
+  const alvo = new URL(e.notification.data?.url || "./", self.location).href;
+  e.waitUntil((async () => {
+    const abas = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    for (const aba of abas) {
+      if (aba.url.startsWith(self.location.origin)) return aba.focus();
+    }
+    return self.clients.openWindow(alvo);
+  })());
+});

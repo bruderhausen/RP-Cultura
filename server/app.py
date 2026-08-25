@@ -19,6 +19,7 @@ from email.utils import parsedate_to_datetime
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 
 import eventos as plataformas
+import push
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(ROOT, "data")
@@ -570,6 +571,19 @@ def normaliza_kind(it):
         it["when"] = None
     return it
 
+def completa_cidade(it):
+    """Preenche a cidade de itens gravados antes do campo existir.
+
+    É só leitura de texto, sem tocar no geocodificador: assim o histórico
+    inteiro entra no filtro de cidade já no primeiro ciclo, em vez de esperar
+    cada item passar de novo pela fila de refino.
+    """
+    if not it.get("cidade"):
+        achada = cidade_pontuada(f"{it.get('lead', '')}", it.get("title", ""))
+        if achada:
+            it["cidade"] = achada
+    return it
+
 PREFIXO_RE = re.compile(r"^(fotos|video|videos|v[ií]deo|ao vivo|urgente|exclusivo|an[aá]lise)\s*:\s*", re.I)
 
 def assinatura(titulo):
@@ -764,7 +778,7 @@ def guess_place(text, regional=False, so_cache=False, titulo=""):
             continue
         c = geocode(query, confere=cid, so_cache=so_cache, granular=True)
         if c and perto_da_cidade(c, cid, 25, so_cache):
-            return {"place": name, "lat": c[0], "lng": c[1], "preciso": True}
+            return {"place": name, "cidade": cid, "lat": c[0], "lng": c[1], "preciso": True}
         # não deu para confirmar o lugar conhecido: segue para rua, bairro e
         # centro. Um `return None` aqui tirava a notícia do mapa por inteiro,
         # justamente as que citam um ponto famoso da cidade
@@ -794,7 +808,7 @@ def guess_place(text, regional=False, so_cache=False, titulo=""):
                     so_cache=so_cache, granular=True, bairro=bai)
         if c and perto_da_cidade(c, alvo, so_cache=so_cache):
             rotulo = f"{via}, {numero}" + (f" - {bai}" if bai else "")
-            return {"place": rotulo, "lat": c[0], "lng": c[1], "preciso": True}
+            return {"place": rotulo, "cidade": alvo, "lat": c[0], "lng": c[1], "preciso": True}
 
     # 3) bairro com prefixo (Jardim, Vila, Parque...)
     tentativas = 0
@@ -807,7 +821,7 @@ def guess_place(text, regional=False, so_cache=False, titulo=""):
         tentativas += 1
         c = geocode(f"{bairro}, {alvo}, SP", confere=alvo, so_cache=so_cache, granular=True)
         if c and perto_da_cidade(c, alvo, 30, so_cache):
-            return {"place": bairro, "lat": c[0], "lng": c[1], "preciso": True}
+            return {"place": bairro, "cidade": alvo, "lat": c[0], "lng": c[1], "preciso": True}
 
     # 4) bairro sem prefixo, pela lista da cidade
     if alvo == "Ribeirão Preto":
@@ -816,7 +830,7 @@ def guess_place(text, regional=False, so_cache=False, titulo=""):
                 continue
             c = geocode(f"{b}, Ribeirao Preto, SP", confere=alvo, so_cache=so_cache, granular=True)
             if c and perto_da_cidade(c, alvo, 30, so_cache):
-                return {"place": b, "lat": c[0], "lng": c[1], "preciso": True}
+                return {"place": b, "cidade": alvo, "lat": c[0], "lng": c[1], "preciso": True}
 
     # 5) rua sem número: fica na via, que já é melhor que o centro
     tentativas = 0
@@ -829,12 +843,12 @@ def guess_place(text, regional=False, so_cache=False, titulo=""):
                     so_cache=so_cache, granular=True, bairro=bai)
         if c and perto_da_cidade(c, alvo, so_cache=so_cache):
             rotulo = via + (f" - {bai}" if bai else "")
-            return {"place": rotulo, "lat": c[0], "lng": c[1], "preciso": True}
+            return {"place": rotulo, "cidade": alvo, "lat": c[0], "lng": c[1], "preciso": True}
 
     # 6) sem referência fina: centro da cidade, marcado como impreciso
     c = geocode(query_cidade(alvo), so_cache=so_cache)
     if c:
-        return {"place": alvo, "lat": c[0], "lng": c[1], "preciso": False}
+        return {"place": alvo, "cidade": alvo, "lat": c[0], "lng": c[1], "preciso": False}
     return None
 
 def is_regional(text):
@@ -872,6 +886,7 @@ def build_item(feed, raw_item):
         "place": (place or {}).get("place"),
         "lat": (place or {}).get("lat"),
         "lng": (place or {}).get("lng"),
+        "cidade": (place or {}).get("cidade"),
         "preciso": bool((place or {}).get("preciso")),
         "geov": GEO_VERSAO if (place or {}).get("preciso") else 0,
         "tone": int(iid[:2], 16) % TONES,
@@ -927,7 +942,7 @@ def save_store():
             print("[gist]", e, flush=True)
 
 def prune(items):
-    items = [normaliza_kind(i) for i in items]
+    items = [completa_cidade(normaliza_kind(i)) for i in items]
     limit = datetime.now(timezone.utc) - timedelta(days=HISTORY_DAYS)
     kept = []
     agora = datetime.now(timezone.utc)
@@ -1031,6 +1046,7 @@ def localizar(item):
         place = guess_place(f"{cabeca} {corpo}", regional, titulo=item["title"]) or place
     if coords and dentro(coords):
         place = {"place": (place or {}).get("place") or cidade_do_texto(cabeca) or "Ribeirão Preto",
+                 "cidade": cidade_pontuada(corpo, item["title"]) or "Ribeirão Preto",
                  "lat": coords[0], "lng": coords[1], "preciso": True}
     if not place or place.get("lat") is None:
         return mudou
@@ -1122,6 +1138,10 @@ def refresh():
         n_ev = sum(1 for i in fresh if i.get("kind") == "evento")
         broadcast({"type": "feed", "news": len(fresh) - n_ev, "events": n_ev,
                    "count": len(fresh), "updated": _state["updated"]})
+        # push vai sem conteúdo: o service worker busca o feed e monta o texto.
+        # Assim não é preciso criptografar payload nem guardar dado do usuário.
+        if push.disponivel():
+            threading.Thread(target=push.avisar, daemon=True).start()
     for i in fresh:                       # localização fina roda em segundo plano
         if (not i.get("preciso") or i.get("geov") != GEO_VERSAO
                 or not i.get("img")) and i.get("url", "").startswith("http"):
@@ -1182,6 +1202,8 @@ def health_payload():
         alertas.append(f"só {finos} de {com_local} itens com local próprio")
     if not eventos_n:
         alertas.append("nenhum evento no histórico")
+    if not push.disponivel():
+        alertas.append("push desligado: " + (push.estado()["motivo"] or "?"))
     return {
         "ok": True,
         "updated": updated,
@@ -1196,6 +1218,7 @@ def health_payload():
         "geocodificador": {"cache": len(_geo), "em_espera": len(_geo_falhas)},
         "feeds": por_fonte,
         "fontes_evento": _diag,
+        "push": push.estado(),
         "alerts": alertas,
     }
 
@@ -1216,7 +1239,8 @@ def feed_payload():
         tipo = "ev" if i["kind"] == "evento" else "news"
         key = (round(i["lat"], 5), round(i["lng"], 5), tipo)
         g = grupos.setdefault(key, {"id": i["id"], "lat": key[0], "lng": key[1],
-                                    "label": i["place"], "n": 0, "more": [],
+                                    "label": i.get("place") or i.get("cidade") or "",
+                                    "n": 0, "more": [],
                                     "type": tipo})
         g["n"] += 1
         if g["id"] != i["id"] and len(g["more"]) < 24:
@@ -1241,11 +1265,17 @@ def feed_payload():
     pins = todos[:120]
     if len(todos) > len(pins):
         print(f"[pins] {len(todos) - len(pins)} locais fora do limite de 120", flush=True)
+    cidades = {}
+    for i in items:
+        c = i.get("cidade")
+        if c:
+            cidades[c] = cidades.get(c, 0) + 1
     sources = {f["key"]: {"name": f["name"], "url": f["site"]} for f in FEEDS}
     sources["sympla"] = {"name": "Sympla", "url": "https://www.sympla.com.br"}
     sources["eventim"] = {"name": "Eventim", "url": "https://www.eventim.com.br"}
     return {"updated": updated, "days": HISTORY_DAYS, "refresh": REFRESH_SECONDS,
             "sources": sources, "news": news, "events": events, "pins": pins,
+            "cidades": sorted(cidades.items(), key=lambda kv: (-kv[1], kv[0])),
             "total": len(items)}
 
 def build_stamp():
@@ -1296,6 +1326,20 @@ class Handler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def do_POST(self):
+        path = self.path.split("?")[0]
+        if path not in ("/api/push/inscrever", "/api/push/sair"):
+            return self.send_error(404)
+        try:
+            tam = int(self.headers.get("Content-Length") or 0)
+            corpo = json.loads(self.rfile.read(min(tam, 8000)) or b"{}")
+        except Exception:
+            return self._json({"ok": False, "erro": "json inválido"})
+        if path == "/api/push/inscrever":
+            return self._json({"ok": push.inscrever(corpo), "inscritos": push.quantos()})
+        return self._json({"ok": push.sair(corpo.get("endpoint", "")),
+                           "inscritos": push.quantos()})
+
     def do_GET(self):
         path = self.path.split("?")[0]
         if path in ("/", "/index.html"):
@@ -1316,6 +1360,8 @@ class Handler(SimpleHTTPRequestHandler):
             return self._json(feed_payload())
         if path == "/api/health":
             return self._json(health_payload())
+        if path == "/api/push/chave":
+            return self._json({"chave": push.VAPID_PUBLIC, "ativo": push.disponivel()})
         if path == "/api/refresh":
             return self._json({"new": refresh(), "updated": _state["updated"]})
         if path == "/api/stream":
@@ -1350,6 +1396,7 @@ class Handler(SimpleHTTPRequestHandler):
 def main():
     load_store()
     load_geo()
+    push.carregar()
     threading.Thread(target=refresh_loop, daemon=True).start()
     for _ in range(3):
         threading.Thread(target=worker_local, daemon=True).start()

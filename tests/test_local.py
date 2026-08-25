@@ -212,6 +212,53 @@ class TestClassificacao(unittest.TestCase):
         self.assertEqual(kinds["b"], "evento")
 
 
+class TestCidadeNoItem(Base):
+    """O filtro de cidade só funciona se todo item souber a que município pertence."""
+
+    def test_guess_place_devolve_a_cidade_resolvida(self):
+        r = app.guess_place("Acidente na Rua Sao Jose em Barrinha", regional=True)
+        self.assertEqual(r["cidade"], "Barrinha")
+        r = app.guess_place("Chuva forte atinge Ribeirao Preto", regional=True)
+        self.assertEqual(r["cidade"], "Ribeirão Preto")
+
+    def test_item_antigo_ganha_cidade_sem_usar_a_rede(self):
+        # o campo não existia; o histórico precisa entrar no filtro assim mesmo
+        def sem_rede(*a, **k):
+            raise AssertionError("consultou o geocodificador")
+        app.geocode = sem_rede
+        item = {"id": "a", "kind": "noticia", "src": "g1",
+                "title": "Obra fecha avenida em Sertaozinho", "lead": "",
+                "published": "2026-08-20T10:00:00+00:00"}
+        self.assertEqual(app.completa_cidade(item)["cidade"], "Sertãozinho")
+
+    def test_item_sem_cidade_identificavel_fica_sem(self):
+        item = {"id": "b", "kind": "noticia", "src": "g1",
+                "title": "Responsabilidade criminal do diretor", "lead": "",
+                "published": "2026-08-20T10:00:00+00:00"}
+        self.assertIsNone(app.completa_cidade(item).get("cidade"))
+
+    def test_feed_lista_cidades_com_contagem(self):
+        with app._lock:
+            app._state["items"] = [
+                {"id": "1", "kind": "noticia", "cidade": "Franca", "place": "Franca", "lat": -20.5,
+                 "lng": -47.4, "preciso": True, "published": "2026-08-20T10:00:00+00:00"},
+                {"id": "2", "kind": "noticia", "cidade": "Franca", "place": "Franca", "lat": -20.5,
+                 "lng": -47.4, "preciso": True, "published": "2026-08-20T10:00:00+00:00"},
+                {"id": "3", "kind": "noticia", "cidade": "Barrinha", "place": "Barrinha", "lat": -21.19,
+                 "lng": -48.16, "preciso": True, "published": "2026-08-20T10:00:00+00:00"}]
+            app._state["updated"] = "2026-08-25T12:00:00+00:00"
+        self.assertEqual(app.feed_payload()["cidades"], [("Franca", 2), ("Barrinha", 1)])
+
+    def test_pin_sem_place_nao_derruba_o_feed(self):
+        # item gravado por versão antiga pode não ter o campo
+        with app._lock:
+            app._state["items"] = [{"id": "1", "kind": "noticia", "lat": -21.1,
+                                    "lng": -47.8, "cidade": "Ribeirão Preto",
+                                    "published": "2026-08-20T10:00:00+00:00"}]
+            app._state["updated"] = "2026-08-25T12:00:00+00:00"
+        self.assertEqual(app.feed_payload()["pins"][0]["label"], "Ribeirão Preto")
+
+
 class TestPins(unittest.TestCase):
     """O agrupamento define cor, contagem e sobreposição no mapa."""
 
@@ -366,6 +413,49 @@ class TestDiagnostico(unittest.TestCase):
               "preciso": True, "published": "2026-08-20T10:00:00+00:00"}],
             {"sympla": {"ok": True, "itens": 0}})
         self.assertTrue(any("nenhum evento" in a for a in d["alerts"]))
+
+
+class TestPush(unittest.TestCase):
+    """O push assina um JWT ES256; assinatura errada é recusada em silêncio."""
+
+    def setUp(self):
+        import push
+        self.push = push
+        if not push.TEM_CRYPTO:
+            self.skipTest("cryptography não instalado")
+
+    def test_jwt_tem_formato_vapid_e_assinatura_valida(self):
+        import json as _json
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.asymmetric import ec, utils
+        pub, priv = self.push.gerar_par()
+        self.push.VAPID_PUBLIC, self.push.VAPID_PRIVATE = pub, priv
+        cab, corpo, ass = self.push._jwt("https://exemplo.push").split(".")
+        self.assertEqual(_json.loads(self.push.b64d(cab))["alg"], "ES256")
+        self.assertEqual(sorted(_json.loads(self.push.b64d(corpo))), ["aud", "exp", "sub"])
+        bruta = self.push.b64d(ass)
+        self.assertEqual(len(bruta), 64)   # r e s crus, não DER
+        chave = ec.EllipticCurvePublicKey.from_encoded_point(
+            ec.SECP256R1(), self.push.b64d(pub))
+        chave.verify(
+            utils.encode_dss_signature(int.from_bytes(bruta[:32], "big"),
+                                       int.from_bytes(bruta[32:], "big")),
+            f"{cab}.{corpo}".encode(), ec.ECDSA(hashes.SHA256()))
+
+    def test_inscricao_precisa_de_endpoint_https(self):
+        self.push._subs = {}
+        self.push._gravar = lambda: None
+        self.assertFalse(self.push.inscrever({}))
+        self.assertFalse(self.push.inscrever({"endpoint": "http://inseguro"}))
+        self.assertTrue(self.push.inscrever({"endpoint": "https://push.exemplo/abc"}))
+        self.assertEqual(self.push.quantos(), 1)
+        self.assertTrue(self.push.sair("https://push.exemplo/abc"))
+        self.assertEqual(self.push.quantos(), 0)
+
+    def test_sem_chave_o_modulo_fica_desligado_sem_quebrar(self):
+        self.push.VAPID_PUBLIC = self.push.VAPID_PRIVATE = ""
+        self.assertFalse(self.push.disponivel())
+        self.assertEqual(self.push.avisar(), (0, 0))
 
 
 if __name__ == "__main__":
