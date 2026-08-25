@@ -113,14 +113,31 @@ PLACES = [
 ]
 
 # centro de cada cidade, usado só para conferir se o resultado do geocoder faz sentido
-CIDADE_QUERY = {
-    "Ribeirão Preto": "Ribeirao Preto, Sao Paulo", "Franca": "Franca, Sao Paulo",
-    "Sertãozinho": "Sertaozinho, Sao Paulo", "Barretos": "Barretos, Sao Paulo",
-    "Batatais": "Batatais, Sao Paulo", "Cravinhos": "Cravinhos, Sao Paulo",
-    "Jardinópolis": "Jardinopolis, Sao Paulo", "Brodowski": "Brodowski, Sao Paulo",
-    "Serrana": "Serrana, Sao Paulo", "Araraquara": "Araraquara, Sao Paulo",
-    "São Carlos": "Sao Carlos, Sao Paulo",
-}
+# Municípios cobertos pelos feeds. A lista serve para reconhecer a cidade
+# citada na notícia; o que não estiver aqui ainda é descoberto em tempo de
+# execução por cidade_provavel().
+CIDADES_REGIAO = [
+    "Ribeirão Preto", "Franca", "Sertãozinho", "Barretos", "Araraquara",
+    "São Carlos", "Batatais", "Cravinhos", "Jardinópolis", "Brodowski",
+    "Serrana", "Barrinha", "Pontal", "Dumont", "Guatapará", "Luís Antônio",
+    "Pradópolis", "Santa Rosa de Viterbo", "São Simão", "Serra Azul",
+    "Altinópolis", "Cajuru", "Cássia dos Coqueiros", "Santo Antônio da Alegria",
+    "Santa Cruz da Esperança", "Sales Oliveira", "Nuporanga", "Orlândia",
+    "Ituverava", "Igarapava", "Ribeirão Corrente", "Restinga",
+    "Patrocínio Paulista", "São Joaquim da Barra", "Guará", "Buritizal",
+    "Miguelópolis", "Morro Agudo", "Pedregulho", "Rifaina", "Jeriquara",
+    "Itirapuã", "Cristais Paulista", "Jaboticabal", "Monte Alto",
+    "Taquaritinga", "Bebedouro", "Pitangueiras", "Viradouro", "Terra Roxa",
+    "Colina", "Guaíra", "Ipuã", "Morro Agudo", "Mococa", "Casa Branca",
+    "Porto Ferreira", "Descalvado", "Tambaú", "Santa Rita do Passa Quatro",
+    "Américo Brasiliense", "Matão", "Rincão", "Motuca", "Nova Europa",
+]
+
+def _sem_acento(txt):
+    return "".join(c for c in unicodedata.normalize("NFD", txt)
+                   if unicodedata.category(c) != "Mn")
+
+CIDADE_QUERY = {c: f"{_sem_acento(c)}, Sao Paulo" for c in CIDADES_REGIAO}
 
 DEFAULT_GEO = {
     "Universidade de Sao Paulo, Ribeirao Preto": [
@@ -295,7 +312,7 @@ RP_CENTRO = [-21.177632, -47.810098]
 # Sobe quando as regras de localização mudam. Itens gravados por uma versão
 # anterior voltam para a fila: sem isso, um pin colocado no lugar errado por
 # uma regra antiga ficaria errado para sempre.
-GEO_VERSAO = 2
+GEO_VERSAO = 3
 
 _geo_falhas = {}            # chave -> instante em que vale a pena tentar de novo
 TTL_FALHA = 6 * 3600        # recusa de rede: o serviço pode voltar
@@ -335,9 +352,11 @@ def _bairro_bate(pedido, achado):
     p, a = norm(pedido), norm(achado)
     return p in a or a in p
 
-def _nominatim(query, confere, granular, bairro=None):
+def _nominatim(query, confere, granular, bairro=None, so_cidade=False):
     url = ("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&"
-           "addressdetails=1&countrycodes=br&q=" + urllib.parse.quote(query))
+           "addressdetails=1&countrycodes=br"
+           + ("&featureType=settlement" if so_cidade else "")
+           + "&q=" + urllib.parse.quote(query))
     data = json.loads(fetch(url, timeout=15).decode("utf-8"))
     if not data:
         return None, True
@@ -359,7 +378,7 @@ def _nominatim(query, confere, granular, bairro=None):
             return None, True
     return [round(float(achado["lat"]), 6), round(float(achado["lon"]), 6)], True
 
-def _photon(query, confere, granular, bairro=None):
+def _photon(query, confere, granular, bairro=None, so_cidade=False):
     """Segunda opção. O Nominatim recusa tráfego de datacenter com frequência,
     e sem alternativa o app inteiro ficava sem pin nenhum."""
     url = ("https://photon.komoot.io/api/?limit=1&lat=%f&lon=%f&q=" % tuple(RP_CENTRO)
@@ -375,6 +394,9 @@ def _photon(query, confere, granular, bairro=None):
                           for k in ("city", "county", "state", "name", "district"))
         if norm(confere) not in norm(campos):
             return None, True
+    if so_cidade and (props.get("type") or "").lower() not in {
+            "city", "town", "village", "municipality", "district"}:
+        return None, True
     if granular:
         if (props.get("type") or "").lower() in TIPOS_AMPLOS:
             return None, True
@@ -385,7 +407,8 @@ def _photon(query, confere, granular, bairro=None):
             return None, True
     return [round(lat, 6), round(lon, 6)], True
 
-def geocode(query, confere=None, so_cache=False, granular=False, bairro=None):
+def geocode(query, confere=None, so_cache=False, granular=False, bairro=None,
+            so_cidade=False):
     """Coordenadas reais, com cache em disco.
 
     `confere` exige que a cidade apareça no endereço devolvido.
@@ -397,7 +420,8 @@ def geocode(query, confere=None, so_cache=False, granular=False, bairro=None):
     if not query:
         return None
     chave = (query + ("|" + confere if confere else "")
-             + ("|g" if granular else "") + ("|b" + bairro if bairro else ""))
+             + ("|g" if granular else "") + ("|b" + bairro if bairro else "")
+             + ("|c" if so_cidade else ""))
     with _geo_lock:
         if chave in _geo:
             return _geo[chave]
@@ -408,7 +432,7 @@ def geocode(query, confere=None, so_cache=False, granular=False, bairro=None):
     resultado, definitivo = None, False
     for tentar in (_nominatim, _photon):
         try:
-            resultado, definitivo = tentar(query, confere, granular, bairro)
+            resultado, definitivo = tentar(query, confere, granular, bairro, so_cidade)
         except Exception as e:
             resultado, definitivo = None, False      # rede, não ausência do lugar
             print(f"[geo] {tentar.__name__} {query}: {e}", flush=True)
@@ -419,7 +443,7 @@ def geocode(query, confere=None, so_cache=False, granular=False, bairro=None):
     # resultado colado no centro da cidade quando se pediu um ponto fino é
     # fallback administrativo do geocodificador, não o lugar da notícia
     if resultado and granular and confere:
-        centro = _geo.get(CIDADE_QUERY.get(confere, ""))
+        centro = _geo.get(query_cidade(confere))
         if centro and haversine(resultado, centro) < 0.3:
             resultado, definitivo = None, True
 
@@ -633,18 +657,59 @@ APELIDOS_CIDADE = {
     "os independentes": "Barretos",
 }
 
+def query_cidade(nome):
+    return CIDADE_QUERY.get(nome) or f"{_sem_acento(nome)}, Sao Paulo"
+
+CIDADE_CAND_RE = re.compile(
+    r"\b(?:em|de|no munic[ií]pio de|na cidade de|cidade de) "
+    r"([A-ZÁÉÍÓÚÂÊÔÃÕÇ][\wÀ-ÿ'.-]*(?:\s+(?:(?:de|da|do|dos|das)\b|[A-ZÁÉÍÓÚÂÊÔÃÕÇ][\wÀ-ÿ'.-]*)){0,3})")
+
+def cidade_provavel(text, so_cache=False):
+    """Município citado que não está na lista da região.
+
+    Sem isto, notícia de Barrinha ou Pedregulho ficava sem cidade e o texto
+    era tratado como de Ribeirão Preto: rua e bairro acabavam geocodificados
+    aqui, e o pin saía na cidade errada.
+    """
+    vistos, tentativas = set(), 0
+    for m in CIDADE_CAND_RE.finditer(text):
+        nome = m.group(1).strip(" .,;")
+        chave = norm(nome)
+        if len(nome) < 4 or chave in vistos or tentativas >= 3:
+            continue
+        vistos.add(chave)
+        tentativas += 1
+        c = geocode(query_cidade(nome), so_cache=so_cache, so_cidade=True)
+        if c and dentro(c, 180):
+            return nome
+    return None
+
 def cidade_do_texto(text):
+    r"""Cidade citada, escolhida pela posição no texto.
+
+    Antes a busca seguia a ordem da lista, e "Ribeirão Preto" é o primeiro
+    item: bastava a cidade aparecer em qualquer ponto, inclusive no nome da
+    editoria que se repete no rodapé de toda matéria, para uma notícia de
+    outro município ser tratada como daqui.
+
+    O limite usa (?<![\w-]) em vez de \b para não casar dentro de palavra
+    composta: sem isso "lobo-guará" virava a cidade de Guará.
+    """
     n = norm(text)
+    melhor, pos = None, len(n) + 1
     for c in CIDADES:
-        if re.search(r"\b" + re.escape(norm(c)) + r"\b", n):
-            return c
+        m = re.search(r"(?<![\w-])" + re.escape(norm(c)) + r"(?![\w-])", n)
+        if m and m.start() < pos:
+            melhor, pos = c, m.start()
+    if melhor:
+        return melhor
     for termo, cidade in APELIDOS_CIDADE.items():
-        if re.search(r"\b" + re.escape(termo) + r"\b", n):
+        if re.search(r"(?<![\w-])" + re.escape(termo) + r"(?![\w-])", n):
             return cidade
     return None
 
 def perto_da_cidade(coords, cidade, limite_km=35, so_cache=False):
-    centro = geocode(CIDADE_QUERY.get(cidade, ""), so_cache=so_cache)
+    centro = geocode(query_cidade(cidade), so_cache=so_cache)
     return bool(coords and centro and haversine(coords, centro) <= limite_km)
 
 def guess_place(text, regional=False, so_cache=False):
@@ -656,7 +721,8 @@ def guess_place(text, regional=False, so_cache=False):
     jamais rodava e todos os pins empilhavam no mesmo ponto do centro.
     """
     n = norm(text)
-    cidade = cidade_do_texto(text)
+    # a cidade citada manda: o que é de Barrinha fica em Barrinha
+    cidade = cidade_do_texto(text) or cidade_provavel(text, so_cache)
 
     # 1) lugar conhecido — precisa bater com a cidade citada (ou vir de feed regional sem outra cidade)
     for name, terms, query, cid in PLACES:
@@ -735,7 +801,7 @@ def guess_place(text, regional=False, so_cache=False):
             return {"place": rotulo, "lat": c[0], "lng": c[1], "preciso": True}
 
     # 6) sem referência fina: centro da cidade, marcado como impreciso
-    c = geocode(CIDADE_QUERY.get(alvo, ""), so_cache=so_cache)
+    c = geocode(query_cidade(alvo), so_cache=so_cache)
     if c:
         return {"place": alvo, "lat": c[0], "lng": c[1], "preciso": False}
     return None
