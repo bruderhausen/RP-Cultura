@@ -287,21 +287,21 @@ img{max-width:100%;display:block}
 @keyframes pinIn{from{opacity:0;transform:translate(-50%,-140%) scale(.5)}}
 .pin:active{transform:translate(-50%,-100%) scale(.92)}
 .pinwrap .pin__svg{z-index:1}
-.pin__svg{position:relative;width:30px;height:45px;filter:drop-shadow(0 6px 12px rgba(36,17,103,.4))}
-.pin__shape{fill:var(--brand);stroke:#fff;stroke-width:1.8}
+.pin__svg{position:relative;width:34px;height:42px;filter:drop-shadow(0 8px 16px rgba(36,17,103,.3))}
+.pin__shape{fill:var(--brand);stroke:#fff;stroke-width:2.5;stroke-linejoin:round}
 .pin__hole{fill:#fff}
 .pin--ev .pin__shape{fill:var(--accent-2)}
 .pin.is-on{transform:translate(-50%,-108%) scale(1.14);z-index:5}
 .pin__label{
-  margin-top:-2px;font-size:10px;font-weight:700;color:var(--brand-ink);white-space:nowrap;
-  background:rgba(255,255,255,.92);border-radius:99px;padding:2px 8px;box-shadow:var(--sh-1)
+  margin-top:2px;font-size:11px;font-weight:700;color:var(--brand-ink);white-space:nowrap;
+  background:rgba(255,255,255,.95);border-radius:99px;padding:4px 10px;box-shadow:0 4px 10px rgba(0,0,0,.15);backdrop-filter:blur(4px)
 }
 .pin__pulse{
   position:absolute;left:50%;top:16px;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;
-  background:var(--brand);opacity:.3;animation:pulse 2.6s ease-out infinite
+  background:var(--brand);opacity:0;animation:pulse 2.5s cubic-bezier(0.2,0.8,0.2,1) infinite
 }
 .pin--ev .pin__pulse{background:var(--accent-2)}
-@keyframes pulse{0%{transform:scale(.6);opacity:.35}70%{transform:scale(3.2);opacity:0}100%{opacity:0}}
+@keyframes pulse{0%{transform:scale(.8);opacity:.6}60%{transform:scale(3.5);opacity:0}100%{opacity:0}}
 
 .scrim{position:absolute;inset:0;background:rgba(20,10,50,.35);z-index:890;animation:fadeIn .25s ease}
 .sheet{

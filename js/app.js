@@ -428,11 +428,11 @@ function renderMap() {
     // afastado demais, só os favoritos, para o mapa não virar um amontoado
     if (longe && !isSaved(p.id) && !(p.more || []).some(isSaved)) return;
     const icon = L.divIcon({
-      className: "pinwrap", iconSize: [30, 46], iconAnchor: [15, 40],
+      className: "pinwrap", iconSize: [36, 46], iconAnchor: [18, 40],
       html: `<span class="pin pin--${p.type}"><span class="pin__pulse"></span>
-        <svg viewBox="0 0 24 36" class="pin__svg">
-          <path class="pin__shape" d="M12 36s12-16.19 12-24a12 12 0 1 0-24 0c0 7.81 12 24 12 24z"/>
-          <circle class="pin__hole" cx="12" cy="12" r="5"/></svg>
+        <svg viewBox="0 0 32 40" class="pin__svg">
+          <path class="pin__shape" d="M16 2C8.268 2 2 8.268 2 16c0 9.5 14 22 14 22s14-12.5 14-22C30 8.268 23.732 2 16 2z"/>
+          <circle class="pin__hole" cx="16" cy="15" r="5"/></svg>
         <span class="pin__label">${p.label}</span>
         ${(p.more || []).length ? `<b class="pin__n">${Math.min(99, (p.more || []).length + 1)}</b>` : ""}</span>`
     });
