@@ -436,7 +436,7 @@ function renderMap() {
         <span class="pin__label">${p.label}</span>
         ${(p.more || []).length ? `<b class="pin__n">${Math.min(99, (p.more || []).length + 1)}</b>` : ""}</span>`
     });
-    L.marker([p.lat, p.lng], { icon }).addTo(_pinLayer).on("click", () => openSheet(p.id, p.more));
+    L.marker([p.lat, p.lng], { icon, zIndexOffset: (p.more || []).length ? 600 : 0 }).addTo(_pinLayer).on("click", () => openSheet(p.id, p.more));
   });
 }
 
