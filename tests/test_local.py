@@ -8,6 +8,7 @@ que ele impede de voltar.
     python -m unittest discover -s tests -v
 """
 import os
+import re
 import sys
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -416,6 +417,39 @@ class TestDiagnostico(unittest.TestCase):
             {"sympla": {"ok": True, "itens": 0}})
         self.assertTrue(any("nenhum evento" in a for a in d["alerts"]))
 
+
+class TestFrontEncontraOsElementos(unittest.TestCase):
+    """Seletor que não existe no HTML derruba o app inteiro.
+
+    Foi o que aconteceu ao trocar "deslize" pelo atalho da agenda: o
+    applyLang continuou escrevendo em .sec-head__hint, que já não existia,
+    e a exceção parou o startApp no meio. A splash ficava presa na tela cheia
+    da tinta, porque o passo seguinte nunca rodava.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        raiz = os.path.join(os.path.dirname(__file__), "..")
+        with open(os.path.join(raiz, "index.html"), encoding="utf-8") as f:
+            cls.html = f.read()
+        with open(os.path.join(raiz, "js", "app.js"), encoding="utf-8") as f:
+            cls.js = f.read()
+
+    def test_todo_id_usado_sem_guarda_existe_no_html(self):
+        # $("#x").algo = ... e $("#x").metodo() estouram se o id não existir
+        usados = set(re.findall(r'\$\("#([A-Za-z0-9_-]+)"\)\s*\.', self.js))
+        # parte da tela é injetada por openPage, então o template mora no js
+        marcado = self.html + self.js
+        faltando = [i for i in sorted(usados) if f'id="{i}"' not in marcado]
+        self.assertEqual(faltando, [], f"ids ausentes no index.html: {faltando}")
+
+    def test_classes_usadas_sem_guarda_existem_no_html(self):
+        declaradas = set()
+        for atributo in re.findall(r'class="([^"]+)"', self.html + self.js):
+            declaradas.update(atributo.split())
+        usadas = set(re.findall(r'\$\("\.([a-zA-Z0-9_-]+)"\)\s*\.', self.js))
+        faltando = sorted(usadas - declaradas)
+        self.assertEqual(faltando, [], f"classes ausentes no index.html: {faltando}")
 
 class TestLembretes(unittest.TestCase):
     """O lembrete vive no servidor: é ele que sabe quando a hora chegou."""

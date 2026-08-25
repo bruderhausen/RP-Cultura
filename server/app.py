@@ -929,12 +929,18 @@ def load_store():
         except Exception as e:
             print("[gist]", e, flush=True)
 
+_gravando = threading.Lock()
+
 def save_store():
     os.makedirs(DATA_DIR, exist_ok=True)
-    tmp = STORE + ".tmp"
+    # três workers de localização chamam isto em paralelo. Com um nome de
+    # temporário só, um movia o arquivo e o outro tentava mover o que já não
+    # existia: "[local] [Errno 2] ... news.json.tmp -> news.json"
+    tmp = f"{STORE}.{threading.get_ident()}.tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump({"version": STORE_VERSION, "updated": _state["updated"], "items": _state["items"]}, f, ensure_ascii=False)
-    os.replace(tmp, STORE)
+    with _gravando:
+        os.replace(tmp, STORE)
     if GIST_ID and GIST_TOKEN:
         try:
             gist("PATCH", {"files": {"news.json": {"content": json.dumps(

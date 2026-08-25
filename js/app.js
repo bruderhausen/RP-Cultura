@@ -85,7 +85,14 @@ window.addEventListener("load", () => {
       // a tela está inteira coberta pela bola e nada se move: é a janela certa
       // para montar o app. Antes ele montava durante o fade e o custo de
       // renderHome, renderMap e Leaflet aparecia como travada
-      if (S.guideSeen) startApp(); else openGuide();
+      // erro ao montar não pode prender o usuário na tela cheia da tinta:
+      // melhor entrar num app quebrado e ver o problema do que não entrar
+      try {
+        if (S.guideSeen) startApp(); else openGuide();
+      } catch (e) {
+        console.error("falha ao montar o app", e);
+        $("#app").hidden = false;
+      }
       setTimeout(() => {
         sp.classList.add("is-paint");              // a tinta escorre e revela
         setTimeout(() => sp.remove(), 1650);
@@ -1132,10 +1139,14 @@ function applyLang() {
   if (H[0]) H[0].textContent = t("main");
   if (H[1]) H[1].textContent = t("events");
   if (H[2]) H[2].textContent = t("updates");
-  $(".sec-head__hint").textContent = t("swipe");
+  // estes dois são opcionais: a home já trocou "deslize" pelo atalho da agenda
+  // estes dois são opcionais: a home já trocou "deslize" pelo atalho da agenda
+  const dica = $(".sec-head__hint"); if (dica) dica.textContent = t("swipe");
+  const agenda = $("#verAgenda"); if (agenda) agenda.firstChild.textContent = t("agenda") + " ";
   const P = $$(".sec-head h2", $('[data-screen="perfil"]'));
   if (P[0]) P[0].textContent = t("receive");
-  if (P[1]) P[1].textContent = t("interests");
+  if (P[1]) P[1].textContent = t("reminder");
+  if (P[2]) P[2].textContent = t("interests");
   $("#mapLegend").textContent = t("mapHint");
   const nav = [t("home"), t("map"), t("profile")];
   $$(".tab span").forEach((s, i) => s.textContent = nav[i]);

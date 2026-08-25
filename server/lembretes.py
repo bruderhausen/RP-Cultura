@@ -48,7 +48,7 @@ def carregar():
 
 def _gravar():
     os.makedirs(DATA_DIR, exist_ok=True)
-    tmp = ARQUIVO + ".tmp"
+    tmp = f"{ARQUIVO}.{threading.get_ident()}.tmp"   # evita corrida entre threads
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(list(_itens.values()), f, ensure_ascii=False)
     os.replace(tmp, ARQUIVO)

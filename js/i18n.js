@@ -9,7 +9,7 @@ const LANGS = [
 const UI = {
   pt: {
     search: "Eventos perto de mim", main: "Principais notícias", events: "Eventos na região",
-    allCities: "Toda a região", chooseCity: "Escolha a cidade", agenda: "Agenda completa", noEvents: "Nenhum evento neste dia",
+    allCities: "Toda a região", chooseCity: "Escolha a cidade", agenda: "Agenda", noEvents: "Nenhum evento neste dia", reminder: "Lembrete de evento",
     updates: "Atualizações da região", swipe: "deslize →", home: "Início", map: "Mapa", profile: "Perfil",
     mapHint: "Só aparecem notícias com local confirmado", news: "Notícia", event: "Evento",
     saved: "Salvos", savedNews: "Notícias", savedEvents: "Eventos",
@@ -23,7 +23,7 @@ const UI = {
   },
   en: {
     search: "Events near me", main: "Top stories", events: "Events nearby",
-    allCities: "Whole region", chooseCity: "Choose a city", agenda: "Full agenda", noEvents: "No events on this day",
+    allCities: "Whole region", chooseCity: "Choose a city", agenda: "Agenda", noEvents: "No events on this day", reminder: "Event reminder",
     updates: "Regional updates", swipe: "swipe →", home: "Home", map: "Map", profile: "Profile",
     mapHint: "Only stories with a confirmed location", news: "Story", event: "Event",
     saved: "Saved", savedNews: "News", savedEvents: "Events",
@@ -37,7 +37,7 @@ const UI = {
   },
   es: {
     search: "Eventos cerca de mí", main: "Noticias principales", events: "Eventos en la región",
-    allCities: "Toda la región", chooseCity: "Elige la ciudad", agenda: "Agenda completa", noEvents: "Ningún evento este día",
+    allCities: "Toda la región", chooseCity: "Elige la ciudad", agenda: "Agenda", noEvents: "Ningún evento este día", reminder: "Recordatorio de evento",
     updates: "Actualizaciones de la región", swipe: "desliza →", home: "Inicio", map: "Mapa", profile: "Perfil",
     mapHint: "Solo noticias con lugar confirmado", news: "Noticia", event: "Evento",
     saved: "Guardados", savedNews: "Noticias", savedEvents: "Eventos",
