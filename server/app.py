@@ -697,6 +697,20 @@ def refresh():
     print(f"[refresh] {len(collected)} lidas, {len(fresh)} novas, {len(_state['items'])} no histórico", flush=True)
     return len(fresh)
 
+KEEPALIVE_URL = os.environ.get("KEEPALIVE_URL") or os.environ.get("RENDER_EXTERNAL_URL", "")
+
+def keepalive_loop():
+    """Um toque a cada 10 min no proprio endereco publico: o servico nao hiberna."""
+    if not KEEPALIVE_URL:
+        return
+    alvo = KEEPALIVE_URL.rstrip("/") + "/api/health"
+    while True:
+        time.sleep(600)
+        try:
+            urllib.request.urlopen(urllib.request.Request(alvo, headers=UA), timeout=20).read(64)
+        except Exception as e:
+            print("[keepalive]", e, flush=True)
+
 def refresh_loop():
     while True:
         try:
@@ -831,6 +845,7 @@ def main():
     threading.Thread(target=refresh_loop, daemon=True).start()
     for _ in range(3):
         threading.Thread(target=worker_local, daemon=True).start()
+    threading.Thread(target=keepalive_loop, daemon=True).start()
     print(f"RP Cultural em http://localhost:{PORT}  (atualiza a cada {REFRESH_SECONDS}s, histórico de {HISTORY_DAYS} dias)", flush=True)
     ThreadingHTTPServer(("0.0.0.0", PORT), Handler).serve_forever()
 
