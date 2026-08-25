@@ -107,22 +107,22 @@ img{max-width:100%;display:block}
 .splash.is-throw .mark{animation:none;opacity:0;transition:opacity .3s ease .12s}
 .splash.is-throw .mark__dot{animation:none;opacity:0}   /* a bola CSS assume no lugar dela */
 
-/* A tinta é uma massa contínua com lóbulos arredondados pendurados nela.
-   A versão anterior eram colunas independentes: como cada uma descia num
-   tempo diferente, apareciam degraus retos entre vizinhas e o conjunto
-   lia como retângulos, não como líquido. Aqui só a borda de baixo tem
-   forma, e ela é sempre uma sucessão de arcos. */
+/* A tinta é uma massa contínua cuja BORDA DE CIMA atravessa a tela.
+   Como a massa desce, é o topo dela que o usuário vê passar, e é ali que
+   a forma precisa estar. Antes os lóbulos ficavam pendurados na borda de
+   baixo, que já nasce fora da tela: só se via a aresta reta do topo. */
 .splash__paint{position:absolute;inset:0;z-index:7;opacity:0;pointer-events:none;overflow:hidden}
-.paint__body{position:absolute;inset:0;will-change:transform}
-.paint__mass{position:absolute;left:0;right:0;top:-30%;bottom:0;background:var(--tinta)}
+.paint__body{position:absolute;left:0;right:0;top:0;height:100%;will-change:transform}
+.paint__mass{position:absolute;left:0;right:0;top:0;bottom:-60%;background:var(--tinta)}
+/* cúpulas na borda de cima: entre elas ficam os vales por onde o app aparece */
 .paint__lobe{
-  position:absolute;top:100%;left:var(--x);width:var(--w);height:var(--h);
-  background:var(--tinta);border-radius:0 0 50% 50% / 0 0 100% 100%;
-  transform:scaleY(.3);transform-origin:top center;
+  position:absolute;bottom:100%;left:var(--x);width:var(--w);height:var(--h);
+  background:var(--tinta);border-radius:50% 50% 0 0 / 100% 100% 0 0;
+  transform:scaleY(.5);transform-origin:bottom center;
 }
-.paint__bead{               /* pingos que se soltam e correm na frente */
+.paint__bead{               /* respingos que se soltam e caem soltos */
   position:absolute;top:0;left:var(--x);width:var(--w);aspect-ratio:1;
-  background:var(--tinta);border-radius:50%;transform:translateY(-140%);
+  background:var(--tinta);border-radius:50%;transform:translateY(-160%);opacity:0;
 }
 
 .splash.is-paint{background:none;pointer-events:none}
@@ -130,23 +130,22 @@ img{max-width:100%;display:block}
 .splash.is-paint .splash__ball{display:none}
 .splash.is-paint .paint__body{animation:paintFall 1.15s cubic-bezier(.45,0,.72,.4) forwards}
 .splash.is-paint .paint__lobe{
-  animation:lobeDrip 1.15s cubic-bezier(.4,0,.7,.5) forwards;
-  animation-delay:var(--d);
+  animation:lobeSwell 1.15s cubic-bezier(.4,0,.7,.5) forwards;animation-delay:var(--d);
 }
 .splash.is-paint .paint__bead{
-  animation:beadFall .95s cubic-bezier(.5,0,.85,.5) forwards;
-  animation-delay:var(--d);
+  animation:beadFall 1s cubic-bezier(.5,0,.85,.5) forwards;animation-delay:var(--d);
 }
-@keyframes paintFall{to{transform:translateY(132%)}}
-@keyframes lobeDrip{           /* o dedo de tinta estica e depois afina */
-  0%{transform:scaleY(.3)}
-  45%{transform:scaleY(1.55)}
-  100%{transform:scaleY(.85)}
+@keyframes paintFall{to{transform:translateY(135%)}}
+@keyframes lobeSwell{          /* a crista incha e depois baixa, como líquido */
+  0%{transform:scaleY(.5)}
+  45%{transform:scaleY(1.35)}
+  100%{transform:scaleY(.9)}
 }
 @keyframes beadFall{
-  0%{transform:translateY(-140%) scaleY(1)}
-  35%{transform:translateY(30vh) scaleY(1.25)}
-  100%{transform:translateY(135vh) scaleY(1.35)}
+  0%{opacity:1;transform:translateY(-160%) scaleY(1)}
+  70%{opacity:1}
+  100%{opacity:0;transform:translateY(125vh) scaleY(1.4)}
+}
 }
 
 .splash__glow{
