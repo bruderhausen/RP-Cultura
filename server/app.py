@@ -69,8 +69,6 @@ CATEGORY_RULES = [
     ("Cultura",     ["teatro", "museu", "exposi", "cinema", "livro", "arte", "cultural", "sarau", "danca", "dança", "biblioteca", "espetaculo", "espetáculo"]),
     ("Cidade",      ["prefeitura", "transito", "trânsito", "obra", "onibus", "ônibus", "saude", "saúde", "escola", "policia", "polícia", "chuva", "clima", "agua", "água"]),
 ]
-EVENT_TERMS = ["show", "festival", "exposi", "sarau", "espetaculo", "espetáculo", "concerto",
-               "oficina", "workshop", "desfile", "feira de", "agenda cultural", "turne", "turnê"]
 NOISE_TERMS = ["siga o ", "veja fotos", "veja as fotos", "assista ao vivo", "confira a programacao da tv",
                "resumo do dia", "boletim", "horoscopo", "horóscopo"]
 
@@ -505,28 +503,6 @@ DATA_EXT_RE = re.compile(r"\b(\d{1,2})\s+de\s+([a-zç]+)", re.I)
 DATA_NUM_RE = re.compile(r"\b(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?\b")
 DIA_PAR_RE  = re.compile(r"\((\d{1,2})\)")
 
-def data_do_evento(text, publicado):
-    """Quando o evento acontece, lido do texto. Sem pista, devolve None."""
-    base = datetime.fromisoformat(publicado)
-    n = norm(text)
-    m = DATA_EXT_RE.search(n)
-    if m and norm(m.group(2)) in MESES_PT:
-        dia, mes = int(m.group(1)), MESES_PT[norm(m.group(2))]
-    else:
-        m = DATA_NUM_RE.search(text)
-        if m:
-            dia, mes = int(m.group(1)), int(m.group(2))
-        else:
-            m = DIA_PAR_RE.search(text)
-            if not m:
-                return None
-            dia, mes = int(m.group(1)), base.month
-    try:
-        ano = base.year + (1 if mes < base.month - 6 else 0)
-        return datetime(ano, mes, min(dia, 28 if mes == 2 else 30), 12, tzinfo=timezone.utc).isoformat()
-    except ValueError:
-        return None
-
 def tem_termo(n, termos):
     return any(re.search(r"\b" + re.escape(t).replace(r"\ ", " ") + r"\b", n) for t in termos)
 
@@ -537,11 +513,15 @@ def guess_category(text):
             return cat
     return "Cidade"
 
-def is_event(text):
-    n = norm(text)
-    if tem_termo(n, POLICIA_TERMS):
-        return False
-    return tem_termo(n, EVENT_TERMS)
+# Só estas fontes produzem evento: têm data, local e página de ingresso.
+FONTES_EVENTO = {"sympla", "eventim"}
+
+def normaliza_kind(it):
+    """Rebaixa a evento vindo de jornal, inclusive o que já está no histórico."""
+    if it.get("kind") == "evento" and it.get("src") not in FONTES_EVENTO:
+        it["kind"] = "noticia"
+        it["when"] = None
+    return it
 
 PREFIXO_RE = re.compile(r"^(fotos|video|videos|v[ií]deo|ao vivo|urgente|exclusivo|an[aá]lise)\s*:\s*", re.I)
 
@@ -711,12 +691,14 @@ def build_item(feed, raw_item):
     if is_noise(raw_item["title"]):
         return None
     iid = hashlib.sha1(raw_item["link"].encode()).hexdigest()[:12]
-    quando = data_do_evento(text, raw_item["published"] or datetime.now(timezone.utc).isoformat()) if is_event(text) else None
+    # Feed de jornal não produz evento. Notícia sobre show é notícia com
+    # categoria Show; evento é item de plataforma de ingresso, com data,
+    # local e página de compra. Misturar os dois embaralhava a agenda.
     # só cache aqui: o worker em segundo plano resolve o resto sem prender o ciclo
     place = guess_place(text, feed["regional"], so_cache=True)
     return {
         "id": iid,
-        "kind": "evento" if is_event(text) else "noticia",
+        "kind": "noticia",
         "cat": guess_category(text),
         "title": raw_item["title"],
         "lead": raw_item["summary"] or raw_item["title"],
@@ -726,7 +708,7 @@ def build_item(feed, raw_item):
         "srcName": feed["name"],
         "srcSite": feed["site"],
         "published": raw_item["published"] or datetime.now(timezone.utc).isoformat(),
-        "when": quando,
+        "when": None,
         "place": (place or {}).get("place"),
         "lat": (place or {}).get("lat"),
         "lng": (place or {}).get("lng"),
@@ -785,6 +767,7 @@ def save_store():
             print("[gist]", e, flush=True)
 
 def prune(items):
+    items = [normaliza_kind(i) for i in items]
     limit = datetime.now(timezone.utc) - timedelta(days=HISTORY_DAYS)
     kept = []
     agora = datetime.now(timezone.utc)
