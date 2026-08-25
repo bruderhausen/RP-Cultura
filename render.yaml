@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: rpcultural
+    runtime: docker
+    plan: free
+    envVars:
+      - key: REFRESH_SECONDS
+        value: "300"
+      - key: HISTORY_DAYS
+        value: "7"

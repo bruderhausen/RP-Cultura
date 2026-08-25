@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#4B2ED4">
+<meta name="description" content="RP Cultural — notícias, eventos e cultura de Ribeirão Preto e região.">
+<title>RP Cultural</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css?v=10">
+</head>
+<body>
+
+<!-- ============ SPLASH ============ -->
+<div id="splash" class="splash">
+  <div class="splash__logo">
+    <svg viewBox="0 0 200 120" class="logo-mark" aria-label="RP Cultural">
+      <g fill="none" stroke="currentColor" stroke-width="10" stroke-linejoin="round" stroke-linecap="round">
+        <path class="lp lp1" d="M30 102 V26 h32 a20 20 0 0 1 0 40 H30"/>
+        <path class="lp lp2" d="M60 66 L92 102"/>
+        <path class="lp lp3" d="M114 102 V26 h32 a21 21 0 0 1 0 42 h-32"/>
+      </g>
+      <circle class="lp-dot d1" cx="48" cy="46" r="5.5" fill="currentColor"/>
+      <circle class="lp-dot d2" cx="132" cy="47" r="5.5" fill="currentColor"/>
+    </svg>
+    <div class="splash__word"><span>CULTURAL</span></div>
+  </div>
+  <div class="splash__tag">notícias e cultura da sua região</div>
+</div>
+
+<!-- ============ GUIA DO APP ============ -->
+<div id="guide" class="guide" hidden>
+  <button class="guide__skip" id="guideSkip">Pular</button>
+  <div class="guide__track" id="guideTrack">
+    <section class="guide__slide">
+      <div class="guide__art">
+        <svg viewBox="0 0 120 120"><rect x="24" y="22" width="72" height="76" rx="10" class="gc"/><path d="M38 44h44M38 60h44M38 76h26" class="gl"/></svg>
+      </div>
+      <h2>Tudo o que acontece por aqui</h2>
+      <p>As principais notícias, eventos e atualizações de Ribeirão Preto e região reunidas em um só lugar.</p>
+    </section>
+    <section class="guide__slide">
+      <div class="guide__art">
+        <svg viewBox="0 0 120 120"><path d="M18 94 L44 30 L72 78 L102 38" class="gl"/><path d="M74 34c11 0 20 9 20 20 0 14-20 32-20 32S54 68 54 54c0-11 9-20 20-20z" class="gc"/><circle cx="74" cy="53" r="6" class="gd"/></svg>
+      </div>
+      <h2>Notícias no mapa</h2>
+      <p>Toque nos pins para ver o que está rolando em cada ponto da cidade — com resumo e link da fonte original.</p>
+    </section>
+    <section class="guide__slide">
+      <div class="guide__art">
+        <svg viewBox="0 0 120 120"><path d="M40 24h40v72L60 80 40 96z" class="gc"/><path d="M52 50h16M60 42v16" class="gl"/></svg>
+      </div>
+      <h2>Salve e personalize</h2>
+      <p>Favorite notícias e eventos, veja-os separados no seu perfil e escolha o que quer receber.</p>
+    </section>
+  </div>
+  <div class="guide__foot">
+    <div class="dots" id="guideDots"><i class="on"></i><i></i><i></i></div>
+    <button class="btn btn--primary" id="guideNext">Continuar</button>
+  </div>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="app" class="app" hidden>
+
+  <!-- ---- HOME ---- -->
+  <section class="screen" data-screen="home">
+    <header class="topbar">
+      <div class="topbar__brand">
+        <svg viewBox="0 0 200 120" class="logo-mini"><g fill="none" stroke="currentColor" stroke-width="13" stroke-linejoin="round" stroke-linecap="round"><path d="M30 102 V26 h32 a20 20 0 0 1 0 40 H30"/><path d="M60 66 L92 102"/><path d="M114 102 V26 h32 a21 21 0 0 1 0 42 h-32"/></g></svg>
+        <span><b>Cultural</b></span>
+      </div>
+      <button class="iconbtn" id="langBtn" title="Ferramenta de tradução" aria-label="Ferramenta de tradução">
+        <svg viewBox="0 0 24 24"><path d="M3.5 5.5h10M8.5 3.5v2M11.5 5.5c0 4-3 8.5-7.5 9.5M6.5 9.5c1 2.6 3.4 4.6 6 5.5M12.8 20.5l4.1-10 4.1 10M14.5 17.5h4.8"/></svg>
+      </button>
+    </header>
+
+    <div class="searchrow">
+      <label class="search">
+        <svg viewBox="0 0 24 24" class="search__ico"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg>
+        <input type="search" id="searchInput" placeholder="Eventos perto de mim" autocomplete="off">
+      </label>
+      <button class="regionbtn" id="regionBtn"><span id="regionLabel">Ribeirão</span><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
+    </div>
+
+    <div class="chips" id="catChips"></div>
+
+    <div class="scrollarea" id="homeScroll">
+      <article class="hero" id="heroCard"></article>
+
+      <div class="sec-head"><h2>Principais notícias</h2><span class="live" id="liveBadge" hidden></span></div>
+      <div class="list" id="newsList"></div>
+
+      <div class="sec-head"><h2>Eventos na região</h2><span class="sec-head__hint">deslize →</span></div>
+      <div class="rail" id="eventRail"></div>
+
+      <div class="sec-head"><h2>Atualizações da região</h2></div>
+      <div class="updates" id="updateList"></div>
+      <div class="pad"></div>
+    </div>
+  </section>
+
+  <!-- ---- MAPA ---- -->
+  <section class="screen" data-screen="mapa" hidden>
+    <header class="topbar">
+      <div class="topbar__brand"><svg viewBox="0 0 200 120" class="logo-mini"><g fill="none" stroke="currentColor" stroke-width="13" stroke-linejoin="round" stroke-linecap="round"><path d="M30 102 V26 h32 a20 20 0 0 1 0 40 H30"/><path d="M60 66 L92 102"/><path d="M114 102 V26 h32 a21 21 0 0 1 0 42 h-32"/></g></svg><span><b>Cultural</b></span></div>
+      <button class="iconbtn" id="mapRecenter" aria-label="Centralizar mapa">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4"/><circle cx="12" cy="12" r="8"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22"/></svg>
+      </button>
+    </header>
+    <div class="mapwrap">
+      <div class="map" id="map"></div>
+      <div class="map__legend" id="mapLegend">Toque em um pin para ver a notícia do local</div>
+    </div>
+    <div class="scrim" id="mapScrim" hidden></div>
+    <div class="sheet" id="mapSheet" hidden>
+      <button class="sheet__grab" id="sheetClose" aria-label="Fechar"></button>
+      <div class="sheet__body" id="mapSheetBody"></div>
+    </div>
+  </section>
+
+  <!-- ---- PERFIL ---- -->
+  <section class="screen" data-screen="perfil" hidden>
+    <header class="topbar"><div class="topbar__brand"><svg viewBox="0 0 200 120" class="logo-mini"><g fill="none" stroke="currentColor" stroke-width="13" stroke-linejoin="round" stroke-linecap="round"><path d="M30 102 V26 h32 a20 20 0 0 1 0 40 H30"/><path d="M60 66 L92 102"/><path d="M114 102 V26 h32 a21 21 0 0 1 0 42 h-32"/></g></svg><span><b>Cultural</b></span></div></header>
+    <div class="scrollarea">
+      <div class="profile">
+        <button class="avatar" id="avatarBtn" aria-label="Trocar a foto">
+          <img id="avatarImg" alt="" hidden>
+          <svg class="avatar__ph" viewBox="0 0 24 24"><circle cx="12" cy="9" r="3.8"/><path d="M4.6 20.5c1.5-3.8 4.4-5.8 7.4-5.8s5.9 2 7.4 5.8"/></svg>
+          <span class="avatar__edit"><svg viewBox="0 0 24 24"><path d="M4 20h4L18 10l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg></span>
+        </button>
+        <input type="file" id="avatarFile" accept="image/*" hidden>
+        <h2 class="profile__name" id="profName">Visitante</h2>
+        <p class="profile__sub" id="profSub">Entre para salvar e personalizar</p>
+      </div>
+
+      <div class="stack">
+        <button class="rowbtn rowbtn--accent" id="authBtn">
+          <span id="authBtnLabel">Entre ou cadastre-se</span>
+          <svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+        </button>
+        <button class="rowbtn" id="savedBtn">
+          <span class="rowbtn__l"><svg viewBox="0 0 24 24" class="ri"><path d="M7 4h10v16l-5-4-5 4z"/></svg> Salvos</span>
+          <span class="rowbtn__r"><b id="savedCount">0</b><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></span>
+        </button>
+      </div>
+
+      <div class="sec-head"><h2>O que você quer receber</h2></div>
+      <div class="prefs">
+        <label class="pref"><span><b>Notícias</b><i>Manchetes e cobertura da cidade</i></span><input type="checkbox" data-pref="noticias"><em class="sw"></em></label>
+        <label class="pref"><span><b>Eventos</b><i>Shows, festivais e agenda cultural</i></span><input type="checkbox" data-pref="eventos"><em class="sw"></em></label>
+        <label class="pref"><span><b>Alertas da região</b><i>Trânsito, clima e serviços</i></span><input type="checkbox" data-pref="alertas"><em class="sw"></em></label>
+      </div>
+
+      <div class="sec-head"><h2>Seus interesses</h2></div>
+      <div class="chips chips--wrap" id="interestChips"></div>
+
+      <div class="stack">
+        <button class="rowbtn" id="replayGuide"><span class="rowbtn__l"><svg viewBox="0 0 24 24" class="ri"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg> Rever o guia do app</span><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
+      </div>
+      <div class="pad"></div>
+    </div>
+  </section>
+
+  <!-- ---- BOTTOM NAV ---- -->
+  <nav class="tabbar" id="tabbar">
+    <button class="tab is-on" data-go="home">
+      <svg viewBox="0 0 24 24"><path d="M4 11.2 12 4l8 7.2V19a1.5 1.5 0 0 1-1.5 1.5H15V14H9v6.5H5.5A1.5 1.5 0 0 1 4 19z"/></svg>
+      <span>Início</span>
+    </button>
+    <button class="tab" data-go="mapa">
+      <svg viewBox="0 0 24 24"><path d="M12 21.5s7-6.6 7-11.5a7 7 0 1 0-14 0c0 4.9 7 11.5 7 11.5z"/><circle cx="12" cy="10" r="2.6"/></svg>
+      <span>Mapa</span>
+    </button>
+    <button class="tab" data-go="perfil">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.6"/><path d="M5 20.5c1.4-3.6 4-5.5 7-5.5s5.6 1.9 7 5.5"/></svg>
+      <span>Perfil</span>
+    </button>
+  </nav>
+
+  <!-- ---- PÁGINAS EMPILHADAS ---- -->
+  <section class="page" id="pageArticle" hidden></section>
+  <section class="page" id="pageSaved" hidden></section>
+  <section class="page page--auth" id="pageAuth" hidden></section>
+
+  <div class="toast" id="toast" hidden></div>
+</div>
+
+<script src="js/data.js?v=10"></script>
+<script src="js/i18n.js?v=10"></script>
+<script src="js/app.js?v=10"></script>
+<script src="js/live.js?v=10"></script>
+</body>
+</html>
