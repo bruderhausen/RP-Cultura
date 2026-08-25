@@ -305,7 +305,7 @@ function renderMap() {
   if (!_map) {
     _map = L.map("map", { zoomControl: false, attributionControl: true }).setView(RP, 13);
     setTimeout(() => _map.invalidateSize(), 300);
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
       maxZoom: 20, subdomains: "abcd", detectRetina: true,
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
     }).addTo(_map);
@@ -323,7 +323,7 @@ function renderMap() {
           <circle class="pin__hole" cx="13" cy="13" r="4.2"/></svg>
         <span class="pin__label">${p.label}</span></span>`
     });
-    L.marker([p.lat, p.lng], { icon }).addTo(_pinLayer).on("click", () => openSheet(p.id));
+    L.marker([p.lat, p.lng], { icon }).addTo(_pinLayer).on("click", () => openSheet(p.id, p.more));
   });
 }
 
@@ -336,7 +336,7 @@ $("#mapRecenter").addEventListener("click", () => {
   if (_map) { _map.invalidateSize(); _map.setView(RP, 13); }
 });
 
-function openSheet(id) {
+function openSheet(id, more = []) {
   const i = byId(id); if (!i) return;
   if ($("#mapSheet").hidden) pushLayer();
   const L = loc(i), src = SOURCES[i.src];
@@ -349,6 +349,10 @@ function openSheet(id) {
       ${t("readAt")}: <b>${src.name}</b>
       <svg viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>
     </a>
+    ${(more || []).map(byId).filter(Boolean).length ? `<div class="sheet__more">
+      <b>Também aqui</b>
+      ${(more || []).map(byId).filter(Boolean).map(m => `<button data-open="${m.id}">${loc(m).title}</button>`).join("")}
+    </div>` : ""}
     <div class="sheet__acts" style="margin-top:14px">
       <button class="btn btn--ghost" id="sheetSave">${isSaved(i.id) ? t("saved2") + " ✓" : t("save")}</button>
       <button class="btn btn--primary" data-open="${i.id}">${t("openSource")}</button>

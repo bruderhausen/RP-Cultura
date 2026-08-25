@@ -64,6 +64,14 @@ NOISE_TERMS = ["siga o ", "veja fotos", "veja as fotos", "assista ao vivo", "con
 # ------------------------------------------------- lugares -> pin no mapa
 # (label, termos que aparecem no texto, consulta enviada ao geocodificador)
 PLACES = [
+    ("Parque do Peão",          ["parque do peao", "festa do peao", "liga nacional de rodeio", "peao de barretos"], "Parque do Peao, Barretos, Sao Paulo"),
+    ("Santa Casa",              ["santa casa"],                               "Santa Casa de Misericordia de Ribeirao Preto"),
+    ("Arena Eurobike",          ["arena eurobike", "botafogo-sp", "botafogo sp"], "Arena Eurobike, Ribeirao Preto"),
+    ("Aeroporto Leite Lopes",   ["aeroporto"],                                "Aeroporto Leite Lopes, Ribeirao Preto"),
+    ("Prefeitura de RP",        ["prefeitura de ribeirao", "paco municipal"], "Prefeitura de Ribeirao Preto"),
+    ("Câmara Municipal",        ["camara municipal"],                         "Camara Municipal de Ribeirao Preto"),
+    ("Sesc Ribeirão",           ["sesc"],                                     "Sesc Ribeirao Preto"),
+    ("Unaerp",                  ["unaerp"],                                   "UNAERP, Ribeirao Preto"),
     ("Theatro Pedro II",        ["theatro pedro", "teatro pedro"],            "Theatro Pedro II, Ribeirao Preto"),
     ("Bosque Municipal",        ["bosque", "zoologico", "zoológico"],         "Bosque Municipal Fabio Barreto, Ribeirao Preto"),
     ("Parque Permanente",       ["parque permanente", "recinto"],             "Parque Permanente de Exposicoes, Ribeirao Preto"),
@@ -196,6 +204,26 @@ DEFAULT_GEO = {
     "Sao Carlos, Sao Paulo": [
         -22.01804,
         -47.891154
+    ],
+    "Sesc Ribeirao Preto": [
+        -21.172876,
+        -47.807168
+    ],
+    "Camara Municipal de Ribeirao Preto": [
+        -21.177331,
+        -47.817676
+    ],
+    "Parque do Peao, Barretos, Sao Paulo": [
+        -20.508142,
+        -48.595081
+    ],
+    "Arena Eurobike, Ribeirao Preto": [
+        -21.202392,
+        -47.790141
+    ],
+    "Aeroporto Leite Lopes, Ribeirao Preto": [
+        -21.133302,
+        -47.774683
     ]
 }
 
@@ -333,14 +361,54 @@ def is_noise(text):
     n = norm(text)
     return any(t in n for t in NOISE_TERMS)
 
+CIDADES = ["Franca", "Sertãozinho", "Barretos", "Batatais", "Cravinhos", "Jardinópolis",
+           "Brodowski", "Serrana", "Araraquara", "São Carlos", "Ribeirão Preto"]
+
+VIA_RE = re.compile(
+    r"(Rua|Avenida|Av\.|Praça|Praca|Alameda|Rodovia|Estrada|Largo|Parque|Teatro|Theatro|Museu|"
+    r"Shopping|Hospital|Estádio|Estadio|Jardim|Vila|Bairro|Distrito|Terminal|Aeroporto|Igreja|"
+    r"Escola|Colégio|Colegio|Faculdade|Universidade|Câmara|Camara|Prefeitura|Sesc|Senac|Centro)\s+"
+    r"([A-ZÁÉÍÓÚÂÊÔÃÕÇ][\wÀ-ÿ'’.-]*(?:\s+(?:de|da|do|dos|das|e|[A-ZÁÉÍÓÚÂÊÔÃÕÇ][\wÀ-ÿ'’.-]*)){0,4})")
+
+BBOX = (-22.6, -19.6, -49.8, -46.6)   # lat_min, lat_max, lng_min, lng_max
+
+def dentro(c):
+    return c and BBOX[0] <= c[0] <= BBOX[1] and BBOX[2] <= c[1] <= BBOX[3]
+
+def cidade_do_texto(text):
+    n = norm(text)
+    for c in CIDADES:
+        if norm(c) in n:
+            return c
+    return "Ribeirão Preto"
+
 def guess_place(text):
+    """1) lugar conhecido  2) rua/avenida/equipamento citado  3) cidade."""
     n = norm(text)
     for name, terms, query in PLACES:
+        if name in CIDADES:
+            continue
         if any(t in n for t in terms):
-            coords = geocode(query)
-            if coords:
-                return {"place": name, "lat": coords[0], "lng": coords[1]}
-            return {"place": name}
+            c = geocode(query)
+            if dentro(c):
+                return {"place": name, "lat": c[0], "lng": c[1]}
+
+    cidade = cidade_do_texto(text)
+    tentativas = 0
+    for m in VIA_RE.finditer(text):
+        via = f"{m.group(1)} {m.group(2)}".strip(" .,;")
+        if len(via) < 8 or tentativas >= 3:
+            continue
+        tentativas += 1
+        c = geocode(f"{via}, {cidade}, SP")
+        if dentro(c):
+            return {"place": via, "lat": c[0], "lng": c[1]}
+
+    for name, terms, query in PLACES:
+        if name in CIDADES and any(t in n for t in terms):
+            c = geocode(query)
+            if dentro(c):
+                return {"place": name, "lat": c[0], "lng": c[1]}
     return None
 
 def is_regional(text):
@@ -464,21 +532,18 @@ def feed_payload():
         updated = _state["updated"]
     news = [i for i in items if i["kind"] == "noticia"]
     events = [i for i in items if i["kind"] == "evento"]
-    pins, usados = [], {}
+    # um pin por local, na coordenada exata; itens do mesmo lugar ficam juntos
+    grupos = {}
     for i in items:
         if i.get("lat") is None:
             continue
-        key = (i["lat"], i["lng"])
-        n = usados.get(key, 0)
-        if n >= 3:                                   # no máximo 3 pins por lugar
-            continue
-        usados[key] = n + 1
-        ang, raio = n * 2.399, 0.004 * (n ** 0.5)    # espiral, ~400 m por passo
-        pins.append({"id": i["id"], "lat": i["lat"] + raio * math.cos(ang),
-                     "lng": i["lng"] + raio * math.sin(ang), "label": i["place"],
-                     "type": "ev" if i["kind"] == "evento" else "news"})
-        if len(pins) >= 60:
-            break
+        key = (round(i["lat"], 5), round(i["lng"], 5))
+        g = grupos.setdefault(key, {"id": i["id"], "lat": key[0], "lng": key[1],
+                                    "label": i["place"], "more": [],
+                                    "type": "ev" if i["kind"] == "evento" else "news"})
+        if g["id"] != i["id"] and len(g["more"]) < 5:
+            g["more"].append(i["id"])
+    pins = list(grupos.values())[:80]
     sources = {f["key"]: {"name": f["name"], "url": f["site"]} for f in FEEDS}
     return {"updated": updated, "days": HISTORY_DAYS, "refresh": REFRESH_SECONDS,
             "sources": sources, "news": news, "events": events, "pins": pins,
