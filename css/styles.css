@@ -357,6 +357,7 @@ img{max-width:100%;display:block}
 .art{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;padding:0 0 34px}
 .art__hero{height:220px;position:relative;margin:0 16px;border-radius:var(--r-l);overflow:hidden;box-shadow:var(--sh-2)}
 .art__cat{position:absolute;left:12px;bottom:12px}
+.art__credito{font-size:11.5px;color:var(--ink-3);padding:8px 20px 0;margin:0}
 .art__in{padding:18px}
 .art__in h1{font-family:var(--display);font-size:26px;font-weight:800;line-height:1.1;letter-spacing:-.025em;margin:0 0 10px}
 .art__meta{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--ink-3);margin-bottom:16px;flex-wrap:wrap}

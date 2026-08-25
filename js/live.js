@@ -37,7 +37,8 @@ function shape(i) {
     day: String(d.getDate()).padStart(2, "0"),
     month: MESES[d.getMonth()],
     place: i.place || "Ribeirão Preto e região",
-    price: i.price || null
+    price: i.price || null,
+    credit: i.credit || null
   });
 }
 

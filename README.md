@@ -1,5 +1,7 @@
 # RP Cultural
 
+<p align="center"><img src="assets/logo.png" alt="RP Cultural" width="420"></p>
+
 App mobile-first de notícias, eventos e cultura de Ribeirão Preto e região, feito a partir dos
 wireframes de baixa fidelidade (páginas 01, 02 e 03). Conteúdo real: notícias vindas dos RSS dos
 veículos da região e eventos das plataformas de ingresso.
@@ -82,6 +84,12 @@ sw.js               service worker (rede primeiro)
 server/app.py       API, leitura das fontes e localização
 server/eventos.py   Sympla e Eventim
 ```
+
+## Créditos
+
+As fotos das matérias vêm dos próprios veículos e aparecem com o crédito do fotógrafo quando ele
+está publicado na página de origem ("Foto: …"). Textos e imagens pertencem aos veículos citados; o
+app mostra apenas manchete, resumo e link para a matéria completa.
 
 ## Deploy
 

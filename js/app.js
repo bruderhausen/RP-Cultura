@@ -339,7 +339,8 @@ document.addEventListener("click", e => {
 function openArticle(id) {
   const i = byId(id); if (!i) return;
   const L = loc(i), src = SOURCES[i.src];
-  const related = ALL.filter(x => x.id !== i.id && x.cat === i.cat).slice(0, 2);
+  const related = ALL.filter(x => x.id !== i.id && x.cat === i.cat &&
+    (!x.img || x.img !== i.img)).slice(0, 2);
   const badge = (S.lang !== "pt" && CONTENT_I18N[S.lang] && CONTENT_I18N[S.lang][i.id]) ? `<span class="tag tag--ghost" style="background:var(--surface-2);color:var(--ink-3)">${t("translated")}</span>` : "";
 
   openPage($("#pageArticle"), `
@@ -353,6 +354,7 @@ function openArticle(id) {
     </div>
     <div class="art">
       <div class="art__hero">${art(i)}<span class="tag art__cat">${i.cat}</span></div>
+      ${i.credit ? `<p class="art__credito">Foto: ${i.credit}</p>` : ""}
       <div class="art__in">
         <h1>${L.title}</h1>
         <div class="art__meta"><span class="src">${src.name}</span><i class="dot-sep"></i>${i.time}<i class="dot-sep"></i>${i.read}${i.place ? `<i class="dot-sep"></i>📍 ${i.place}` : ""} ${badge}</div>

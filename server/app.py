@@ -588,14 +588,21 @@ def prune(items):
 
 SCRIPT_RE = re.compile(r"<(script|style)[^>]*>.*?</>", re.S | re.I)
 LD_RE = re.compile(r'<script[^>]+application/ld\+json[^>]*>(.*?)</script>', re.S | re.I)
+OG_IMG_RE = re.compile(
+    "property=[\"']og:image[\"'][^>]*content=[\"']([^\"']+)", re.I)
+OG_IMG2_RE = re.compile(
+    "content=[\"']([^\"']+)[\"'][^>]*property=[\"']og:image[\"']", re.I)
+CREDITO_RE = re.compile(
+    "(?:Foto|Imagem|Cr[\u00e9\u00ea]dito)s?\\s*[:/]\\s*([A-Z\u00c0-\u00da][^<>|\\\"\\r\\n]{2,60}?)\\s*(?:<|\\||\\\"|$)")
+
 GEO_META_RE = re.compile(r'name=["\']geo.position["\'][^>]*content=["\']([-0-9.]+)[;,]\s*([-0-9.]+)', re.I)
 
-def artigo_texto(url, limite=120000):
+def artigo_texto(url, limite=400000):
     """Baixa a matéria e devolve o texto limpo (para achar rua, bairro, local)."""
     try:
         raw = fetch(url, timeout=15)[:limite]
     except Exception:
-        return "", None
+        return "", None, {}
     page = raw.decode("utf-8", "ignore")
 
     m = GEO_META_RE.search(page)
@@ -612,18 +619,34 @@ def artigo_texto(url, limite=120000):
             if achado:
                 page += " " + achado.group(1)
 
+    extra = {}
+    m = OG_IMG_RE.search(page) or OG_IMG2_RE.search(page)
+    if m:
+        extra["img"] = html.unescape(m.group(1))
+    m = CREDITO_RE.search(page)
+    if m:
+        extra["credit"] = clean(m.group(1), 60)
+
     texto = TAG_RE.sub(" ", SCRIPT_RE.sub(" ", page))
-    return clean(html.unescape(texto), 6000), coords
+    return clean(html.unescape(texto), 6000), coords, extra
 
 def localizar(item):
     """Procura o local no corpo da matéria. Devolve True se achou coordenada.
     Itens que já vêm com coordenada da plataforma (Sympla, Eventim) ficam como estão."""
-    if item.get("lat") is not None:
-        return False
+    ja_tem_local = item.get("lat") is not None
     regional = any(f["key"] == item["src"] and f["regional"] for f in FEEDS)
-    texto, coords = artigo_texto(item["url"])
-    if not texto:
-        return False
+    texto, coords, extra = artigo_texto(item["url"])
+    mudou = False
+    with _lock:
+        for i in _state["items"]:
+            if i["id"] != item["id"]:
+                continue
+            if extra.get("img") and not i.get("img"):
+                i["img"] = extra["img"]; mudou = True
+            if extra.get("credit") and not i.get("credit"):
+                i["credit"] = extra["credit"]; mudou = True
+    if ja_tem_local or not texto:
+        return mudou
     marca = re.compile(r"ribeirao preto e franca|g1 ribeirao|eptv", re.I)
     cabeca = f"{item['title']} {item['lead']}"
     corpo = marca.sub(" ", texto)[:2500]
@@ -632,14 +655,14 @@ def localizar(item):
         place = {"place": (place or {}).get("place") or cidade_do_texto(base) or "Ribeirão Preto",
                  "lat": coords[0], "lng": coords[1]}
     if not place or place.get("lat") is None:
-        return False
+        return mudou
     with _lock:
         for i in _state["items"]:
             if i["id"] == item["id"]:
                 i.update(place)
                 i["fino"] = True
                 return True
-    return False
+    return mudou
 
 _fila = queue.Queue()
 
@@ -692,7 +715,7 @@ def refresh():
     if fresh:
         broadcast({"type": "news", "count": len(fresh), "updated": _state["updated"]})
     for i in fresh:                       # localização fina roda em segundo plano
-        if i.get("lat") is None and i.get("url", "").startswith("http"):
+        if (i.get("lat") is None or not i.get("img")) and i.get("url", "").startswith("http"):
             _fila.put(i)
     print(f"[refresh] {len(collected)} lidas, {len(fresh)} novas, {len(_state['items'])} no histórico", flush=True)
     return len(fresh)
