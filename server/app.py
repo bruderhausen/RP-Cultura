@@ -292,22 +292,56 @@ def load_geo():
 
 RP_CENTRO = [-21.177632, -47.810098]
 
+# Sobe quando as regras de localização mudam. Itens gravados por uma versão
+# anterior voltam para a fila: sem isso, um pin colocado no lugar errado por
+# uma regra antiga ficaria errado para sempre.
+GEO_VERSAO = 2
+
 _geo_falhas = {}            # chave -> instante em que vale a pena tentar de novo
 TTL_FALHA = 6 * 3600        # recusa de rede: o serviço pode voltar
 TTL_VAZIO = 7 * 86400       # o serviço respondeu e não conhece o lugar
 
-def _nominatim(query, confere):
-    url = ("https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br&q="
-           + urllib.parse.quote(query))
+# Tipos que representam a cidade inteira ou algo maior. Quando se pede uma
+# rua e o geocodificador devolve um destes, ele não achou o endereço e caiu
+# no centroide administrativo: aceitar isso é o que colocava o pin longe do
+# lugar da notícia.
+TIPOS_AMPLOS = {"city", "municipality", "town", "administrative", "state",
+                "county", "country", "region", "province", "postcode"}
+
+def _tokens(txt):
+    return {w for w in re.findall(r"[a-z0-9]+", norm(txt)) if len(w) > 3}
+
+def _nome_bate(query, nome):
+    """O nome devolvido precisa conter o que foi pedido.
+
+    Sem isto, uma consulta que o geocodificador não entende volta com o
+    primeiro palpite dele e o pin vai parar em outro lugar da cidade.
+    """
+    pedido = _tokens(query.split(",")[0])
+    if not pedido:
+        return False
+    achou = _tokens(nome)
+    return len(pedido & achou) >= max(1, (len(pedido) + 1) // 2)
+
+def _nominatim(query, confere, granular):
+    url = ("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&"
+           "addressdetails=1&countrycodes=br&q=" + urllib.parse.quote(query))
     data = json.loads(fetch(url, timeout=15).decode("utf-8"))
     if not data:
         return None, True
     achado = data[0]
-    if confere and norm(confere) not in norm(achado.get("display_name", "")):
+    display = achado.get("display_name", "")
+    if confere and norm(confere) not in norm(display):
         return None, True
+    if granular:
+        tipo = (achado.get("addresstype") or achado.get("type") or "").lower()
+        if tipo in TIPOS_AMPLOS:
+            return None, True
+        if not _nome_bate(query, achado.get("name") or display.split(",")[0]):
+            return None, True
     return [round(float(achado["lat"]), 6), round(float(achado["lon"]), 6)], True
 
-def _photon(query, confere):
+def _photon(query, confere, granular):
     """Segunda opção. O Nominatim recusa tráfego de datacenter com frequência,
     e sem alternativa o app inteiro ficava sem pin nenhum."""
     url = ("https://photon.komoot.io/api/?limit=1&lat=%f&lon=%f&q=" % tuple(RP_CENTRO)
@@ -316,15 +350,22 @@ def _photon(query, confere):
     if not feicoes:
         return None, True
     f = feicoes[0]
+    props = f["properties"]
     lon, lat = f["geometry"]["coordinates"][:2]
     if confere:
-        campos = " ".join(str(f["properties"].get(k, ""))
+        campos = " ".join(str(props.get(k, ""))
                           for k in ("city", "county", "state", "name", "district"))
         if norm(confere) not in norm(campos):
             return None, True
+    if granular:
+        if (props.get("type") or "").lower() in TIPOS_AMPLOS:
+            return None, True
+        if not _nome_bate(query, " ".join(str(props.get(k, ""))
+                                          for k in ("name", "street", "district"))):
+            return None, True
     return [round(lat, 6), round(lon, 6)], True
 
-def geocode(query, confere=None, so_cache=False):
+def geocode(query, confere=None, so_cache=False, granular=False):
     """Coordenadas reais, com cache em disco.
 
     `confere` exige que a cidade apareça no endereço devolvido.
@@ -335,7 +376,7 @@ def geocode(query, confere=None, so_cache=False):
     """
     if not query:
         return None
-    chave = query + ("|" + confere if confere else "")
+    chave = query + ("|" + confere if confere else "") + ("|g" if granular else "")
     with _geo_lock:
         if chave in _geo:
             return _geo[chave]
@@ -346,13 +387,20 @@ def geocode(query, confere=None, so_cache=False):
     resultado, definitivo = None, False
     for tentar in (_nominatim, _photon):
         try:
-            resultado, definitivo = tentar(query, confere)
+            resultado, definitivo = tentar(query, confere, granular)
         except Exception as e:
             resultado, definitivo = None, False      # rede, não ausência do lugar
             print(f"[geo] {tentar.__name__} {query}: {e}", flush=True)
         time.sleep(1.1)                              # política de uso dos dois serviços
         if resultado:
             break
+
+    # resultado colado no centro da cidade quando se pediu um ponto fino é
+    # fallback administrativo do geocodificador, não o lugar da notícia
+    if resultado and granular and confere:
+        centro = _geo.get(CIDADE_QUERY.get(confere, ""))
+        if centro and haversine(resultado, centro) < 0.3:
+            resultado, definitivo = None, True
 
     with _geo_lock:
         if resultado:
@@ -586,12 +634,15 @@ def guess_place(text, regional=False, so_cache=False):
             continue
         if not cidade and not regional:
             continue
-        c = geocode(query, so_cache=so_cache)
+        c = geocode(query, confere=cid, so_cache=so_cache, granular=True)
         if c and perto_da_cidade(c, cid, 25, so_cache):
             return {"place": name, "lat": c[0], "lng": c[1], "preciso": True}
         return None
 
-    alvo = cidade or ("Ribeirão Preto" if regional else None)
+    # feed nacional só chega aqui se passou pelo filtro de termos da região,
+    # mas nem sempre cita a cidade: sem este segundo caso a notícia ficava sem
+    # nenhum ponto de partida e saía do mapa
+    alvo = cidade or ("Ribeirão Preto" if regional or is_regional(text) else None)
     if not alvo:
         return None
 
@@ -603,7 +654,7 @@ def guess_place(text, regional=False, so_cache=False):
         if len(via) < 9 or not numero or tentativas >= 3:
             continue
         tentativas += 1
-        c = geocode(f"{via}, {numero}, {alvo}, SP", confere=alvo, so_cache=so_cache)
+        c = geocode(f"{via}, {numero}, {alvo}, SP", confere=alvo, so_cache=so_cache, granular=True)
         if c and perto_da_cidade(c, alvo, so_cache=so_cache):
             return {"place": f"{via}, {numero}", "lat": c[0], "lng": c[1], "preciso": True}
 
@@ -616,7 +667,7 @@ def guess_place(text, regional=False, so_cache=False):
         if len(bairro) < 9 or tentativas >= 3:
             continue
         tentativas += 1
-        c = geocode(f"{bairro}, {alvo}, SP", confere=alvo, so_cache=so_cache)
+        c = geocode(f"{bairro}, {alvo}, SP", confere=alvo, so_cache=so_cache, granular=True)
         if c and perto_da_cidade(c, alvo, 30, so_cache):
             return {"place": bairro, "lat": c[0], "lng": c[1], "preciso": True}
 
@@ -625,7 +676,7 @@ def guess_place(text, regional=False, so_cache=False):
         for b in BAIRROS_RP:
             if not re.search(r"" + re.escape(norm(b)) + r"", n):
                 continue
-            c = geocode(f"{b}, Ribeirao Preto, SP", confere=alvo, so_cache=so_cache)
+            c = geocode(f"{b}, Ribeirao Preto, SP", confere=alvo, so_cache=so_cache, granular=True)
             if c and perto_da_cidade(c, alvo, 30, so_cache):
                 return {"place": b, "lat": c[0], "lng": c[1], "preciso": True}
 
@@ -636,7 +687,7 @@ def guess_place(text, regional=False, so_cache=False):
         if len(via) < 9 or tentativas >= 3:
             continue
         tentativas += 1
-        c = geocode(f"{via}, {alvo}, SP", confere=alvo, so_cache=so_cache)
+        c = geocode(f"{via}, {alvo}, SP", confere=alvo, so_cache=so_cache, granular=True)
         if c and perto_da_cidade(c, alvo, so_cache=so_cache):
             return {"place": via, "lat": c[0], "lng": c[1], "preciso": True}
 
@@ -680,6 +731,7 @@ def build_item(feed, raw_item):
         "lat": (place or {}).get("lat"),
         "lng": (place or {}).get("lng"),
         "preciso": bool((place or {}).get("preciso")),
+        "geov": GEO_VERSAO if (place or {}).get("preciso") else 0,
         "tone": int(iid[:2], 16) % TONES,
     }
 
@@ -796,7 +848,8 @@ def localizar(item):
     Itens que já vêm com coordenada da plataforma (Sympla, Eventim) ficam como estão."""
     # centro da cidade não conta como local encontrado: é justamente o caso
     # que precisa da busca no corpo da matéria
-    ja_tem_local = item.get("lat") is not None and item.get("preciso")
+    ja_tem_local = (item.get("lat") is not None and item.get("preciso")
+                    and item.get("geov") == GEO_VERSAO)
     if ja_tem_local and item.get("img"):
         return False                       # nada a refinar nem a completar
     regional = any(f["key"] == item["src"] and f["regional"] for f in FEEDS)
@@ -826,13 +879,14 @@ def localizar(item):
                  "lat": coords[0], "lng": coords[1], "preciso": True}
     if not place or place.get("lat") is None:
         return mudou
-    if not place.get("preciso") and item.get("lat") is not None:
+    if not place.get("preciso") and item.get("lat") is not None and item.get("geov") == GEO_VERSAO:
         return mudou                      # já estava no centro, nada mudou
     with _lock:
         for i in _state["items"]:
             if i["id"] == item["id"]:
                 i.update(place)
                 i["fino"] = True
+                i["geov"] = GEO_VERSAO
                 return True
     return mudou
 
@@ -906,7 +960,8 @@ def refresh():
         broadcast({"type": "feed", "news": len(fresh) - n_ev, "events": n_ev,
                    "count": len(fresh), "updated": _state["updated"]})
     for i in fresh:                       # localização fina roda em segundo plano
-        if (not i.get("preciso") or not i.get("img")) and i.get("url", "").startswith("http"):
+        if (not i.get("preciso") or i.get("geov") != GEO_VERSAO
+                or not i.get("img")) and i.get("url", "").startswith("http"):
             _fila.put(i)
     print(f"[refresh] {len(collected)} lidas, {len(fresh)} novas, {len(_state['items'])} no histórico", flush=True)
     return len(fresh)
