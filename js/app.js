@@ -268,7 +268,7 @@ function renderHome() {
     return `<button class="ev" data-open="${e.id}">
       <div class="ev__img">${art(e, `<span class="ev__date"><b>${e.day}</b><i>${e.month}</i></span>`)}</div>
       <div class="ev__in"><div class="ev__t">${L.title}</div>
-        <div class="ev__p">📍 ${e.place}</div>
+        <div class="ev__p"><svg viewBox="0 0 24 24" class="svg-ico"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"></path><circle cx="12" cy="10" r="3"></circle></svg> ${e.place}</div>
         <div class="ev__foot">${e.price ? `<span class="tag tag--price">${e.price}</span>`
           : e.src === "sympla" ? `<span class="tag tag--ghost2">Ingressos</span>` : ""}
           ${e.dist != null ? `<span class="ev__dist">${e.dist} km</span>` : ""}</div></div>
@@ -374,7 +374,7 @@ function openArticle(id) {
       ${i.credit ? `<p class="art__credito">Foto: ${i.credit}</p>` : ""}
       <div class="art__in">
         <h1>${L.title}</h1>
-        <div class="art__meta"><span class="src">${src.name}</span><i class="dot-sep"></i>${i.time}${i.place ? `<i class="dot-sep"></i>📍 ${i.place}` : ""} ${badge}</div>
+        <div class="art__meta"><span class="src">${src.name}</span><i class="dot-sep"></i>${i.time}${i.place ? `<i class="dot-sep"></i><svg viewBox="0 0 24 24" class="svg-ico"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"></path><circle cx="12" cy="10" r="3"></circle></svg> ${i.place}` : ""} ${badge}</div>
         <p class="art__lead">${L.lead}</p>
         ${i.body.slice(0, 2).map(p => `<p>${p}</p>`).join("")}
         ${i.body.length ? `<figure class="art__fig">${art(i)}</figure>
@@ -428,11 +428,11 @@ function renderMap() {
     // afastado demais, só os favoritos, para o mapa não virar um amontoado
     if (longe && !isSaved(p.id) && !(p.more || []).some(isSaved)) return;
     const icon = L.divIcon({
-      className: "pinwrap", iconSize: [30, 52], iconAnchor: [15, 44],
+      className: "pinwrap", iconSize: [30, 46], iconAnchor: [15, 40],
       html: `<span class="pin pin--${p.type}"><span class="pin__pulse"></span>
-        <svg viewBox="0 0 26 36" class="pin__svg">
-          <path class="pin__shape" d="M13 34.5S24 21.8 24 13A11 11 0 1 0 2 13c0 8.8 11 21.5 11 21.5z"/>
-          <circle class="pin__hole" cx="13" cy="13" r="4.4"/></svg>
+        <svg viewBox="0 0 24 36" class="pin__svg">
+          <path class="pin__shape" d="M12 36s12-16.19 12-24a12 12 0 1 0-24 0c0 7.81 12 24 12 24z"/>
+          <circle class="pin__hole" cx="12" cy="12" r="5"/></svg>
         <span class="pin__label">${p.label}</span>
         ${(p.more || []).length ? `<b class="pin__n">${Math.min(99, (p.more || []).length + 1)}</b>` : ""}</span>`
     });
@@ -504,9 +504,9 @@ function openSheet(id, more = []) {
   const L = loc(i), src = SOURCES[i.src];
   $("#mapSheetBody").innerHTML = `
     <div class="sheet__img">${art(i)}</div>
-    <div class="sheet__row"><span class="tag">${catLabel(i.cat)}</span>${i.price ? `<span class="tag tag--price">${i.price}</span>` : ""}<span class="ev__p">📍 ${i.place}</span></div>
+    <div class="sheet__row"><span class="tag">${catLabel(i.cat)}</span>${i.price ? `<span class="tag tag--price">${i.price}</span>` : ""}<span class="ev__p"><svg viewBox="0 0 24 24" class="svg-ico"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"></path><circle cx="12" cy="10" r="3"></circle></svg> ${i.place}</span></div>
     <h3>${L.title}</h3>
-    <div class="sheet__quando">${i.kind === "evento" && i.when ? `🗓 ${dataLonga(i.when)}` : i.time}</div>
+    <div class="sheet__quando">${i.kind === "evento" && i.when ? `<svg viewBox="0 0 24 24" class="svg-ico"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg> ${dataLonga(i.when)}` : i.time}</div>
     <p class="sheet__sum">${L.lead}</p>
     <a class="sourcelink" href="${i.url || src.url}" target="_blank" rel="noopener">
       ${t("readAt")}: <b>${src.name}</b>

@@ -231,6 +231,7 @@ img{max-width:100%;display:block}
 .ev__date i{font-style:normal;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--ink-3);letter-spacing:.08em}
 .ev__in{padding:10px 12px 13px;display:flex;flex-direction:column;gap:5px}
 .ev__t{font-family:var(--display);font-size:14.5px;font-weight:700;line-height:1.2}
+.svg-ico{width:16px;height:16px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .ev__p{font-size:11.5px;color:var(--ink-3);display:flex;gap:5px;align-items:center}
 
 /* --- atualizações --- */
@@ -286,8 +287,8 @@ img{max-width:100%;display:block}
 @keyframes pinIn{from{opacity:0;transform:translate(-50%,-140%) scale(.5)}}
 .pin:active{transform:translate(-50%,-100%) scale(.92)}
 .pinwrap .pin__svg{z-index:1}
-.pin__svg{position:relative;width:30px;height:41px;filter:drop-shadow(0 4px 8px rgba(36,17,103,.35))}
-.pin__shape{fill:var(--brand);stroke:#fff;stroke-width:2.2}
+.pin__svg{position:relative;width:30px;height:45px;filter:drop-shadow(0 6px 12px rgba(36,17,103,.4))}
+.pin__shape{fill:var(--brand);stroke:#fff;stroke-width:1.8}
 .pin__hole{fill:#fff}
 .pin--ev .pin__shape{fill:var(--accent-2)}
 .pin.is-on{transform:translate(-50%,-108%) scale(1.14);z-index:5}
@@ -315,7 +316,7 @@ img{max-width:100%;display:block}
 .sheet__grab{display:block;width:44px;height:5px;border-radius:9px;background:var(--line);margin:4px auto 12px}
 .sheet__img{height:150px;border-radius:var(--r-m);overflow:hidden;position:relative;margin-bottom:12px}
 .sheet h3{font-size:20px;font-weight:800;line-height:1.15;margin-bottom:6px}
-.sheet__quando{font-size:13px;font-weight:700;color:var(--brand);margin:6px 0 8px}
+.sheet__quando{font-size:13px;font-weight:700;color:var(--brand);margin:6px 0 8px;display:flex;align-items:center;gap:6px}
 .sheet__more{margin-top:16px}
 .sheet__sum{font-size:14px;color:var(--ink-2);margin:0 0 14px}
 .sheet__row{display:flex;gap:9px;align-items:center;margin-bottom:12px}
