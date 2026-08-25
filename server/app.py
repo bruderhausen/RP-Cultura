@@ -757,7 +757,7 @@ def build_stamp():
     """Carimbo do build: muda sempre que css/js/html mudam, matando cache antigo."""
     h = hashlib.sha1()
     for rel in ("index.html", "css/styles.css", "js/app.js", "js/data.js", "js/i18n.js", "js/live.js",
-                "manifest.json", "assets/icon-192.png", "assets/icon-512.png"):
+                "manifest.json", "assets/icon-192.png", "assets/icon-512.png", "assets/favicon-32.png"):
         try:
             st = os.stat(os.path.join(ROOT, rel))
             h.update(f"{rel}{st.st_mtime_ns}{st.st_size}".encode())
