@@ -9,12 +9,14 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="assets/icon.svg">
 <link rel="apple-touch-icon" href="assets/icon.svg">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="stylesheet" href="css/styles.css?v=10">
+<link rel="stylesheet" href="css/styles.css?v=12">
 </head>
 <body>
 
@@ -138,14 +140,10 @@
         </button>
         <input type="file" id="avatarFile" accept="image/*" hidden>
         <h2 class="profile__name" id="profName">Visitante</h2>
-        <p class="profile__sub" id="profSub">Entre para salvar e personalizar</p>
+        <p class="profile__sub" id="profSub">Suas preferências ficam salvas neste aparelho</p>
       </div>
 
       <div class="stack">
-        <button class="rowbtn rowbtn--accent" id="authBtn">
-          <span id="authBtnLabel">Entre ou cadastre-se</span>
-          <svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
-        </button>
         <button class="rowbtn" id="savedBtn">
           <span class="rowbtn__l"><svg viewBox="0 0 24 24" class="ri"><path d="M7 4h10v16l-5-4-5 4z"/></svg> Salvos</span>
           <span class="rowbtn__r"><b id="savedCount">0</b><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></span>
@@ -193,9 +191,9 @@
   <div class="toast" id="toast" hidden></div>
 </div>
 
-<script src="js/data.js?v=10"></script>
-<script src="js/i18n.js?v=10"></script>
-<script src="js/app.js?v=10"></script>
-<script src="js/live.js?v=10"></script>
+<script src="js/data.js?v=12"></script>
+<script src="js/i18n.js?v=12"></script>
+<script src="js/app.js?v=12"></script>
+<script src="js/live.js?v=12"></script>
 </body>
 </html>

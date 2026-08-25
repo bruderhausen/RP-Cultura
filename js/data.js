@@ -194,12 +194,12 @@ let UPDATES = [
 
 /* ---------- PINS DO MAPA (coordenadas em % da área) ---------- */
 let PINS = [
-  { id: "e1", x: 50, y: 40, label: "Lollapalooza", type: "ev" },
-  { id: "n2", x: 26, y: 60, label: "Theatro Pedro II", type: "news" },
-  { id: "n3", x: 70, y: 66, label: "Av. Independência", type: "news" },
-  { id: "n4", x: 32, y: 24, label: "Bosque Municipal", type: "news" },
-  { id: "e4", x: 74, y: 26, label: "Choperia", type: "ev" },
-  { id: "n6", x: 46, y: 80, label: "Museu do Café", type: "news" }
+  { id: "e1", lat: -21.1930, lng: -47.7855, label: "Parque Permanente", type: "ev" },
+  { id: "n2", lat: -21.1783, lng: -47.8106, label: "Theatro Pedro II", type: "news" },
+  { id: "n3", lat: -21.1712, lng: -47.8218, label: "Av. Independência", type: "news" },
+  { id: "n4", lat: -21.1671, lng: -47.8022, label: "Bosque Municipal", type: "news" },
+  { id: "e4", lat: -21.1795, lng: -47.8148, label: "Choperia Pinguim", type: "ev" },
+  { id: "n6", lat: -21.1766, lng: -47.8117, label: "Museu do Café", type: "news" }
 ];
 
 /* ---------- CATEGORIAS ---------- */

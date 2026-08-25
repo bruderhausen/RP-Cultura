@@ -246,7 +246,13 @@ img{max-width:100%;display:block}
 
 /* ================= MAPA ================= */
 .mapwrap{flex:1;min-height:0;position:relative;overflow:hidden;background:#E9E6F5}
-.map{position:absolute;inset:0;transition:transform .45s cubic-bezier(.2,.8,.3,1)}
+.map{position:absolute;inset:0;background:#E9E6F5}
+.leaflet-container{font-family:var(--font);background:#E9E6F5}
+.leaflet-control-attribution{font-size:10px}
+.pinwrap{background:none;border:0}
+.pinwrap .pin{position:relative;transform:none;display:flex;flex-direction:column;align-items:center;animation:none}
+.pinwrap .pin:active{transform:scale(.94)}
+.pinwrap .pin__label{display:none}
 .map__legend{
   position:absolute;left:50%;transform:translateX(-50%);bottom:calc(var(--tabh) + var(--safe-b) + 14px);
   background:rgba(255,255,255,.95);backdrop-filter:blur(6px);border-radius:99px;padding:8px 16px;

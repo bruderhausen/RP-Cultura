@@ -130,6 +130,7 @@ function go(name) {
   $$(".screen").forEach(s => { s.hidden = s.dataset.screen !== name; });
   $$(".tab").forEach(b => b.classList.toggle("is-on", b.dataset.go === name));
   if (name === "perfil") renderProfile();
+  if (name === "mapa") refreshMapSize();
 }
 
 /* páginas empilhadas */
@@ -275,56 +276,43 @@ function openArticle(id) {
 /* =========================================================
    MAPA
    ========================================================= */
+let _map, _pinLayer;
+const RP = [-21.1775, -47.8103];
+
 function renderMap() {
-  const streets = `
-  <svg viewBox="0 0 100 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-    <rect width="100" height="200" fill="#EAE7F6"/>
-    <g fill="#E1DDF1">
-      <rect x="4" y="8" width="24" height="30" rx="2"/><rect x="38" y="6" width="24" height="32" rx="2"/>
-      <rect x="72" y="10" width="24" height="28" rx="2"/><rect x="4" y="52" width="22" height="34" rx="2"/>
-      <rect x="64" y="56" width="32" height="30" rx="2"/><rect x="6" y="104" width="26" height="34" rx="2"/>
-      <rect x="44" y="100" width="24" height="30" rx="2"/><rect x="76" y="102" width="20" height="36" rx="2"/>
-      <rect x="8" y="152" width="24" height="30" rx="2"/><rect x="70" y="150" width="26" height="34" rx="2"/>
-    </g>
-    <g fill="#CFE8CE"><rect x="34" y="52" width="26" height="34" rx="13"/><rect x="36" y="150" width="28" height="20" rx="10"/></g>
-    <g stroke="#FFFFFF" stroke-linecap="round" fill="none">
-      <path d="M0 46 H100" stroke-width="3.4"/><path d="M0 94 H100" stroke-width="4.2"/>
-      <path d="M0 144 H100" stroke-width="3"/><path d="M34 0 V200" stroke-width="3.4"/>
-      <path d="M68 0 V200" stroke-width="2.8"/><path d="M-6 200 L106 40" stroke-width="4.6"/>
-    </g>
-    <g stroke="#F4C64B" stroke-width=".6" stroke-dasharray="2.4 3" fill="none" opacity=".9">
-      <path d="M0 94 H100"/><path d="M-6 200 L106 40"/>
-    </g>
-    <g fill="#9E98C4" font-size="2.4" font-family="Inter, sans-serif" letter-spacing=".1">
-      <text x="4" y="92">Av. Independência</text>
-      <text x="36.5" y="16" transform="rotate(90 36.5 16)">Av. Nove de Julho</text>
-      <text x="4" y="44">R. General Osório</text>
-      <text x="4" y="142">Av. Francisco Junqueira</text>
-    </g>
-  </svg>`;
-
-  const pins = PINS.map((p, k) => {
-    const item = byId(p.id); if (!item) return "";
-    return `<button class="pin ${p.type}" style="left:${p.x}%;top:${p.y}%;animation-delay:${.1 + k * .07}s" data-pin="${p.id}">
-      <span class="pin__pulse"></span>
-      <svg viewBox="0 0 26 36" class="pin__svg">
-        <path class="pin__shape" d="M13 34.5S24 21.8 24 13A11 11 0 1 0 2 13c0 8.8 11 21.5 11 21.5z"/>
-        <circle class="pin__hole" cx="13" cy="13" r="4.2"/>
-      </svg>
-      <span class="pin__label">${p.label}</span>
-    </button>`;
-  }).join("");
-
-  $("#map").innerHTML = streets + pins;
+  if (!window.L) return;
+  if (!_map) {
+    _map = L.map("map", { zoomControl: false, attributionControl: true }).setView(RP, 13);
+    setTimeout(() => _map.invalidateSize(), 300);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(_map);
+    L.control.zoom({ position: "bottomright" }).addTo(_map);
+    _pinLayer = L.layerGroup().addTo(_map);
+  }
+  _pinLayer.clearLayers();
+  PINS.forEach(p => {
+    if (p.lat == null) return;
+    const icon = L.divIcon({
+      className: "pinwrap", iconSize: [30, 52], iconAnchor: [15, 44],
+      html: `<span class="pin ${p.type}"><span class="pin__pulse"></span>
+        <svg viewBox="0 0 26 36" class="pin__svg">
+          <path class="pin__shape" d="M13 34.5S24 21.8 24 13A11 11 0 1 0 2 13c0 8.8 11 21.5 11 21.5z"/>
+          <circle class="pin__hole" cx="13" cy="13" r="4.2"/></svg>
+        <span class="pin__label">${p.label}</span></span>`
+    });
+    L.marker([p.lat, p.lng], { icon }).addTo(_pinLayer).on("click", () => openSheet(p.id));
+  });
 }
 
-$("#map").addEventListener("click", e => {
-  const b = e.target.closest("[data-pin]"); if (!b) return;
-  $$(".pin").forEach(p => p.classList.remove("is-on"));
-  b.classList.add("is-on");
-  openSheet(b.dataset.pin);
+function refreshMapSize() {
+  if (_map) setTimeout(() => _map.invalidateSize(), 80);
+}
+
+$("#mapRecenter").addEventListener("click", () => {
+  closeSheet();
+  if (_map) { _map.invalidateSize(); _map.setView(RP, 13); }
 });
-$("#mapRecenter").addEventListener("click", () => { closeSheet(); toast("Ribeirão Preto · centro"); });
 
 function openSheet(id) {
   const i = byId(id); if (!i) return;
@@ -362,8 +350,7 @@ $("#sheetClose").addEventListener("click", closeSheet);
    ========================================================= */
 function renderProfile() {
   $("#profName").textContent = S.user ? S.user : t("visitor");
-  $("#profSub").textContent  = S.user ? "Perfil personalizado · Ribeirão Preto" : t("visitorSub");
-  $("#authBtnLabel").textContent = S.user ? "Editar meu perfil" : t("authCta");
+  $("#profSub").textContent  = "Suas preferências ficam salvas neste aparelho";
   $$("[data-pref]").forEach(c => { c.checked = !!S.prefs[c.dataset.pref]; });
   if (S.avatar) { $("#avatarImg").src = S.avatar; $("#avatarImg").hidden = false; $(".avatar__ph").style.display = "none"; }
   $("#interestChips").innerHTML = CATS.filter(c => c !== "Todos")
@@ -392,7 +379,7 @@ $("#avatarFile").addEventListener("change", e => {
   r.readAsDataURL(f);
 });
 $("#replayGuide").addEventListener("click", () => { $("#app").hidden = true; openGuide(); });
-$("#authBtn").addEventListener("click", openAuth);
+$("#authBtn")?.addEventListener("click", openAuth);
 $("#savedBtn").addEventListener("click", openSaved);
 
 /* =========================================================

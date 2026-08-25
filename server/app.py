@@ -11,8 +11,8 @@ RP Cultural — backend de notícias reais.
 
 Só usa a biblioteca padrão do Python (3.9+).
 """
-import gzip, hashlib, html, io, json, os, queue, re, threading, time, unicodedata
-import urllib.request, urllib.error
+import gzip, hashlib, html, io, json, math, os, queue, re, threading, time, unicodedata
+import urllib.request, urllib.error, urllib.parse
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone, timedelta
 from email.utils import parsedate_to_datetime
@@ -62,19 +62,177 @@ NOISE_TERMS = ["siga o ", "veja fotos", "veja as fotos", "assista ao vivo", "con
                "resumo do dia", "boletim", "horoscopo", "horóscopo"]
 
 # ------------------------------------------------- lugares -> pin no mapa
-# x / y em % da área do mapa
+# (label, termos que aparecem no texto, consulta enviada ao geocodificador)
 PLACES = [
-    ("Parque Permanente de Exposições", ["parque permanente", "recinto", "expo"],       50, 40),
-    ("Theatro Pedro II",                ["theatro pedro", "teatro pedro"],              26, 60),
-    ("Avenida Independência",           ["independencia", "independência"],             70, 66),
-    ("Bosque Municipal",                ["bosque", "zoologico", "zoológico"],           32, 24),
-    ("Choperia Pinguim",                ["pinguim", "choperia"],                        74, 26),
-    ("Museu do Café",                   ["museu do cafe", "museu do café", "museu"],    46, 80),
-    ("Centro",                          ["centro", "praca xv", "praça xv", "quarteirao paulista", "quarteirão paulista"], 40, 52),
-    ("Campus da USP",                   ["usp", "universidade de sao paulo"],           18, 38),
-    ("Ribeirão Shopping",               ["ribeirao shopping", "ribeirãoshopping", "shopping"], 62, 14),
-    ("Franca",                          ["franca"],                                     86, 46),
+    ("Theatro Pedro II",        ["theatro pedro", "teatro pedro"],            "Theatro Pedro II, Ribeirao Preto"),
+    ("Bosque Municipal",        ["bosque", "zoologico", "zoológico"],         "Bosque Municipal Fabio Barreto, Ribeirao Preto"),
+    ("Parque Permanente",       ["parque permanente", "recinto"],             "Parque Permanente de Exposicoes, Ribeirao Preto"),
+    ("Choperia Pinguim",        ["pinguim", "choperia"],                      "Choperia Pinguim, Ribeirao Preto"),
+    ("Museu do Café",           ["museu do cafe", "museu do café"],           "Museu do Cafe, Ribeirao Preto"),
+    ("Praça XV",                ["praca xv", "praça xv", "quarteirao paulista", "quarteirão paulista"], "Praca XV de Novembro, Ribeirao Preto"),
+    ("Campus da USP",           ["usp", "campus universitario"],              "Universidade de Sao Paulo, Ribeirao Preto"),
+    ("Av. Independência",       ["independencia", "independência"],           "Avenida Independencia, Ribeirao Preto"),
+    ("Av. Nove de Julho",       ["nove de julho"],                            "Avenida Nove de Julho, Ribeirao Preto"),
+    ("Av. Francisco Junqueira", ["francisco junqueira"],                      "Avenida Francisco Junqueira, Ribeirao Preto"),
+    ("Ribeirão Shopping",       ["ribeirao shopping", "ribeirãoshopping"],    "RibeiraoShopping, Ribeirao Preto"),
+    ("Shopping Santa Úrsula",   ["santa ursula", "santa úrsula"],             "Shopping Santa Ursula, Ribeirao Preto"),
+    ("Estádio Santa Cruz",      ["botafogo", "santa cruz", "estadio"],        "Estadio Doutor Oswaldo Scatena, Ribeirao Preto"),
+    ("Terminal Central",        ["terminal central", "rodoviaria", "rodoviária"], "Terminal Rodoviario, Ribeirao Preto"),
+    ("Hospital das Clínicas",   ["hospital das clinicas", "hc de ribeirao", "hcrp"], "Hospital das Clinicas de Ribeirao Preto"),
+    ("Vila Virgínia",           ["vila virginia", "vila virgínia"],           "Vila Virginia, Ribeirao Preto"),
+    ("Campos Elíseos",          ["campos eliseos", "campos elíseos"],         "Campos Eliseos, Ribeirao Preto"),
+    ("Jardim Paulista",         ["jardim paulista"],                          "Jardim Paulista, Ribeirao Preto"),
+    ("Centro",                  ["centro de ribeirao", "centro da cidade"],   "Centro, Ribeirao Preto"),
+    ("Franca",                  ["franca"],                                   "Franca, Sao Paulo"),
+    ("Sertãozinho",             ["sertaozinho", "sertãozinho"],               "Sertaozinho, Sao Paulo"),
+    ("Barretos",                ["barretos"],                                 "Barretos, Sao Paulo"),
+    ("Batatais",                ["batatais"],                                 "Batatais, Sao Paulo"),
+    ("Cravinhos",               ["cravinhos"],                                "Cravinhos, Sao Paulo"),
+    ("Jardinópolis",            ["jardinopolis", "jardinópolis"],             "Jardinopolis, Sao Paulo"),
+    ("Brodowski",               ["brodowski"],                                "Brodowski, Sao Paulo"),
+    ("Serrana",                 ["serrana"],                                  "Serrana, Sao Paulo"),
+    ("Araraquara",              ["araraquara"],                               "Araraquara, Sao Paulo"),
+    ("São Carlos",              ["sao carlos", "são carlos"],                 "Sao Carlos, Sao Paulo"),
+    ("Ribeirão Preto",          ["ribeirao preto", "ribeirão preto"],         "Ribeirao Preto, Sao Paulo"),
 ]
+
+DEFAULT_GEO = {
+    "Universidade de Sao Paulo, Ribeirao Preto": [
+        -21.159001,
+        -47.856698
+    ],
+    "Ribeirao Preto, Sao Paulo": [
+        -21.177632,
+        -47.810098
+    ],
+    "Sertaozinho, Sao Paulo": [
+        -21.137578,
+        -47.991374
+    ],
+    "Barretos, Sao Paulo": [
+        -20.553144,
+        -48.569751
+    ],
+    "Franca, Sao Paulo": [
+        -20.538177,
+        -47.400979
+    ],
+    "Hospital das Clinicas de Ribeirao Preto": [
+        -21.162303,
+        -47.852801
+    ],
+    "Theatro Pedro II, Ribeirao Preto": [
+        -21.174361,
+        -47.809806
+    ],
+    "Museu do Cafe, Ribeirao Preto": [
+        -21.170571,
+        -47.84955
+    ],
+    "Praca XV de Novembro, Ribeirao Preto": [
+        -21.175152,
+        -47.808732
+    ],
+    "Avenida Independencia, Ribeirao Preto": [
+        -21.21426,
+        -47.828765
+    ],
+    "Avenida Nove de Julho, Ribeirao Preto": [
+        -21.184859,
+        -47.811549
+    ],
+    "Avenida Francisco Junqueira, Ribeirao Preto": [
+        -21.173128,
+        -47.806034
+    ],
+    "RibeiraoShopping, Ribeirao Preto": [
+        -21.209342,
+        -47.8151
+    ],
+    "Shopping Santa Ursula, Ribeirao Preto": [
+        -21.182548,
+        -47.808213
+    ],
+    "Terminal Rodoviario, Ribeirao Preto": [
+        -21.173842,
+        -47.814458
+    ],
+    "Vila Virginia, Ribeirao Preto": [
+        -21.184517,
+        -47.827666
+    ],
+    "Jardim Paulista, Ribeirao Preto": [
+        -21.18078,
+        -47.794269
+    ],
+    "Centro, Ribeirao Preto": [
+        -21.178095,
+        -47.809374
+    ],
+    "Batatais, Sao Paulo": [
+        -20.892867,
+        -47.592149
+    ],
+    "Cravinhos, Sao Paulo": [
+        -21.340278,
+        -47.729444
+    ],
+    "Jardinopolis, Sao Paulo": [
+        -21.025513,
+        -47.770681
+    ],
+    "Brodowski, Sao Paulo": [
+        -20.98623,
+        -47.657877
+    ],
+    "Serrana, Sao Paulo": [
+        -21.204361,
+        -47.604845
+    ],
+    "Araraquara, Sao Paulo": [
+        -21.788671,
+        -48.17731
+    ],
+    "Sao Carlos, Sao Paulo": [
+        -22.01804,
+        -47.891154
+    ]
+}
+
+GEO_CACHE = os.path.join(DATA_DIR, "geo.json")
+_geo = {}
+_geo_lock = threading.Lock()
+
+def load_geo():
+    global _geo
+    _geo = dict(DEFAULT_GEO)
+    try:
+        with open(GEO_CACHE, encoding="utf-8") as f:
+            _geo.update({k: v for k, v in json.load(f).items() if v})
+    except Exception:
+        pass
+
+def geocode(query):
+    """Coordenadas reais via Nominatim (OpenStreetMap), com cache em disco."""
+    with _geo_lock:
+        if query in _geo:
+            return _geo[query]
+    url = ("https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br&q="
+           + urllib.parse.quote(query))
+    result = None
+    try:
+        data = json.loads(fetch(url, timeout=15).decode("utf-8"))
+        if data:
+            result = [round(float(data[0]["lat"]), 6), round(float(data[0]["lon"]), 6)]
+    except Exception as e:
+        print(f"[geo] {query}: {e}", flush=True)
+    with _geo_lock:
+        _geo[query] = result
+        os.makedirs(DATA_DIR, exist_ok=True)
+        with open(GEO_CACHE, "w", encoding="utf-8") as f:
+            json.dump(_geo, f, ensure_ascii=False)
+    time.sleep(1.1)  # política de uso do Nominatim
+    return result
 
 # ---------------------------------------------------------------- util
 def strip_accents(s):
@@ -177,9 +335,12 @@ def is_noise(text):
 
 def guess_place(text):
     n = norm(text)
-    for name, terms, x, y in PLACES:
+    for name, terms, query in PLACES:
         if any(t in n for t in terms):
-            return {"place": name, "x": x, "y": y}
+            coords = geocode(query)
+            if coords:
+                return {"place": name, "lat": coords[0], "lng": coords[1]}
+            return {"place": name}
     return None
 
 def is_regional(text):
@@ -211,8 +372,8 @@ def build_item(feed, raw_item):
         "srcSite": feed["site"],
         "published": raw_item["published"] or datetime.now(timezone.utc).isoformat(),
         "place": (place or {}).get("place"),
-        "x": (place or {}).get("x"),
-        "y": (place or {}).get("y"),
+        "lat": (place or {}).get("lat"),
+        "lng": (place or {}).get("lng"),
         "tone": int(iid[:2], 16) % TONES,
     }
 
@@ -303,16 +464,18 @@ def feed_payload():
         updated = _state["updated"]
     news = [i for i in items if i["kind"] == "noticia"]
     events = [i for i in items if i["kind"] == "evento"]
-    pins, seen = [], set()
+    pins, usados = [], {}
     for i in items:
-        if i.get("x") is not None and i["id"] not in seen:
-            key = (i["x"], i["y"])
-            if key in {(p["x"], p["y"]) for p in pins}:
-                continue
-            seen.add(i["id"])
-            pins.append({"id": i["id"], "x": i["x"], "y": i["y"],
-                         "label": i["place"], "type": "ev" if i["kind"] == "evento" else "news"})
-        if len(pins) >= 8:
+        if i.get("lat") is None:
+            continue
+        key = (i["lat"], i["lng"])
+        n = usados.get(key, 0)
+        usados[key] = n + 1
+        ang, raio = n * 2.399, 0.0016 * (n ** 0.5)   # espiral, ~150 m por passo
+        pins.append({"id": i["id"], "lat": i["lat"] + raio * math.cos(ang),
+                     "lng": i["lng"] + raio * math.sin(ang), "label": i["place"],
+                     "type": "ev" if i["kind"] == "evento" else "news"})
+        if len(pins) >= 60:
             break
     sources = {f["key"]: {"name": f["name"], "url": f["site"]} for f in FEEDS}
     return {"updated": updated, "days": HISTORY_DAYS, "refresh": REFRESH_SECONDS,
@@ -375,6 +538,7 @@ class Handler(SimpleHTTPRequestHandler):
 
 def main():
     load_store()
+    load_geo()
     threading.Thread(target=refresh_loop, daemon=True).start()
     print(f"RP Cultural em http://localhost:{PORT}  (atualiza a cada {REFRESH_SECONDS}s, histórico de {HISTORY_DAYS} dias)", flush=True)
     ThreadingHTTPServer(("0.0.0.0", PORT), Handler).serve_forever()
