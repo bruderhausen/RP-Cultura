@@ -422,7 +422,8 @@ CIDADES = list(CIDADE_QUERY.keys())
 VIA_RE = re.compile(
     r"\b(Rua|Avenida|Av\.|Praça|Praca|Alameda|Rodovia|Estrada|Largo|Parque|Teatro|Theatro|Museu|"
     r"Jardim|Vila|Bairro|Distrito|Terminal|Igreja|Escola|Colégio|Colegio|Faculdade|Sesc|Senac)\s+"
-    r"([A-ZÁÉÍÓÚÂÊÔÃÕÇ][\wÀ-ÿ'.-]*(?:\s+(?:de|da|do|dos|das|e|[A-ZÁÉÍÓÚÂÊÔÃÕÇ][\wÀ-ÿ'.-]*)){0,4})")
+    r"([A-ZÁÉÍÓÚÂÊÔÃÕÇ][\wÀ-ÿ'.-]*(?:\s+(?:de|da|do|dos|das|e|[A-ZÁÉÍÓÚÂÊÔÃÕÇ][\wÀ-ÿ'.-]*)){0,4})"
+    r"(?:\s*,?\s*(?:n[ºo°.]?\s*)?(\d{1,5})\b)?")
 
 def haversine(a, b):
     from math import radians, sin, cos, asin, sqrt
@@ -466,9 +467,15 @@ def guess_place(text, regional=False):
     tentativas = 0
     for m in VIA_RE.finditer(text):
         via = f"{m.group(1)} {m.group(2)}".strip(" .,;")
+        numero = m.group(3)
         if len(via) < 9 or tentativas >= 3:
             continue
         tentativas += 1
+        # com número o geocodificador acerta a quadra; sem ele, fica na via
+        if numero:
+            c = geocode(f"{via}, {numero}, {alvo}, SP", confere=alvo)
+            if c and perto_da_cidade(c, alvo):
+                return {"place": f"{via}, {numero}", "lat": c[0], "lng": c[1]}
         c = geocode(f"{via}, {alvo}, SP", confere=alvo)
         if c and perto_da_cidade(c, alvo):
             return {"place": via, "lat": c[0], "lng": c[1]}
@@ -721,6 +728,7 @@ def feed_payload():
     pins = list(grupos.values())[:120]
     sources = {f["key"]: {"name": f["name"], "url": f["site"]} for f in FEEDS}
     sources["sympla"] = {"name": "Sympla", "url": "https://www.sympla.com.br"}
+    sources["eventim"] = {"name": "Eventim", "url": "https://www.eventim.com.br"}
     return {"updated": updated, "days": HISTORY_DAYS, "refresh": REFRESH_SECONDS,
             "sources": sources, "news": news, "events": events, "pins": pins,
             "total": len(items)}

@@ -74,6 +74,56 @@ def _dist(a, b):
     return 6371 * 2 * asin(sqrt(h))
 
 
+EVENTIM_WEBID = __import__("os").environ.get("EVENTIM_WEBID", "web__eventim-br")
+EVENTIM_KEY = __import__("os").environ.get("EVENTIM_KEY", "")
+EVENTIM_CIDADES = ["Ribeirão Preto", "Franca", "Barretos"]
+
+
+def _eventim_cidade(cidade):
+    """API pública da Eventim (exploration). Sem credencial, ela recusa: seguimos sem."""
+    import urllib.parse
+    url = ("https://public-api.eventim.com/websearch/search/api/exploration/v2/productGroups"
+           f"?webId={EVENTIM_WEBID}&language=pt&city={urllib.parse.quote(cidade)}&limit=30")
+    req = urllib.request.Request(url, headers={**UA, "Accept": "application/json",
+                                               **({"X-Api-Key": EVENTIM_KEY} if EVENTIM_KEY else {})})
+    dados = json.loads(urllib.request.urlopen(req, timeout=20).read().decode("utf-8", "ignore"))
+    saida = []
+    for pg in (dados.get("productGroups") or []):
+        nome = pg.get("name")
+        link = pg.get("link") or pg.get("url")
+        ev = (pg.get("typeAttributes") or {}).get("liveEntertainment") or {}
+        local = ev.get("location") or {}
+        geo = local.get("geoLocation") or {}
+        if not nome or not link or geo.get("latitude") is None:
+            continue
+        rua = ", ".join(x for x in [local.get("street"), local.get("houseNumber"),
+                                    local.get("city")] if x)
+        saida.append({
+            "id": "ev" + hashlib.sha1(link.encode()).hexdigest()[:10],
+            "kind": "evento", "title": nome,
+            "lead": " · ".join(x for x in [local.get("name"), rua] if x) or cidade,
+            "img": (pg.get("image") or {}).get("url", ""), "url": link,
+            "src": "eventim", "srcName": "Eventim", "srcSite": "https://www.eventim.com.br",
+            "published": ev.get("startDate"), "when": ev.get("startDate"),
+            "place": local.get("name") or rua or cidade, "address": rua,
+            "lat": geo.get("latitude"), "lng": geo.get("longitude"),
+            "cidade": local.get("city") or cidade,
+            "price": (f"R$ {pg['price']['min']}" if (pg.get("price") or {}).get("min") else None),
+        })
+    return saida
+
+
+def buscar_eventim():
+    saida = []
+    for cidade in EVENTIM_CIDADES:
+        try:
+            saida += _eventim_cidade(cidade)
+        except Exception as e:
+            print(f"[eventim] {cidade}: {e}", flush=True)
+            break        # sem credencial não adianta insistir nas outras cidades
+    return saida
+
+
 def buscar(limite_por_cidade=20, com_preco=False):
     """Devolve eventos normalizados, prontos para o feed."""
     vistos, eventos = set(), []
@@ -92,7 +142,11 @@ def buscar(limite_por_cidade=20, com_preco=False):
                 continue
             vistos.add(url)
 
-            endereco = ", ".join(x for x in [local.get("address"), local.get("neighborhood"),
+            num = str(local.get("address_num") or "").strip()
+            rua = (local.get("address") or "").strip()
+            if rua and num and num not in ("0", "s/n") and num not in rua:
+                rua = f"{rua}, {num}"
+            endereco = ", ".join(x for x in [rua, local.get("neighborhood"),
                                              local.get("city")] if x)
             imagens = ev.get("images") or {}
             lat, lon = local.get("lat"), local.get("lon")
@@ -111,11 +165,16 @@ def buscar(limite_por_cidade=20, com_preco=False):
                 "published": ev.get("start_date"),
                 "when": ev.get("start_date"),
                 "place": local.get("name") or endereco or cidade,
+                "address": endereco,
                 "lat": local.get("lat"),
                 "lng": local.get("lon"),
                 "cidade": local.get("city") or cidade,
                 "price": None,
             })
+
+    for ev in buscar_eventim():
+        if ev["url"] not in vistos and _dist((ev["lat"], ev["lng"]), RP) <= RAIO_KM:
+            vistos.add(ev["url"]); eventos.append(ev)
 
     if com_preco:
         for ev in eventos[:40]:          # melhor esforço, só nos primeiros
