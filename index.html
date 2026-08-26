@@ -11,6 +11,11 @@
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- tiles vetoriais: o mapa é desenhado no aparelho, então rodovia e rio saem
+     coloridos e o zoom vai até o fim sem aviso de dado indisponível -->
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<script defer src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script defer src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.0.22/leaflet-maplibre-gl.js"></script>
 <link rel="preload" as="image" href="assets/mark-ring.webp">
 <link rel="preload" as="image" href="assets/mark-pin.webp">
 <link rel="preload" as="image" href="assets/mark-dot.webp">
@@ -20,7 +25,7 @@
 <link rel="apple-touch-icon" href="assets/favicon-180.png?v=2">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="stylesheet" href="css/styles.css?v=46">
+<link rel="stylesheet" href="css/styles.css?v=47">
 </head>
 <body>
 

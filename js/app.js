@@ -540,20 +540,36 @@ const RP = [-21.1775, -47.8103];
 function renderMap() {
   if (!window.L) return;
   if (!_map) {
-    _map = L.map("map", { zoomControl: false, attributionControl: true }).setView(RP, 13);
+    _map = L.map("map", { zoomControl: false, attributionControl: true,
+                          maxZoom: 19 }).setView(RP, 13);
     setTimeout(() => _map.invalidateSize(), 300);
     // A CARTO passou a exigir chave e devolve o tile com a marca "API KEY
     // REQUIRED" carimbada por cima do mapa. O OpenStreetMap serve sem chave;
     // em troca pede uso moderado, então nada de pré-carregar área.
-    // Esri Light Gray: cinza claro, feito para servir de fundo a marcadores.
-    // A Wikimedia recusa pedido de fora dos projetos dela (403) e deixava o
-    // mapa em branco; a CARTO passou a exigir chave. Atenção à ordem {y}/{x},
-    // que aqui é invertida em relação ao padrão.
-    L.tileLayer("https://services.arcgisonline.com/ArcGIS/rest/services/"
-                + "Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}", {
-      maxZoom: 19,
-      attribution: 'Esri, HERE, Garmin &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-    }).addTo(_map);
+    // Camada vetorial do OpenFreeMap: sem cadastro, com rodovia em amarelo,
+    // rio em azul e rótulo legível em qualquer zoom. Os provedores raster
+    // gratuitos ou pediam chave (CARTO), recusavam a origem (Wikimedia) ou
+    // paravam de ter dado em zoom alto e carimbavam "map data not yet
+    // available" (Esri, a partir do 17 aqui).
+    if (L.maplibreGL) {
+      const camada = L.maplibreGL({
+        style: "https://tiles.openfreemap.org/styles/liberty",
+        attribution: '&copy; <a href="https://openfreemap.org">OpenFreeMap</a> '
+                   + '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      }).addTo(_map);
+      const gl = camada.getMaplibreMap();
+      // styledata cobre o caso de o estilo já ter carregado antes de chegarmos
+      // aqui, que "load" sozinho deixaria passar
+      gl.on("styledata", () => realcarVias(gl));
+      if (gl.isStyleLoaded()) realcarVias(gl);
+    } else {
+      // navegador sem WebGL: o mapa continua de pé, só em cinza
+      L.tileLayer("https://services.arcgisonline.com/ArcGIS/rest/services/"
+                  + "Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}", {
+        maxZoom: 16,
+        attribution: 'Esri, HERE, Garmin',
+      }).addTo(_map);
+    }
     L.control.zoom({ position: "bottomright" }).addTo(_map);
     _pinLayer = L.layerGroup().addTo(_map);
     _map.on("zoomend", () => renderMap());
@@ -608,6 +624,28 @@ document.addEventListener("keydown", e => {
   e.preventDefault();
   b.click();
 });
+
+/* O estilo vem em tons de areia, discreto demais para um mapa que serve de
+   fundo a pins: rodovia e rio somem no meio do bege. Aqui eles voltam a ser
+   amarelo e azul, que é como as pessoas leem um mapa. */
+const AMARELO_VIA = "#F2B705";
+const AMARELO_BORDA = "#D99A04";
+const AZUL_AGUA = "#8FC3E8";
+
+function realcarVias(gl) {
+  const pinta = (id, prop, cor) => {
+    try { gl.setPaintProperty(id, prop, cor); } catch (e) { /* camada ausente */ }
+  };
+  for (const camada of gl.getStyle().layers) {
+    const id = camada.id;
+    // no estilo Liberty as vias são "road_", "tunnel_" e "bridge_"
+    if (/^(road|tunnel|bridge)_(motorway|trunk|primary|secondary)/.test(id)) {
+      pinta(id, "line-color", /casing$/.test(id) ? AMARELO_BORDA : AMARELO_VIA);
+    } else if (/^(water|waterway)/.test(id) && !/label/.test(id)) {
+      pinta(id, camada.type === "fill" ? "fill-color" : "line-color", AZUL_AGUA);
+    }
+  }
+}
 
 function refreshMapSize() {
   if (_map) setTimeout(() => _map.invalidateSize(), 80);
