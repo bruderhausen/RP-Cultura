@@ -305,12 +305,21 @@ function openPage(el, html) {
   el.scrollTop = 0;
   el.querySelector("[data-back]")?.addEventListener("click", () => history.back());
 }
+const CAMADAS = () => [$("#pageArticle"), $("#pageSaved"), $("#pageAuth")];
 function openLayer() {
-  return [$("#pageArticle"), $("#pageSaved"), $("#pageAuth")].find(p => !p.hidden);
+  return CAMADAS().find(p => !p.hidden);
 }
+/* Quantas camadas estão abertas. Da Agenda ou do "Ver tudo" a matéria abre uma
+   segunda por cima da primeira, e fechar só uma deixava a de baixo cobrindo o
+   mapa: o toque no local parecia não fazer nada. */
+const camadasAbertas = () => CAMADAS().filter(p => !p.hidden).length;
 
 let sairEm = 0;
+/* Enquanto vale, o popstate é do fechamento que o próprio app pediu; tratá-lo
+   como toque em voltar fecharia a ficha do mapa ou mostraria o aviso de saída. */
+let _popSilencio = 0;
 window.addEventListener("popstate", () => {
+  if (Date.now() < _popSilencio) return;
   const page = openLayer();
   if (page) return closePage(page);
   if (!$("#mapSheet").hidden) return closeSheet();
@@ -760,8 +769,16 @@ function abrirNoMapa(id) {
   // O resto só começa depois que a camada saiu. Fazendo em paralelo, o popstate
   // chegava atrasado, encontrava a ficha já aberta e fechava a ficha em vez da
   // camada: a pessoa via o mapa piscar e voltar ao normal.
-  const tinhaCamada = !!openLayer();
-  if (tinhaCamada) history.back();
+  // O navegador funde history.back() seguidos num popstate só, então com duas
+  // camadas empilhadas sobrava uma cobrindo o mapa. Aqui elas são fechadas
+  // direto e o histórico volta de uma vez, com os pops silenciados.
+  const abertas = CAMADAS().filter(c => !c.hidden);
+  const quantas = abertas.length;
+  if (quantas) {
+    abertas.forEach(closePage);
+    _popSilencio = Date.now() + 600;
+    history.go(-quantas);
+  }
 
   const seguir = () => {
     go("mapa");
@@ -796,8 +813,9 @@ function abrirNoMapa(id) {
     }, 120);
   };
 
-  // 260 ms cobre a saída da camada, que leva 220 ms
-  tinhaCamada ? setTimeout(seguir, 260) : seguir();
+  // 260 ms cobre a saída da camada, que leva 220 ms; com duas empilhadas elas
+  // saem juntas, então o tempo não soma
+  quantas ? setTimeout(seguir, 260) : seguir();
 }
 
 /* o cartão de evento é uma div com role=button: Enter e espaço não
