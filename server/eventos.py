@@ -81,9 +81,12 @@ def _dist(a, b):
 # unit_id vem da URL que a própria página consulta.
 ARQ_API = ("https://arq-backend-prod-191508435898.us-central1.run.app"
            "/api/v1/events/")
+# Casa fixa, coordenada fixa: não existe evento do ARQ fora do ARQ, então o
+# ponto vem daqui e não de geocodificação. Av. do Café, 1365, Vila Amélia.
 ARQ_UNIDADES = [
     ("d1168e0f-4090-4ccc-9d8b-2391fcb7353a", "Arq Ribeirão Preto",
-     "Ribeirão Preto", "https://ingresso.arqzin.com/ribeirao-preto"),
+     "Ribeirão Preto", "https://ingresso.arqzin.com/ribeirao-preto",
+     -21.175040, -47.830776, "Avenida do Café, 1365, Vila Amélia, Ribeirão Preto"),
 ]
 ARQ_DIAS = 120
 
@@ -101,7 +104,7 @@ def buscar_arq():
     """Devolve (eventos, erro). Uma unidade fora do ar não derruba as outras."""
     hoje = datetime.now(timezone.utc).date()
     saida, erro = [], None
-    for unit_id, casa, cidade, pagina in ARQ_UNIDADES:
+    for unit_id, casa, cidade, pagina, lat, lng, endereco in ARQ_UNIDADES:
         url = (f"{ARQ_API}?unit_id={unit_id}&start_date={hoje}"
                f"&end_date={hoje + timedelta(days=ARQ_DIAS)}&sale_status=OPEN")
         try:
@@ -134,9 +137,9 @@ def buscar_arq():
                 "published": quando,
                 "when": quando,
                 "place": casa,
-                "address": casa,
-                "lat": None,          # o site não publica endereço; o app resolve
-                "lng": None,
+                "address": endereco,
+                "lat": lat,
+                "lng": lng,
                 "cidade": cidade,
                 "price": _arq_preco(ev),
             })
@@ -147,8 +150,12 @@ def buscar_arq():
 # Casas que divulgam a agenda por link na bio. O Linktree entrega os links num
 # JSON embutido, e cada link do Sympla leva a uma página que também traz o
 # evento em JSON. Isso alcança evento que não aparece na listagem da cidade.
+# Mesma ideia: a casa tem endereço fixo. Se o Sympla informar coordenada
+# própria, ela ganha — a casa às vezes divulga evento que acontece em outro
+# lugar, e nesse caso o ponto do Sympla é o certo.
 LINKTREE_PERFIS = [
-    ("eventos.hrcrp", "Hard Rock Cafe Ribeirão Preto", "Ribeirão Preto"),
+    ("eventos.hrcrp", "Hard Rock Cafe", "Ribeirão Preto",
+     -21.201911, -47.789023, "Rua Edgar Rodrigues, 200, Santa Cruz, Ribeirão Preto"),
 ]
 LINKTREE_MAX = 12          # uma requisição por link: não vale varrer sem limite
 
@@ -212,7 +219,7 @@ def _sympla_por_url(url, cidade_padrao):
 def buscar_linktree():
     """Devolve (eventos, erro). Um perfil fora do ar não derruba os outros."""
     saida, erro = [], None
-    for usuario, casa, cidade in LINKTREE_PERFIS:
+    for usuario, casa, cidade, lat, lng, endereco in LINKTREE_PERFIS:
         try:
             pagina = _get(f"https://linktr.ee/{usuario}")
             # varrer a página inteira é mais firme que caçar o campo certo:
@@ -230,8 +237,13 @@ def buscar_linktree():
         for url in urls[:LINKTREE_MAX]:
             try:
                 ev = _sympla_por_url(url, cidade)
-                if ev:
-                    saida.append(ev)
+                if not ev:
+                    continue
+                if ev["lat"] is None:
+                    ev["lat"], ev["lng"] = lat, lng
+                    ev["place"] = ev["place"] or casa
+                    ev["address"] = ev["address"] or endereco
+                saida.append(ev)
             except Exception as e:
                 print(f"[linktree] {url[:60]}: {e}", flush=True)
     return saida, erro

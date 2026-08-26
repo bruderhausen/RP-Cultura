@@ -314,6 +314,13 @@ class TestFonteArq(unittest.TestCase):
         self.ev._get = lambda u, timeout=25: self.resposta(start_date=None)
         self.assertEqual(self.ev.buscar_arq()[0], [])
 
+    def test_evento_nasce_com_a_coordenada_da_casa(self):
+        # não existe evento do ARQ fora do ARQ: o ponto é fixo, sem geocodificar
+        self.ev._get = lambda u, timeout=25: self.resposta()
+        e = self.ev.buscar_arq()[0][0]
+        self.assertEqual((e["lat"], e["lng"]), (-21.175040, -47.830776))
+        self.assertIn("Avenida do Café", e["address"])
+
     def test_api_fora_do_ar_devolve_erro_sem_estourar(self):
         def falha(u, timeout=25):
             raise RuntimeError("HTTP 500")
@@ -336,7 +343,7 @@ class TestFonteLinktree(unittest.TestCase):
         self.ev = eventos
         self.addCleanup(setattr, eventos, "_get", eventos._get)
 
-    def paginas(self, link="https://www.sympla.com.br/evento/show/1"):
+    def paginas(self, link="https://www.sympla.com.br/evento/show/1", coord=None):
         bio = json.dumps({"props": {"links": {"links": [
             {"title": "Show - 29/08", "url": link},
             {"title": "Instagram", "url": "https://instagram.com/x"}]}}})
@@ -345,7 +352,8 @@ class TestFonteLinktree(unittest.TestCase):
             "images": {"logoUrl": "http://img/1.jpg"},
             "eventsAddress": {"name": "Hard Rock Cafe", "address": "Rua Edgar Rodrigues",
                               "addressNum": "200", "neighborhood": "Santa Cruz",
-                              "city": "Ribeirão Preto"}}}})
+                              "city": "Ribeirão Preto",
+                              **({"lat": coord[0], "lon": coord[1]} if coord else {})}}}})
         def get(u, timeout=25):
             return f'<script id="__NEXT_DATA__" type="application/json">{bio if "linktr" in u else evento}</script>'
         return get
@@ -365,6 +373,17 @@ class TestFonteLinktree(unittest.TestCase):
         self.assertEqual(e["address"], "Rua Edgar Rodrigues 200, Santa Cruz, Ribeirão Preto")
         self.assertEqual(e["when"], "2099-08-29T19:00:00")
         self.assertEqual(e["src"], "sympla")
+
+    def test_casa_do_perfil_da_o_ponto_quando_o_sympla_nao_da(self):
+        self.ev._get = self.paginas()
+        e = self.ev.buscar_linktree()[0][0]
+        self.assertEqual((e["lat"], e["lng"]), (-21.201911, -47.789023))
+
+    def test_coordenada_do_sympla_ganha_da_casa(self):
+        # a casa às vezes divulga evento que acontece em outro lugar
+        self.ev._get = self.paginas(coord=(-21.5, -47.5))
+        e = self.ev.buscar_linktree()[0][0]
+        self.assertEqual((e["lat"], e["lng"]), (-21.5, -47.5))
 
     def test_perfil_fora_do_ar_devolve_erro_sem_estourar(self):
         def falha(u, timeout=25):

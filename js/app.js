@@ -545,9 +545,9 @@ function renderMap() {
     // A CARTO passou a exigir chave e devolve o tile com a marca "API KEY
     // REQUIRED" carimbada por cima do mapa. O OpenStreetMap serve sem chave;
     // em troca pede uso moderado, então nada de pré-carregar área.
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    L.tileLayer("https://maps.wikimedia.org/osm-intl/{z}/{x}/{y}{r}.png", {
+      maxZoom: 19, detectRetina: true,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; Wikimedia'
     }).addTo(_map);
     L.control.zoom({ position: "bottomright" }).addTo(_map);
     _pinLayer = L.layerGroup().addTo(_map);
