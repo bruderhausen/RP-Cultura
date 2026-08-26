@@ -88,6 +88,7 @@ NOISE_TERMS = ["siga o ", "veja fotos", "veja as fotos", "assista ao vivo", "con
 PLACES = [
     ("Parque do Peão",          ["parque do peao", "festa do peao", "liga nacional de rodeio", "peao de barretos", "barretao", "os independentes"], "Parque do Peao, Barretos, Sao Paulo", "Barretos"),
     # o OSM não tem a Vila do Jon; ela fica no recinto da Festa do Peão
+    ("Arq Ribeirão Preto",     ["arq ribeirao preto", "arqzin", "arq submundo", "purple arq"], "Avenida do Cafe, 1365, Ribeirao Preto", "Ribeirão Preto"),
     ("Vila do Jon",             ["vila do jon"],                              "Parque do Peao, Barretos, Sao Paulo", "Barretos"),
     ("Centro Cultural Palace",  ["centro cultural palace", "palace hotel"],   "Centro Cultural Palace, Ribeirao Preto", "Ribeirão Preto"),
     ("Casa da Cultura",         ["casa da cultura"],                          "Casa da Cultura, Ribeirao Preto", "Ribeirão Preto"),
@@ -711,14 +712,14 @@ CIDADE_CAND_RE = re.compile(
     r"\b(?:em|de|no munic[ií]pio de|na cidade de|cidade de) "
     r"([A-ZÁÉÍÓÚÂÊÔÃÕÇ][\wÀ-ÿ'.-]*(?:\s+(?:(?:de|da|do|dos|das)\b|[A-ZÁÉÍÓÚÂÊÔÃÕÇ][\wÀ-ÿ'.-]*)){0,3})")
 
-def cidade_provavel(text, so_cache=False):
-    """Município citado que não está na lista da região.
+def municipio_citado(text, so_cache=False):
+    """Devolve (municipio_da_regiao, municipio_de_fora).
 
-    Sem isto, notícia de Barrinha ou Pedregulho ficava sem cidade e o texto
-    era tratado como de Ribeirão Preto: rua e bairro acabavam geocodificados
-    aqui, e o pin saía na cidade errada.
+    O segundo é o que impede uma matéria de futebol na Vila Belmiro de virar
+    pin em Ribeirão: quando o texto nomeia uma cidade de outra parte do país e
+    nenhuma da região, o lugar do fato não é aqui.
     """
-    vistos, tentativas = set(), 0
+    vistos, tentativas, fora = set(), 0, None
     for m in CIDADE_CAND_RE.finditer(text):
         nome = m.group(1).strip(" .,;")
         chave = norm(nome)
@@ -727,9 +728,16 @@ def cidade_provavel(text, so_cache=False):
         vistos.add(chave)
         tentativas += 1
         c = geocode(query_cidade(nome), so_cache=so_cache, so_cidade=True)
-        if c and dentro(c, 180):
-            return nome
-    return None
+        if not c:
+            continue
+        if dentro(c, 180):
+            return nome, None
+        fora = fora or nome
+    return None, fora
+
+
+def cidade_provavel(text, so_cache=False):
+    return municipio_citado(text, so_cache)[0]
 
 def cidade_do_texto(text):
     return cidade_pontuada(text, "")
@@ -799,7 +807,12 @@ def guess_place(text, regional=False, so_cache=False, titulo=""):
     """
     n = norm(text)
     # a cidade citada manda: o que é de Barrinha fica em Barrinha
-    cidade = cidade_pontuada(text, titulo) or cidade_provavel(titulo or text, so_cache)
+    cidade = cidade_pontuada(text, titulo)
+    if not cidade:
+        # texto inteiro, não só o título: a cidade do fato costuma estar no corpo
+        cidade, distante = municipio_citado(text, so_cache)
+        if not cidade and distante:
+            return None      # o fato é em outra parte do país; sem pin daqui
 
     # 1) lugar conhecido — precisa bater com a cidade citada (ou vir de feed regional sem outra cidade)
     for name, terms, query, cid in PLACES:

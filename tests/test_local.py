@@ -28,6 +28,7 @@ LUGARES = {
     "barrinha": (-21.191700, -48.163900),
     "pedregulho": (-20.250700, -47.480900),
     "sales oliveira": (-20.772000, -47.836000),
+    "santos": (-23.960800, -46.333600),        # fora da região, de propósito
     "theatro pedro ii": (-21.174361, -47.809806),
     "parque do peao": (-20.508142, -48.595081),
     "vila seixas": (-21.176500, -47.797400),
@@ -58,7 +59,7 @@ def geocode_falso(query, confere=None, so_cache=False, granular=False,
     nome, coord = achado
     if so_cidade and nome not in ("ribeirao preto", "franca", "barretos",
                                   "sertaozinho", "barrinha", "pedregulho",
-                                  "sales oliveira"):
+                                  "sales oliveira", "santos"):
         return None
     if bairro and app.norm(bairro) not in n:
         return None
@@ -108,6 +109,16 @@ class TestCidade(Base):
     def test_cidade_fora_da_lista_e_descoberta_no_texto(self):
         self.assertEqual(app.cidade_provavel("Obra em Pedregulho comeca segunda"),
                          "Pedregulho")
+
+    def test_materia_de_outra_cidade_nao_ganha_pin_daqui(self):
+        # esporte nacional no feed regional: a Vila Belmiro é em Santos
+        self.assertIsNone(app.guess_place(
+            "Santos vence na Vila Belmiro. O jogo foi em Santos.",
+            regional=True, titulo="Santos vence na Vila Belmiro"))
+
+    def test_municipio_de_fora_e_reconhecido_como_distante(self):
+        perto, fora = app.municipio_citado("O caso foi em Barrinha")
+        self.assertEqual((perto, fora), ("Barrinha", None))
 
     def test_capital_esta_fora_do_raio_da_regiao(self):
         self.assertIsNone(app.cidade_provavel("Reuniao em Sao Paulo discute verba"))

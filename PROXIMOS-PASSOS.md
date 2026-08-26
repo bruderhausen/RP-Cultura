@@ -19,9 +19,6 @@ do git guarda o que for commitado mesmo depois de removido.
 
 ## Coleta
 
-- **Endereço do ARQ.** O site deles não publica o endereço da casa e o nome não
-  é encontrado pelo geocodificador, então os eventos caem no centro de Ribeirão.
-  Com o endereço em mãos, basta uma entrada em `PLACES` no `server/app.py`.
 - **Mais plataformas de evento.** Hoje são Sympla e ARQ. Casas que vendem em
   site próprio precisam de um coletor cada.
 
