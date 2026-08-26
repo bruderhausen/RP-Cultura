@@ -627,22 +627,47 @@ document.addEventListener("keydown", e => {
 
 /* O estilo vem em tons de areia, discreto demais para um mapa que serve de
    fundo a pins: rodovia e rio somem no meio do bege. Aqui eles voltam a ser
-   amarelo e azul, que é como as pessoas leem um mapa. */
-const AMARELO_VIA = "#F2B705";
-const AMARELO_BORDA = "#D99A04";
-const AZUL_AGUA = "#8FC3E8";
+   amarelo e azul, num tom suave, e as vias afinam: a espessura do estilo é
+   pensada para mapa de navegação e, no zoom afastado, vira uma mancha. */
+const AMARELO_VIA = "#F0D486";
+const AMARELO_BORDA = "#DCBB68";
+const AZUL_AGUA = "#9FCBE8";
+const FATOR_ESPESSURA = 0.62;
+
+/* Envolver a largura num ["*", ...] não funciona: o MapLibre exige que a
+   expressão de zoom seja a raiz da propriedade. O jeito é escalar os valores
+   de saída do interpolate, um a um. */
+function escalar(largura, fator) {
+  if (typeof largura === "number") return largura * fator;
+  if (!Array.isArray(largura) || largura[0] !== "interpolate") return largura;
+  const saida = largura.slice();
+  for (let i = 4; i < saida.length; i += 2) {     // 3 é parada, 4 é valor
+    if (typeof saida[i] === "number") saida[i] = +(saida[i] * fator).toFixed(3);
+  }
+  return saida;
+}
 
 function realcarVias(gl) {
-  const pinta = (id, prop, cor) => {
-    try { gl.setPaintProperty(id, prop, cor); } catch (e) { /* camada ausente */ }
-  };
+  // styledata dispara a cada carga de fonte e de tile; sem esta trava a
+  // largura seria multiplicada de novo a cada evento até a via desaparecer
+  if (gl._viasRealcadas) return;
+  gl._viasRealcadas = true;
+
+  const tenta = fn => { try { fn(); } catch (e) { /* camada ausente no estilo */ } };
   for (const camada of gl.getStyle().layers) {
     const id = camada.id;
-    // no estilo Liberty as vias são "road_", "tunnel_" e "bridge_"
     if (/^(road|tunnel|bridge)_(motorway|trunk|primary|secondary)/.test(id)) {
-      pinta(id, "line-color", /casing$/.test(id) ? AMARELO_BORDA : AMARELO_VIA);
+      tenta(() => gl.setPaintProperty(
+        id, "line-color", /casing$/.test(id) ? AMARELO_BORDA : AMARELO_VIA));
+      tenta(() => {
+        const largura = gl.getPaintProperty(id, "line-width");
+        if (largura !== undefined) {
+          gl.setPaintProperty(id, "line-width", escalar(largura, FATOR_ESPESSURA));
+        }
+      });
     } else if (/^(water|waterway)/.test(id) && !/label/.test(id)) {
-      pinta(id, camada.type === "fill" ? "fill-color" : "line-color", AZUL_AGUA);
+      tenta(() => gl.setPaintProperty(
+        id, camada.type === "fill" ? "fill-color" : "line-color", AZUL_AGUA));
     }
   }
 }
