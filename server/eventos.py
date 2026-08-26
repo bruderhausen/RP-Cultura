@@ -5,6 +5,7 @@ e coordenadas de cada evento — é isso que lemos aqui. O preço não vem nesse
 JSON, então tentamos achá-lo na página do evento (melhor esforço).
 """
 import gzip, hashlib, json, re, urllib.request
+from datetime import datetime, timedelta, timezone
 
 UA = {"User-Agent": "Mozilla/5.0 (compatible; RPCulturalBot/1.0)"}
 
@@ -74,56 +75,71 @@ def _dist(a, b):
     return 6371 * 2 * asin(sqrt(h))
 
 
-EVENTIM_WEBID = __import__("os").environ.get("EVENTIM_WEBID", "web__eventim-br")
-EVENTIM_KEY = __import__("os").environ.get("EVENTIM_KEY", "")
-EVENTIM_CIDADES = ["Ribeirão Preto", "Franca", "Barretos"]
+# ---------------------------------------------------------------- ARQ
+# O ARQ saiu do Sympla e vende em site próprio. O site é uma SPA, mas o backend
+# dela é uma API REST aberta, que é o que lemos aqui. Cada unidade é uma casa;
+# unit_id vem da URL que a própria página consulta.
+ARQ_API = ("https://arq-backend-prod-191508435898.us-central1.run.app"
+           "/api/v1/events/")
+ARQ_UNIDADES = [
+    ("d1168e0f-4090-4ccc-9d8b-2391fcb7353a", "Arq Ribeirão Preto",
+     "Ribeirão Preto", "https://ingresso.arqzin.com/ribeirao-preto"),
+]
+ARQ_DIAS = 120
 
 
-def _eventim_cidade(cidade):
-    """API pública da Eventim (exploration). Sem credencial, ela recusa: seguimos sem."""
-    import urllib.parse
-    url = ("https://public-api.eventim.com/websearch/search/api/exploration/v2/productGroups"
-           f"?webId={EVENTIM_WEBID}&language=pt&city={urllib.parse.quote(cidade)}&limit=30")
-    req = urllib.request.Request(url, headers={**UA, "Accept": "application/json",
-                                               **({"X-Api-Key": EVENTIM_KEY} if EVENTIM_KEY else {})})
-    dados = json.loads(urllib.request.urlopen(req, timeout=20).read().decode("utf-8", "ignore"))
-    saida = []
-    for pg in (dados.get("productGroups") or []):
-        nome = pg.get("name")
-        link = pg.get("link") or pg.get("url")
-        ev = (pg.get("typeAttributes") or {}).get("liveEntertainment") or {}
-        local = ev.get("location") or {}
-        geo = local.get("geoLocation") or {}
-        if not nome or not link or geo.get("latitude") is None:
-            continue
-        rua = ", ".join(x for x in [local.get("street"), local.get("houseNumber"),
-                                    local.get("city")] if x)
-        saida.append({
-            "id": "ev" + hashlib.sha1(link.encode()).hexdigest()[:10],
-            "kind": "evento", "title": nome,
-            "lead": " · ".join(x for x in [local.get("name"), rua] if x) or cidade,
-            "img": (pg.get("image") or {}).get("url", ""), "url": link,
-            "src": "eventim", "srcName": "Eventim", "srcSite": "https://www.eventim.com.br",
-            "published": ev.get("startDate"), "when": ev.get("startDate"),
-            "place": local.get("name") or rua or cidade, "address": rua,
-            "lat": geo.get("latitude"), "lng": geo.get("longitude"),
-            "cidade": local.get("city") or cidade,
-            "price": (f"R$ {pg['price']['min']}" if (pg.get("price") or {}).get("min") else None),
-        })
-    return saida
+def _arq_preco(evento):
+    """Menor valor entre os tipos de ingresso, no formato que o app mostra."""
+    valores = [int(t["value_cents"]) for t in (evento.get("ticket_types") or [])
+               if str(t.get("value_cents", "")).isdigit()]
+    if not valores:
+        return None
+    return "R$ " + f"{min(valores) / 100:.2f}".replace(".", ",")
 
 
-def buscar_eventim():
-    """Devolve (eventos, erro). O erro sobe até /api/health: sem isso, uma
-    quebra na raspagem só apareceria no log do servidor."""
+def buscar_arq():
+    """Devolve (eventos, erro). Uma unidade fora do ar não derruba as outras."""
+    hoje = datetime.now(timezone.utc).date()
     saida, erro = [], None
-    for cidade in EVENTIM_CIDADES:
+    for unit_id, casa, cidade, pagina in ARQ_UNIDADES:
+        url = (f"{ARQ_API}?unit_id={unit_id}&start_date={hoje}"
+               f"&end_date={hoje + timedelta(days=ARQ_DIAS)}&sale_status=OPEN")
         try:
-            saida += _eventim_cidade(cidade)
+            dados = json.loads(_get(url))
         except Exception as e:
-            erro = f"{cidade}: {e}"
-            print(f"[eventim] {erro}", flush=True)
-            break        # sem credencial não adianta insistir nas outras cidades
+            erro = erro or f"{casa}: {e}"
+            print(f"[arq] {casa}: {e}", flush=True)
+            continue
+        itens = dados if isinstance(dados, list) else (
+            dados.get("results") or dados.get("items") or dados.get("data") or [])
+        for ev in itens:
+            if ev.get("visibility") not in (None, "PUBLIC"):
+                continue
+            inicio = ev.get("start_date")
+            if not ev.get("event_id") or not inicio:
+                continue
+            # a API devolve o horário em UTC sem sufixo; sem marcar, o app
+            # mostraria 3 horas a mais e o lembrete dispararia na hora errada
+            quando = inicio if inicio.endswith("Z") or "+" in inicio[10:] else inicio + "+00:00"
+            saida.append({
+                "id": "arq" + hashlib.sha1(ev["event_id"].encode()).hexdigest()[:10],
+                "kind": "evento",
+                "title": (ev.get("name") or "").strip(),
+                "lead": (ev.get("description") or "").strip() or casa,
+                "img": ev.get("main_image_url") or "",
+                "url": pagina,
+                "src": "arq",
+                "srcName": "ARQ",
+                "srcSite": "https://ingresso.arqzin.com",
+                "published": quando,
+                "when": quando,
+                "place": casa,
+                "address": casa,
+                "lat": None,          # o site não publica endereço; o app resolve
+                "lng": None,
+                "cidade": cidade,
+                "price": _arq_preco(ev),
+            })
     return saida, erro
 
 
@@ -136,9 +152,9 @@ def buscar(limite_por_cidade=20, com_preco=False):
     servindo só notícias, sem sinal nenhum de que os eventos pararam.
     """
     vistos, eventos = set(), []
-    rel = {"sympla":  {"ok": False, "itens": 0, "cidades_ok": 0,
-                       "cidades": len(CIDADES_SYMPLA), "erro": None},
-           "eventim": {"ok": False, "itens": 0, "erro": None}}
+    rel = {"sympla": {"ok": False, "itens": 0, "cidades_ok": 0,
+                      "cidades": len(CIDADES_SYMPLA), "erro": None},
+           "arq":    {"ok": False, "itens": 0, "erro": None}}
 
     for slug, cidade in CIDADES_SYMPLA:
         try:
@@ -191,13 +207,14 @@ def buscar(limite_por_cidade=20, com_preco=False):
     # cidade que respondeu mas não rendeu evento nenhum é sinal de markup mudado
     rel["sympla"]["ok"] = rel["sympla"]["cidades_ok"] > 0 and len(eventos) > 0
 
-    do_eventim, erro_eventim = buscar_eventim()
-    rel["eventim"]["erro"] = erro_eventim
-    for ev in do_eventim:
-        if ev["url"] not in vistos and _dist((ev["lat"], ev["lng"]), RP) <= RAIO_KM:
-            vistos.add(ev["url"]); eventos.append(ev)
-            rel["eventim"]["itens"] += 1
-    rel["eventim"]["ok"] = erro_eventim is None
+    do_arq, erro_arq = buscar_arq()
+    rel["arq"]["erro"] = erro_arq
+    for ev in do_arq:
+        # o ARQ não tem coordenada, então a chave de repetição é o id do evento
+        if ev["id"] not in vistos:
+            vistos.add(ev["id"]); eventos.append(ev)
+            rel["arq"]["itens"] += 1
+    rel["arq"]["ok"] = erro_arq is None and rel["arq"]["itens"] > 0
 
     if com_preco:
         for ev in eventos[:40]:          # melhor esforço, só nos primeiros

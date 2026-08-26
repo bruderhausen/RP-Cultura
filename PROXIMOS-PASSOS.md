@@ -19,11 +19,11 @@ do git guarda o que for commitado mesmo depois de removido.
 
 ## Coleta
 
-- **Eventim devolve `HTTP Error 400`.** A raspagem quebrou e todos os eventos
-  hoje vêm só do Sympla. Decidir entre consertar ou remover a fonte — enquanto
-  isso o alerta fica de pé em `/api/health`.
-- **Mais plataformas de evento.** Sympla sozinho é ponto único de falha para a
-  aba inteira de eventos.
+- **Endereço do ARQ.** O site deles não publica o endereço da casa e o nome não
+  é encontrado pelo geocodificador, então os eventos caem no centro de Ribeirão.
+  Com o endereço em mãos, basta uma entrada em `PLACES` no `server/app.py`.
+- **Mais plataformas de evento.** Hoje são Sympla e ARQ. Casas que vendem em
+  site próprio precisam de um coletor cada.
 
 ## Mapa
 

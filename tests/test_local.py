@@ -7,6 +7,7 @@ que ele impede de voltar.
 
     python -m unittest discover -s tests -v
 """
+import json
 import os
 import re
 import sys
@@ -260,6 +261,55 @@ class TestCidadeNoItem(Base):
                                     "published": "2026-08-20T10:00:00+00:00"}]
             app._state["updated"] = "2026-08-25T12:00:00+00:00"
         self.assertEqual(app.feed_payload()["pins"][0]["label"], "Ribeirão Preto")
+
+
+class TestFonteArq(unittest.TestCase):
+    """O ARQ vende em site próprio; a API dele é a fonte desses eventos."""
+
+    def setUp(self):
+        import eventos
+        self.ev = eventos
+        self._get = eventos._get
+        self.addCleanup(setattr, eventos, "_get", self._get)
+
+    def resposta(self, **extra):
+        base = {"event_id": "abc-123", "name": "PURPLE ARQ", "description": "Festa",
+                "start_date": "2099-09-27T02:00:00", "visibility": "PUBLIC",
+                "main_image_url": "http://img/1.jpg",
+                "ticket_types": [{"value_cents": "4000"}, {"value_cents": "1600"}]}
+        base.update(extra)
+        return json.dumps({"results": [base]})
+
+    def test_horario_sem_fuso_e_tratado_como_utc(self):
+        # a API devolve UTC sem sufixo; sem marcar, o app mostraria 3h a mais
+        self.ev._get = lambda u, timeout=25: self.resposta()
+        evento = self.ev.buscar_arq()[0][0]
+        self.assertEqual(evento["when"], "2099-09-27T02:00:00+00:00")
+
+    def test_preco_e_o_menor_ingresso(self):
+        self.ev._get = lambda u, timeout=25: self.resposta()
+        self.assertEqual(self.ev.buscar_arq()[0][0]["price"], "R$ 16,00")
+
+    def test_evento_privado_fica_de_fora(self):
+        self.ev._get = lambda u, timeout=25: self.resposta(visibility="PRIVATE")
+        self.assertEqual(self.ev.buscar_arq()[0], [])
+
+    def test_evento_sem_data_fica_de_fora(self):
+        self.ev._get = lambda u, timeout=25: self.resposta(start_date=None)
+        self.assertEqual(self.ev.buscar_arq()[0], [])
+
+    def test_api_fora_do_ar_devolve_erro_sem_estourar(self):
+        def falha(u, timeout=25):
+            raise RuntimeError("HTTP 500")
+        self.ev._get = falha
+        eventos, erro = self.ev.buscar_arq()
+        self.assertEqual(eventos, [])
+        self.assertIn("HTTP 500", erro)
+
+    def test_id_e_estavel_entre_coletas(self):
+        self.ev._get = lambda u, timeout=25: self.resposta()
+        self.assertEqual(self.ev.buscar_arq()[0][0]["id"],
+                         self.ev.buscar_arq()[0][0]["id"])
 
 
 class TestPins(unittest.TestCase):

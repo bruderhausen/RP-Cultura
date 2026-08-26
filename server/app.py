@@ -595,7 +595,7 @@ def guess_category(text):
     return "Cidade"
 
 # Só estas fontes produzem evento: têm data, local e página de ingresso.
-FONTES_EVENTO = {"sympla", "eventim"}
+FONTES_EVENTO = {"sympla", "arq"}
 
 def normaliza_kind(it):
     """Rebaixa a evento vindo de jornal, inclusive o que já está no histórico."""
@@ -1076,7 +1076,7 @@ def artigo_texto(url, limite=400000):
 
 def localizar(item):
     """Procura o local no corpo da matéria. Devolve True se achou coordenada.
-    Itens que já vêm com coordenada da plataforma (Sympla, Eventim) ficam como estão."""
+    Itens que já vêm com coordenada da plataforma ficam como estão."""
     # centro da cidade não conta como local encontrado: é justamente o caso
     # que precisa da busca no corpo da matéria
     ja_tem_local = (item.get("lat") is not None and item.get("preciso")
@@ -1153,7 +1153,7 @@ def refresh():
         except Exception as e:
             print(f"[feed] {feed['key']}: {e}", flush=True)
 
-    # Sympla e Eventim são raspados dentro de buscar(), cada um com seu próprio
+    # Sympla e ARQ são lidos dentro de buscar(), cada um com seu próprio
     # tratamento de erro; aqui só resta o caso de o módulo inteiro falhar
     try:
         eventos, relatorio = plataformas.buscar()
@@ -1338,7 +1338,7 @@ def feed_payload():
             cidades[c] = cidades.get(c, 0) + 1
     sources = {f["key"]: {"name": f["name"], "url": f["site"]} for f in FEEDS}
     sources["sympla"] = {"name": "Sympla", "url": "https://www.sympla.com.br"}
-    sources["eventim"] = {"name": "Eventim", "url": "https://www.eventim.com.br"}
+    sources["arq"] = {"name": "ARQ", "url": "https://ingresso.arqzin.com"}
     return {"updated": updated, "days": HISTORY_DAYS, "refresh": REFRESH_SECONDS,
             "sources": sources, "news": news, "events": events, "pins": pins,
             "cidades": sorted(cidades.items(), key=lambda kv: (-kv[1], kv[0])),
