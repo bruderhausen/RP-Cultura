@@ -26,7 +26,7 @@ import lembretes
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(ROOT, "data")
 STORE = os.path.join(DATA_DIR, "news.json")
-STORE_VERSION = 3      # muda quando o formato/regra muda: histórico é refeito
+STORE_VERSION = 4      # muda quando o formato/regra muda: histórico é refeito
 
 PORT = int(os.environ.get("PORT", "5173"))
 REFRESH_SECONDS = int(os.environ.get("REFRESH_SECONDS", "300"))
@@ -100,7 +100,7 @@ PLACES = [
     ("Choperia Pinguim",        ["choperia pinguim"],                         "Choperia Pinguim, Ribeirao Preto", "Ribeirão Preto"),
     ("Museu do Café",           ["museu do cafe", "museu do café"],           "Museu do Cafe, Ribeirao Preto", "Ribeirão Preto"),
     ("Praça XV",                ["praca xv", "praça xv", "quarteirao paulista", "quarteirão paulista"], "Praca XV de Novembro, Ribeirao Preto", "Ribeirão Preto"),
-    ("Campus da USP",           ["usp de ribeirao", "campus da usp", "usp ribeirao"], "Universidade de Sao Paulo, Ribeirao Preto", "Ribeirão Preto"),
+    ("Campus da USP",           ["usp de ribeirao", "campus da usp", "campus de ribeirao preto da usp", "cidade universitaria de ribeirao", "usp ribeirao preto"], "Universidade de Sao Paulo, Ribeirao Preto", "Ribeirão Preto"),
     ("Hospital das Clínicas",   ["hospital das clinicas de ribeirao", "hc de ribeirao", "hcrp"], "Hospital das Clinicas de Ribeirao Preto", "Ribeirão Preto"),
     ("Santa Casa",              ["santa casa de ribeirao"],                   "Santa Casa de Misericordia de Ribeirao Preto", "Ribeirão Preto"),
     ("Arena Eurobike",          ["arena eurobike"],                           "Arena Eurobike, Ribeirao Preto", "Ribeirão Preto"),
@@ -144,8 +144,8 @@ CIDADE_QUERY = {c: f"{_sem_acento(c)}, Sao Paulo" for c in CIDADES_REGIAO}
 
 DEFAULT_GEO = {
     "Universidade de Sao Paulo, Ribeirao Preto": [
-        -21.159001,
-        -47.856698
+        -21.16617,
+        -47.84864
     ],
     "Ribeirao Preto, Sao Paulo": [
         -21.177632,
@@ -301,6 +301,12 @@ _geo_lock = threading.Lock()
 # é estado da última execução, não conteúdo, e não deve ir para o arquivo.
 _diag = {"fontes": {}, "checado": None, "erro_geral": None}
 
+# coordenadas conferidas à mão: vencem qualquer resposta do geocodificador,
+# que às vezes devolve um ponto administrativo longe do lugar real
+OVERRIDES = {
+    "Universidade de Sao Paulo, Ribeirao Preto": [-21.16617, -47.84864],   # campus, Av. Bandeirantes 3900
+}
+
 def load_geo():
     global _geo
     _geo = dict(DEFAULT_GEO)
@@ -309,6 +315,13 @@ def load_geo():
             _geo.update({k: v for k, v in json.load(f).items() if v})
     except Exception:
         pass
+    # coordenada conferida à mão vence o cache, inclusive nas chaves com sufixo
+    for chave in list(_geo):
+        base = chave.split("|")[0]
+        if base in OVERRIDES:
+            _geo[chave] = OVERRIDES[base]
+    for consulta, coord in OVERRIDES.items():
+        _geo.setdefault(consulta, coord)
 
 RP_CENTRO = [-21.177632, -47.810098]
 
