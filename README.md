@@ -1,6 +1,6 @@
 # RP Cultural
 
-<p align="center"><img src="assets/logo.png" alt="RP Cultural" width="420"></p>
+<p align="center"><img src="assets/icon-512.png" alt="RP Cultural" width="160"></p>
 
 App mobile-first de notícias, eventos e cultura de Ribeirão Preto e região, feito a partir dos
 wireframes de baixa fidelidade (páginas 01, 02 e 03). Conteúdo real: notícias vindas dos RSS dos
