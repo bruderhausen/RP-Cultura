@@ -18,6 +18,7 @@ from datetime import datetime, timezone, timedelta
 from email.utils import parsedate_to_datetime
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 
+import cinema as salas
 import eventos as plataformas
 import hmac
 import push
@@ -695,6 +696,9 @@ def recategoriza(it):
     """Reclassifica o item guardado quando a regra mudou de versao."""
     if it.get("catv") == CAT_VERSAO:
         return it
+    if it.get("kind") == "cinema":
+        it["cat"], it["catv"] = "Cultura", CAT_VERSAO
+        return it
     fixa = next((f.get("cat") for f in FEEDS if f["key"] == it.get("src")), None)
     if not fixa:
         fixa = guess_category((it.get("title") or "") + " " + (it.get("lead") or ""))
@@ -705,6 +709,8 @@ def recategoriza(it):
 
 def normaliza_kind(it):
     """Rebaixa a evento vindo de jornal, inclusive o que já está no histórico."""
+    if it.get("kind") == "cinema":
+        return it
     if it.get("kind") == "evento" and it.get("src") not in FONTES_EVENTO:
         it["kind"] = "noticia"
         it["when"] = None
@@ -1351,6 +1357,15 @@ def refresh():
             ev["preciso"] = True
             ev["geov"] = GEO_VERSAO
         collected.append(ev)
+    # O cartaz vem inteiro a cada leitura: sessão é dado que muda de hora em
+    # hora, e guardar histórico dela não serve para nada.
+    try:
+        for f in salas.ler():
+            f["geov"] = GEO_VERSAO
+            collected.append(f)
+    except Exception as e:
+        print("[cinema]", e, flush=True)
+
     _diag.update(fontes=relatorio, erro_geral=erro_eventos,
                  checado=datetime.now(timezone.utc).isoformat())
     for nome, f in relatorio.items():
@@ -1363,16 +1378,27 @@ def refresh():
     sincroniza_eventos(eventos, relatorio)
 
     with _lock:
-        known = {i["id"] for i in _state["items"]}
-        assinaturas = [assinatura(i["title"]) for i in _state["items"]]
+        # O cartaz é substituído inteiro, nunca acrescentado: sessão muda de
+        # hora em hora e o id do item é fixo, então guardar o antigo deixaria
+        # os horários congelados na primeira leitura do dia.
+        antigos = [i for i in _state["items"] if i.get("kind") != "cinema"]
+        known = {i["id"] for i in antigos}
+        # Título de filme não entra na comparação por semelhança. Ela existe
+        # para pegar a mesma notícia em dois veículos; no cinema o mesmo título
+        # em outra sala é item legítimo, e foi assim que 16 sessões viraram 7.
+        assinaturas = [assinatura(i["title"]) for i in antigos]
         fresh = []
         for i in collected:
+            if i.get("kind") == "cinema":
+                if i["id"] not in known:
+                    known.add(i["id"]); fresh.append(i)
+                continue
             a = assinatura(i["title"])
             if i["id"] in known or any(parecidos(a, b) for b in assinaturas):
                 continue
             known.add(i["id"]); assinaturas.append(a)
             fresh.append(i)
-        merged = prune(fresh + _state["items"])
+        merged = prune(fresh + antigos)
         _state["items"] = merged
         _state["updated"] = datetime.now(timezone.utc).isoformat()
         save_store()
@@ -1478,6 +1504,7 @@ def feed_payload():
         updated = _state["updated"]
     news = [i for i in items if i["kind"] == "noticia"]
     events = [i for i in items if i["kind"] == "evento"]
+    cinema = [i for i in items if i["kind"] == "cinema"]
     # Um pin por local E por tipo. Antes a chave era só a coordenada e o tipo
     # vinha do primeiro item do grupo: bastava um evento chegar primeiro para
     # um monte de notícia virar pin amarelo de evento no mesmo balão.
@@ -1485,13 +1512,14 @@ def feed_payload():
     # Evento herdava essa ordem e o pin abria o mais distante no futuro, quando
     # quem olha o mapa quer saber o que vem primeiro naquele lugar.
     com_local = [i for i in items if i.get("lat") is not None]
-    proximos = sorted((i for i in com_local if i.get("kind") == "evento"),
+    datados = ("evento", "cinema")
+    proximos = sorted((i for i in com_local if i.get("kind") in datados),
                       key=lambda i: i.get("when") or "9999")
-    demais = [i for i in com_local if i.get("kind") != "evento"]
+    demais = [i for i in com_local if i.get("kind") not in datados]
 
     grupos = {}
     for i in proximos + demais:
-        tipo = "ev" if i["kind"] == "evento" else "news"
+        tipo = {"evento": "ev", "cinema": "cine"}.get(i["kind"], "news")
         key = (round(i["lat"], 5), round(i["lng"], 5), tipo)
         g = grupos.setdefault(key, {"id": i["id"], "lat": key[0], "lng": key[1],
                                     "label": i.get("place") or i.get("cidade") or "",
@@ -1528,8 +1556,10 @@ def feed_payload():
     sources = {f["key"]: {"name": f["name"], "url": f["site"]} for f in FEEDS}
     sources["sympla"] = {"name": "Sympla", "url": "https://www.sympla.com.br"}
     sources["arq"] = {"name": "ARQ", "url": "https://ingresso.arqzin.com"}
+    sources["ingresso"] = {"name": "Ingresso.com", "url": "https://www.ingresso.com"}
     return {"updated": updated, "days": HISTORY_DAYS, "refresh": REFRESH_SECONDS,
-            "sources": sources, "news": news, "events": events, "pins": pins,
+            "sources": sources, "news": news, "events": events,
+            "cinema": cinema, "pins": pins,
             "cidades": sorted(cidades.items(), key=lambda kv: (-kv[1], kv[0])),
             "total": len(items)}
 

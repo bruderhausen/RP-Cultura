@@ -6,6 +6,7 @@
   --accent:#FFD64A;
   --tinta:#FFC21F;   /* amarelo chapado da saída do splash */
   --accent-2:#FFC01E;
+  --cine:#8E1B2C;   /* vermelho escuro do cinema, longe do roxo da notícia */
 
   --bg:#F6F5FB;
   --surface:#FFFFFF;
@@ -732,22 +733,110 @@ img{max-width:100%;display:block}
   font-size:11px;font-weight:700;line-height:15px;text-align:center;pointer-events:none;
   box-shadow:0 2px 6px rgba(36,17,103,.35)}
 .pin--ev .pin__n{background:#7A4E00}
+.pin--cine .pin__n{background:#5E1220}
+/* horários da sessão: chip que leva direto à compra daquele horário */
+/* Os horários vinham abertos e empurravam o "Também aqui" para fora da tela.
+   <details> resolve sem JS e o resumo continua sendo alvo de toque. */
+.sheet--cine .sheet__sum{
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden
+}
+.sessoes{margin:6px 0}
+.sessoes[open]{display:flex;flex-direction:column;gap:10px}
+.sessoes__abre{
+  display:flex;align-items:center;gap:8px;cursor:pointer;list-style:none;
+  border:1px solid var(--line);border-radius:14px;padding:11px 13px;
+  font-size:13.5px;font-weight:700;color:var(--cine);background:var(--surface)
+}
+.sessoes__abre::-webkit-details-marker{display:none}
+.sessoes__abre svg{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;
+  stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.sessoes__abre b{font-weight:800;color:var(--ink-3)}
+.sessoes__seta{margin-left:auto;transition:transform .2s}
+.sessoes[open] .sessoes__abre{margin-bottom:4px}
+.sessoes[open] .sessoes__seta{transform:rotate(180deg)}
+/* selo de data ou horário sobre a miniatura do cartão */
+.card__quando{
+  position:absolute;left:6px;top:6px;z-index:2;display:flex;flex-direction:column;align-items:center;
+  background:rgba(255,255,255,.95);border-radius:9px;padding:3px 6px;line-height:1.05;
+  box-shadow:0 2px 6px rgba(36,17,103,.22)
+}
+.card__quando b{font-size:13px;font-weight:800;color:var(--brand-ink)}
+.card__quando i{font-size:8.5px;font-style:normal;font-weight:700;text-transform:uppercase;color:var(--ink-3)}
+.card__quando--cine b{font-size:12px;color:var(--cine)}
+.card__thumb{position:relative}
+.art__local{
+  display:inline-flex;align-items:center;gap:3px;padding:0;
+  color:var(--brand);font:inherit;font-weight:700;background:none;text-align:left
+}
+.art__local .svg-ico{width:14px;height:14px}
+.art__local:active{opacity:.6}
+.card__local{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.card__meta{display:flex;align-items:center;gap:6px}
+
+/* data ou distância: só aparece onde há data e lugar */
+.ordem{display:flex;gap:6px;align-items:center;padding:0 16px 10px}
+.ordem button{
+  border:1px solid var(--line);border-radius:99px;padding:6px 12px;
+  font-size:11.5px;font-weight:700;color:var(--ink-3);background:var(--surface)
+}
+.ordem button.is-on{background:var(--surface-2);border-color:var(--brand);color:var(--brand)}
+.ordem button:disabled{opacity:.45}
+
+/* tipos que a tela inicial mostra */
+.tipos{display:flex;gap:6px;padding:2px 16px 10px;overflow-x:auto;scrollbar-width:none}
+.tipos::-webkit-scrollbar{display:none}
+.tipos button{
+  flex:none;border:1px solid var(--line);border-radius:99px;padding:7px 13px;
+  font-size:12.5px;font-weight:700;color:var(--ink-2);background:var(--surface);
+  transition:background .16s,color .16s,border-color .16s
+}
+.tipos button.is-on{background:var(--brand-ink);border-color:var(--brand-ink);color:#fff}
+.sessoes__dia{display:flex;flex-direction:column;gap:6px}
+.sessoes__dia>b{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3)}
+.sessoes__hs{display:flex;flex-wrap:wrap;gap:6px}
+.sessao{
+  display:inline-block;border-radius:10px;padding:7px 11px;font-size:13px;font-weight:700;
+  color:#fff;background:var(--cine);text-decoration:none;transition:opacity .15s
+}
+.sessao:active{opacity:.7}
 .sheet__more{display:flex;flex-direction:column;gap:6px;margin:2px 0 4px}
 .sheet__more b{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3)}
 .sheet__more button{text-align:left;font-size:13.5px;font-weight:600;color:var(--brand-ink);background:var(--surface-2);border-radius:12px;padding:9px 12px;line-height:1.25}
 /* filtro dos pins, no canto de baixo à esquerda do mapa */
 .mapfiltro{
+  flex-direction:column;align-items:stretch;
   /* .mapwrap ja termina acima da barra de abas: somar --tabh soltaria o filtro do canto */
   position:absolute;left:12px;bottom:14px;z-index:650;
   display:flex;gap:2px;padding:3px;border-radius:99px;
   background:rgba(255,255,255,.95);backdrop-filter:blur(6px);box-shadow:var(--sh-2);transition:.25s
 }
 .mapfiltro.is-hidden{opacity:0;transform:translateY(10px);pointer-events:none}
-.mapfiltro button{
-  border-radius:99px;padding:7px 12px;font-size:12px;font-weight:700;color:var(--ink-2);
-  background:none;transition:background .18s,color .18s
+.mapfiltro__abre{
+  display:flex;align-items:center;gap:5px;border-radius:99px;padding:7px 10px 7px 13px;
+  font-size:12px;font-weight:700;color:var(--ink-2);background:none
 }
-.mapfiltro button.is-on{background:var(--brand);color:#fff}
+.mapfiltro__abre svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2.4;
+  stroke-linecap:round;stroke-linejoin:round;transition:transform .2s}
+.mapfiltro.is-aberto .mapfiltro__abre svg{transform:rotate(180deg)}
+/* a lista sobe a partir do botão, que fica preso no canto de baixo */
+.mapfiltro__lista{
+  display:flex;flex-direction:column;gap:2px;padding:4px 4px 2px;
+  animation:mfSobe .18s ease
+}
+@keyframes mfSobe{from{opacity:0;transform:translateY(6px)}}
+.mapfiltro__lista button{
+  display:flex;align-items:center;gap:7px;border-radius:12px;padding:8px 12px 8px 9px;
+  font-size:12.5px;font-weight:700;color:var(--ink-2);background:none;text-align:left
+}
+.mapfiltro__lista button::before{
+  content:"";width:15px;height:15px;flex:none;border-radius:5px;
+  border:2px solid var(--ink-3);transition:.15s
+}
+.mapfiltro__lista button.is-on{color:var(--brand-ink)}
+.mapfiltro__lista button.is-on::before{
+  background:var(--brand) center/11px no-repeat;border-color:var(--brand);
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7'/%3E%3C/svg%3E")
+}
 
 .pin{
   position:absolute;transform:translate(-50%,-100%);z-index:3;
@@ -765,10 +854,17 @@ img{max-width:100%;display:block}
 .pin__shape{fill:var(--brand);stroke:#fff;stroke-width:2;stroke-linejoin:round}
 .pin__ico{fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .pin--ev .pin__shape{fill:var(--accent-2)}
+.pin--cine .pin__shape{fill:var(--cine)}
 /* o amarelo não sustenta glifo branco: sem contraste, some */
 .pin--ev .pin__ico{stroke:#7A4E00}
 .pin.is-on{z-index:5}
-.pin.is-on .pin__svg{animation:pinPulo .55s cubic-bezier(.3,1.3,.5,1)}
+.pin.is-on .pin__svg{animation:pinPulo .7s cubic-bezier(.3,1.3,.5,1)}
+/* piscada de quem veio da matéria: verde não é cor de nenhum tipo de pin,
+   então não dá para confundir com notícia, evento ou cinema */
+.pin.is-flash .pin__shape{animation:pinTroca .7s ease-out}
+.pin.is-flash .pin__ico{animation:pinTrocaIco .7s ease-out}
+@keyframes pinTroca{0%,60%{fill:#0FA968}}
+@keyframes pinTrocaIco{0%,60%{stroke:#fff}}
 @keyframes pinPulo{0%,100%{transform:translateY(0) scale(1)}32%{transform:translateY(-10px) scale(1.1)}58%{transform:translateY(0) scale(1)}78%{transform:translateY(-4px) scale(1.04)}}
 .pin.is-on .pin__svg{filter:drop-shadow(0 2px 2px rgba(36,17,103,.3)) drop-shadow(0 12px 22px rgba(36,17,103,.34))}
 .pin__label{
@@ -782,6 +878,7 @@ img{max-width:100%;display:block}
   background:var(--brand);opacity:0
 }
 .pin--ev .pin__pulse{background:var(--accent-2)}
+.pin--cine .pin__pulse{background:var(--cine)}
 .pin.is-on .pin__pulse{animation:pulse 2.4s cubic-bezier(.2,.8,.2,1) infinite}
 @keyframes pulse{0%{transform:scale(.8);opacity:.5}60%{transform:scale(3.4);opacity:0}100%{opacity:0}}
 

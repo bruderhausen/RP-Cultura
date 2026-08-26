@@ -24,11 +24,12 @@ app roda igual, apenas sem notificação.
 |---|---|
 | **Splash** | Animação do logo "RP" com a faixa CULTURAL, ~2,5 s. |
 | **Guia** | Quatro slides no primeiro uso, revisível pelo Perfil: o que o app reúne, a cor dos pins do mapa, o aviso dos salvos e a personalização. |
-| **Início** | Busca, filtro de categoria, manchete, 3 principais notícias + **Ver todas** (separadas por dia), carrossel de eventos com data, local e ingresso. |
+| **Início** | Mostra um tipo por vez — Notícias, Eventos ou Cinema — no mesmo cartão, com busca, filtro de categoria e manchete. Evento e cinema ordenam por data ou por distância. |
 | **Matéria** | Imagem, categoria, fonte, tempo de leitura, resumo, link para a matéria original, salvar e compartilhar. |
-| **Mapa** | Mapa real (Leaflet + CARTO Voyager) com pins no local exato: **pin azul é notícia, pin amarelo é evento**. Toque abre a aba com resumo, fonte e "Também aqui". Ponto azul acompanha o usuário. |
+| **Mapa** | Mapa real (Leaflet) com pins no local exato: **azul é notícia, amarelo é evento, vermelho é cinema**, cada um com o próprio desenho para não depender da cor. Filtro no canto marca vários tipos ao mesmo tempo. Toque abre a aba com resumo, fonte e "Também aqui". |
 | **Perfil** | Foto com recorte circular, preferências do que receber, interesses, salvos e link para o guia. |
 | **Salvos** | Notícias e eventos em abas separadas. Na aba Eventos há o interruptor de aviso: com ele ligado, cada evento salvo vira uma notificação 30 min, 1 h, 3 h ou 1 dia antes de começar. |
+| **Cinema** | Cartaz das quatro salas de Ribeirão, um cartão por filme, com os horários por dia atrás de "Ver horários" e link direto para a compra da sessão. |
 | **Tradução** | Português → English → Español na interface e nos títulos. |
 
 Preferências, salvos, idioma, foto e localização ficam no `localStorage` (`rpcultural.v1`). O que sai
@@ -40,7 +41,7 @@ do aparelho é só o endpoint de push e a lista de eventos a avisar — nada que
 
 | Rota | O que faz |
 |---|---|
-| `GET /api/feed` | notícias, eventos, pins e fontes |
+| `GET /api/feed` | notícias, eventos, cinema, pins e fontes |
 | `GET /api/stream` | SSE: avisa o app quando entra conteúdo novo |
 | `GET /api/refresh` | força uma leitura agora |
 | `GET /api/health` | status e contagem |
@@ -57,6 +58,8 @@ evento e deduplicado por semelhança de título.
 Barretos, Araraquara) e extrai nome, data, casa, endereço com número e coordenadas; eventos ficam no
 feed até a data acontecer. Há um adaptador da Eventim pronto, ativado por `EVENTIM_WEBID` /
 `EVENTIM_KEY` (a API deles exige credencial de afiliado).
+
+**Cinema** — `server/cinema.py` lê a API de conteúdo da Ingresso.com, que responde sem chave nem cadastro. O item é o par filme × sala, não a sessão: sessão vira item afogaria o feed, e o mapa precisa de um ponto por casa. As coordenadas das quatro salas são fixas no código porque o geocodificador erra o número em duas delas. O cartaz é substituído inteiro a cada leitura, já que horário não tem histórico que valha guardar.
 
 **Notificações** — `server/push.py` fala Web Push direto, sem biblioteca: monta o cabeçalho VAPID
 (um JWT ES256, único trecho que precisa de `cryptography`) e deixa a entrega com o serviço do próprio
@@ -102,6 +105,7 @@ js/i18n.js          textos da interface e traduções
 sw.js               service worker (rede primeiro) e recebimento do push
 server/app.py       API, leitura das fontes e localização
 server/eventos.py   Sympla e Eventim
+server/cinema.py    cartaz e sessões da Ingresso.com
 server/push.py      Web Push e assinatura VAPID
 server/lembretes.py agenda do aviso dos eventos salvos
 admin.html          envio manual de aviso, protegido por ADMIN_TOKEN

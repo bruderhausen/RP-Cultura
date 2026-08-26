@@ -179,19 +179,28 @@
       <button class="regionbtn" id="regionBtn"><span id="regionLabel">Ribeirão</span><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
     </div>
 
+    <div class="tipos" id="tipoChips" role="radiogroup" aria-label="O que mostrar na tela inicial">
+      <button data-tp="noticia" class="is-on" role="radio" aria-checked="true">Notícias</button>
+      <button data-tp="evento" role="radio" aria-checked="false">Eventos</button>
+      <button data-tp="cinema" role="radio" aria-checked="false">Cinema</button>
+    </div>
+
+    <div class="ordem" id="ordemLinha" role="radiogroup" aria-label="Ordem da lista" hidden>
+      <button data-ordem="data" class="is-on" role="radio" aria-checked="true">Data</button>
+      <button data-ordem="perto" id="ordemPerto" role="radio" aria-checked="false">Distância</button>
+    </div>
+
     <div class="chips" id="catChips"></div>
 
     <div class="scrollarea" id="homeScroll">
       <article class="hero" id="heroCard"></article>
 
-      <div class="sec-head"><h2>Principais notícias</h2><span class="live" id="liveBadge" hidden></span></div>
-      <div class="list" id="newsList"></div>
-      <button class="vertudo" id="verTodas">Ver todas as notícias <svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
-
-      <div class="sec-head"><h2>Eventos na região</h2>
+      <div class="sec-head"><h2 id="feedTitulo">Na região</h2>
+        <span class="live" id="liveBadge" hidden></span>
         <button class="sec-head__link" id="verAgenda">Agenda <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
       </div>
-      <div class="rail" id="eventRail"></div>
+      <div class="list" id="newsList"></div>
+      <button class="vertudo" id="verTodas">Ver tudo <svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
 
       <div class="pad"></div>
     </div>
@@ -207,10 +216,17 @@
     </header>
     <div class="mapwrap">
       <div class="map" id="map"></div>
-      <div class="mapfiltro" id="mapFiltro" role="group" aria-label="Filtrar os pins do mapa">
-        <button data-mf="todos" class="is-on" aria-pressed="true">Todos</button>
-        <button data-mf="news" aria-pressed="false">Notícias</button>
-        <button data-mf="ev" aria-pressed="false">Eventos</button>
+      <div class="mapfiltro" id="mapFiltro">
+        <div class="mapfiltro__lista" id="mapFiltroLista" hidden role="group"
+             aria-label="O que mostrar no mapa">
+          <button data-mf="todos" class="is-on" role="checkbox" aria-checked="true">Todos</button>
+          <button data-mf="news" role="checkbox" aria-checked="false">Notícias</button>
+          <button data-mf="ev" role="checkbox" aria-checked="false">Eventos</button>
+          <button data-mf="cine" role="checkbox" aria-checked="false">Cinema</button>
+        </div>
+        <button class="mapfiltro__abre" id="mapFiltroAbre" aria-expanded="false"
+                aria-controls="mapFiltroLista"><span id="mapFiltroRotulo">Todos</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg></button>
       </div>
     </div>
     <div class="scrim" id="mapScrim" hidden></div>
@@ -246,6 +262,7 @@
       <div class="prefs">
         <label class="pref"><span><b>Notícias</b><i>Manchetes e cobertura da cidade</i></span><input type="checkbox" data-pref="noticias"><em class="sw"></em></label>
         <label class="pref"><span><b>Eventos</b><i>Shows, festivais e agenda cultural</i></span><input type="checkbox" data-pref="eventos"><em class="sw"></em></label>
+        <label class="pref"><span><b>Cinema</b><i>Cartaz das salas de Ribeirão</i></span><input type="checkbox" data-pref="cinema"><em class="sw"></em></label>
         <label class="pref"><span><b>Alertas da região</b><i>Trânsito, clima e serviços</i></span><input type="checkbox" data-pref="alertas"><em class="sw"></em></label>
       </div>
 

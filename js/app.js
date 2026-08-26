@@ -9,9 +9,23 @@ const KEY = "rpcultural.v1";
 const S = Object.assign({
   cat: "Todos", q: "", lang: "pt", screen: "home", cidade: "",
   antes: "1h", avisarSalvos: false,
-  saved: [], prefs: { noticias: true, eventos: true, alertas: false },
-  interests: [], geo: null, user: null, avatar: null, guideSeen: false
+  saved: [], prefs: { noticias: true, eventos: true, cinema: true, alertas: false },
+  interests: [], geo: null, user: null, avatar: null, guideSeen: false,
+  /* Tipo que a home mostra, sempre exatamente um. Não existe "todos": a
+     notícia se mede pelo tempo desde que saiu e o evento pelo tempo que falta
+     para começar, então misturar os dois numa lista só põe duas réguas opostas
+     lado a lado. Separado do filtro do mapa: olhar cinema no mapa não deve
+     trocar o que a home mostra. */
+  homeTipo: "noticia",
+  /* "data" ou "perto": vale para evento e para cinema */
+  ordem: "data"
 }, JSON.parse(localStorage.getItem(KEY) || "{}"));
+
+/* Object.assign é raso: o `prefs` gravado antes de existir o cinema
+   substituía o objeto inteiro, e `S.prefs.cinema` ficava undefined. Com isso a
+   aba de cinema abria vazia em quem já usava o app. */
+S.prefs = Object.assign({ noticias: true, eventos: true, cinema: true, alertas: false },
+                        S.prefs || {});
 
 const save = () => localStorage.setItem(KEY, JSON.stringify(S));
 const t = k => (UI[S.lang] || UI.pt)[k];
@@ -110,6 +124,74 @@ window.addEventListener("load", () => {
   }, 2950);
 });
 
+/* Um item por filme E por sala chega do servidor, porque o mapa precisa de um
+   ponto por cinema. A home mostra o filme uma vez só, com as salas dentro. */
+function porFilme(lista) {
+  const m = new Map();
+  lista.forEach(f => {
+    const g = m.get(f.movieId);
+    if (g) { g.salas.push(f); if (f.when < g.when) g.when = f.when; }
+    else m.set(f.movieId, Object.assign({}, f, { salas: [f] }));
+  });
+  return [...m.values()].sort((a, b) => a.when < b.when ? -1 : 1);
+}
+/* O horário é o dado que a pessoa foi buscar no cinema; sem ele a ficha vira
+   sinopse. Cada chip leva direto à compra daquela sessão. */
+function sessoesHTML(i) {
+  if (i.kind !== "cinema" || !(i.sessoes || []).length) return "";
+  const dias = new Map();
+  i.sessoes.forEach(s => {
+    const d = new Date(s.quando);
+    const rot = d.toDateString() === new Date().toDateString()
+      ? "Hoje" : `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
+    (dias.get(rot) || dias.set(rot, []).get(rot)).push(s);
+  });
+  return `<details class="sessoes"><summary class="sessoes__abre">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16" rx="3"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg>
+    ${t("showTimes")} <b>(${i.sessoes.length})</b>
+    <svg class="sessoes__seta" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+  </summary>${[...dias].map(([rot, ss]) => `
+    <div class="sessoes__dia"><b>${rot}</b>
+      <div class="sessoes__hs">${ss.map(s => `
+        <a class="sessao" href="${s.url}" target="_blank" rel="noopener"
+           title="${[s.sala, s.tipo].filter(Boolean).join(" · ")}">${s.hora}</a>`).join("")}</div>
+    </div>`).join("")}</details>`;
+}
+
+$("#ordemLinha").addEventListener("click", e => {
+  const b = e.target.closest("button[data-ordem]");
+  if (!b || b.disabled) return;
+  S.ordem = b.dataset.ordem; save();
+  $$("#ordemLinha button").forEach(x => {
+    const on = x === b;
+    x.classList.toggle("is-on", on);
+    x.setAttribute("aria-checked", on);
+  });
+  renderHome();
+});
+
+/* ---------------- tipo da tela inicial ---------------- */
+function pintarTipos() {
+  $$("#ordemLinha button").forEach(b => {
+    const on = b.dataset.ordem === S.ordem;
+    b.classList.toggle("is-on", on);
+    b.setAttribute("aria-checked", on);
+  });
+  $$("#tipoChips button").forEach(b => {
+    const on = b.dataset.tp === S.homeTipo;
+    b.classList.toggle("is-on", on);
+    b.setAttribute("aria-checked", on);
+  });
+}
+$("#tipoChips").addEventListener("click", e => {
+  const b = e.target.closest("button[data-tp]");
+  if (!b) return;
+  // escolha exclusiva: tocar num tipo troca, nunca soma
+  S.homeTipo = b.dataset.tp;
+  save(); pintarTipos(); renderHome();
+});
+
+
 /* ---------------- guia ---------------- */
 let gi = 0;
 /* O guia mostra a marca de verdade, montada pela mesma função do mapa: copiar o
@@ -181,7 +263,7 @@ function startApp() {
   $("#app").hidden = false;
   history.replaceState({ root: 1 }, "");
   pushLayer();   // passo extra: o primeiro "voltar" nunca sai do app
-  renderChips(); renderHome(); renderMap(); renderProfile(); paintSavedCount(); applyLang();
+  renderChips(); pintarTipos(); renderHome(); renderMap(); renderProfile(); paintSavedCount(); applyLang();
   pintarCidade();
   if (window.paintLiveBadge) paintLiveBadge();
   garantirInscricao();
@@ -290,6 +372,8 @@ $("#regionBtn").addEventListener("click", () => {
 function match(i) {
   if (i.kind === "noticia" && !S.prefs.noticias) return false;
   if (i.kind === "evento" && !S.prefs.eventos) return false;
+  if (i.kind === "cinema" && !S.prefs.cinema) return false;
+  if (S.homeTipo && i.kind !== S.homeTipo) return false;
   if (S.cidade && i.cidade !== S.cidade) return false;
   const okCat = S.cat === "Todos" || i.cat === S.cat;
   const L = loc(i);
@@ -304,11 +388,24 @@ function km(a, b) {
   return Math.round(R * 2 * Math.asin(Math.sqrt(h)));
 }
 
-function porPerto(lista) {
+function calcDist(lista) {
   if (!S.geo) return lista;
   lista.forEach(i => { i.dist = (i.lat != null) ? km(S.geo, [i.lat, i.lng]) : null; });
-  return [...lista].sort((a, b) => (a.dist ?? 999) - (b.dist ?? 999));
+  return lista;
 }
+/* Item com data se ordena pelo que vem primeiro, não pelo que foi publicado
+   antes. Por distância, o mais perto sobe mesmo que aconteça daqui a um mês. */
+function ordenaDatados(lista) {
+  calcDist(lista);
+  const porData = (a, b) => new Date(a.when || 0) - new Date(b.when || 0);
+  if (S.ordem !== "perto" || !S.geo) return [...lista].sort(porData);
+  return [...lista].sort((a, b) => ((a.dist ?? 9999) - (b.dist ?? 9999)) || porData(a, b));
+}
+
+const TITULO_FEED = { noticia: "Principais notícias",
+                      evento: "Eventos na região", cinema: "Cinema hoje" };
+/* estado antigo pode ter "" gravado, de quando existia "Todos" */
+if (!TITULO_FEED[S.homeTipo]) S.homeTipo = "noticia";
 
 function renderHome() {
   // interesses só mudam a ordem: nada some da lista
@@ -317,10 +414,25 @@ function renderHome() {
     return [...l].sort((a, b) =>
       (S.interests.includes(b.cat) ? 1 : 0) - (S.interests.includes(a.cat) ? 1 : 0));
   };
-  const news = porInteresse(NEWS.filter(match));
-  const evs  = porPerto(porInteresse(EVENTS.filter(match)));
-  const hero = news[0] || evs[0];
+  // o cartaz chega como filme x sala; na lista o filme aparece uma vez só
+  const filmes = ordenaDatados(porFilme(CINEMA.filter(match)));
+  const evs = ordenaDatados(EVENTS.filter(match));
+  const news = NEWS.filter(match);
 
+  const lista = porInteresse(
+    S.homeTipo === "evento" ? evs : S.homeTipo === "cinema" ? filmes : news);
+
+  // O seletor de ordem só faz sentido onde existe data e lugar
+  $("#ordemLinha").hidden = S.homeTipo === "noticia";
+  $("#ordemPerto").disabled = !S.geo;
+  $("#ordemPerto").title = S.geo ? "" : "Ative a localização para ordenar por distância";
+
+  $("#feedTitulo").textContent = TITULO_FEED[S.homeTipo];
+  // No evento quem abre a lista completa é a Agenda; dois botões para a mesma
+  // tela só ocupavam espaço.
+  $("#verAgenda").hidden = S.homeTipo !== "evento";
+
+  const hero = lista[0];
   $("#heroCard").hidden = !hero;
   if (hero) {
     const L = loc(hero);
@@ -334,41 +446,37 @@ function renderHome() {
       </div>`;
   }
 
-  const rest = news.slice(hero && hero.kind === "noticia" ? 1 : 0);
-  $("#newsList").innerHTML = rest.length ? rest.slice(0, 3).map(cardHTML).join("")
+  const rest = lista.slice(hero ? 1 : 0);
+  $("#newsList").innerHTML = rest.length ? rest.slice(0, 6).map(cardHTML).join("")
     : `<div class="empty">${t("emptyFeed")}</div>`;
-  $("#verTodas").hidden = rest.length <= 3;
-  $("#verTodas").firstChild.textContent = `Ver todas as notícias (${news.length}) `;
-
-  const ICONE_LOCAL = '<svg viewBox="0 0 24 24" class="svg-ico"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>';
-
-  $("#eventRail").innerHTML = evs.map(e => {
-    const L = loc(e);
-    // o evento já tem pin no mapa: o local vira atalho para ele.
-    // o cartão deixa de ser <button> porque button não pode conter button
-    const local = e.lat != null
-      ? `<button class="ev__p ev__p--map" data-mapa="${e.id}" title="Ver no mapa">${ICONE_LOCAL} ${e.place}</button>`
-      : `<span class="ev__p">${ICONE_LOCAL} ${e.place}</span>`;
-    return `<div class="ev" role="button" tabindex="0" data-open="${e.id}">
-      <div class="ev__img">${art(e, `<span class="ev__date"><b>${e.day}</b><i>${e.month}</i></span>`)}</div>
-      <div class="ev__in"><div class="ev__t">${L.title}</div>
-        ${local}
-        <div class="ev__foot">${e.price ? `<span class="tag tag--price">${e.price}</span>`
-          : e.src === "sympla" ? `<span class="tag tag--ghost2">Ingressos</span>` : ""}
-          ${e.dist != null ? `<span class="ev__dist">${e.dist} km</span>` : ""}</div></div>
-    </div>`;
-  }).join("") || `<div class="empty">${t("emptyFeed")}</div>`;
-
+  $("#verTodas").hidden = rest.length <= 6 || S.homeTipo === "evento";
+  $("#verTodas").firstChild.textContent = `Ver tudo (${lista.length}) `;
 }
+
+const ICONE_PIN = '<svg viewBox="0 0 24 24" class="svg-ico"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>';
+
+/* Um cartão só para notícia, evento e cinema. O trilho horizontal mostrava
+   dois eventos por tela e escondia o resto; a lista vertical mostra o triplo e
+   deixa "Todos" ser uma lista de verdade em vez de três blocos empilhados. */
+const primeiraHora = f =>
+  ((f.salas || [f]).map(s => (s.sessoes || [])[0]).filter(Boolean)[0] || {}).hora || "";
 
 function cardHTML(i) {
   const L = loc(i);
+  const datado = i.kind === "evento" || i.kind === "cinema";
+  const selo = i.kind === "cinema"
+    ? `<span class="card__quando card__quando--cine"><b>${primeiraHora(i)}</b><i>hoje</i></span>`
+    : i.kind === "evento" ? `<span class="card__quando"><b>${i.day}</b><i>${i.month}</i></span>` : "";
+  const rodape = datado
+    ? `<span class="card__local">${i.place || ""}</span>${
+        i.price ? `<span class="tag tag--price">${i.price}</span>` : ""}`
+    : `<span class="src">${SOURCES[i.src].name}</span><i class="dot-sep"></i>${i.time}`;
   return `<button class="card" data-open="${i.id}">
-    <div class="card__thumb">${art(i)}</div>
+    <div class="card__thumb">${art(i, selo)}</div>
     <div class="card__body">
       <div class="card__cat">${catLabel(i.cat)}</div>
       <div class="card__title">${L.title}</div>
-      <div class="card__meta"><span class="src">${SOURCES[i.src].name}</span><i class="dot-sep"></i>${i.time}</div>
+      <div class="card__meta">${rodape}</div>
     </div></button>`;
 }
 
@@ -396,13 +504,24 @@ function rotuloDia(chave) {
   return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
 }
 
-$("#verTodas").addEventListener("click", () => {
-  const news = NEWS.filter(match);
-  const dias = [...new Set(news.map(i => diaChave(i.published)))].sort().reverse();
+function abrirListaPorDia() {
+  // Segue o tipo escolhido na home. Antes listava só notícia, então "Ver tudo"
+  // com Cinema marcado abria uma tela que não tinha nada a ver com a lista.
+  const news = S.homeTipo === "evento" ? ordenaDatados(EVENTS.filter(match))
+    : S.homeTipo === "cinema" ? ordenaDatados(porFilme(CINEMA.filter(match)))
+    : NEWS.filter(match);
+  // o item datado se organiza pelo dia em que acontece, não em que foi publicado
+  const dia = i => diaChave(i.when || i.published);
+  // Ordenar por data e inverter colocava a sessão mais distante no futuro como
+  // dia inicial. Aqui o dia de hoje vem primeiro, e os vizinhos se afastam dele.
+  const hoje = diaChave(new Date().toISOString());
+  const dias = [...new Set(news.map(dia))]
+    .sort((x, y) => Math.abs(Date.parse(x) - Date.parse(hoje))
+                  - Math.abs(Date.parse(y) - Date.parse(hoje)));
   let diaAtivo = dias[0];
 
   const listar = () => {
-    const doDia = news.filter(i => diaChave(i.published) === diaAtivo);
+    const doDia = news.filter(i => dia(i) === diaAtivo);
     $("#listaDia").innerHTML = doDia.length ? doDia.map(cardHTML).join("")
       : `<div class="empty">${t("emptyFeed")}</div>`;
     $$("#chipsDia .chip").forEach(c => c.classList.toggle("is-on", c.dataset.dia === diaAtivo));
@@ -411,11 +530,11 @@ $("#verTodas").addEventListener("click", () => {
   openPage($("#pageSaved"), `
     <div class="page__bar">
       <button class="circbtn" data-back aria-label="Voltar"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
-      <h1>Todas as notícias</h1><span style="width:38px"></span>
+      <h1>${S.homeTipo === "evento" ? t("agenda") : TITULO_FEED[S.homeTipo]}</h1><span style="width:38px"></span>
     </div>
     <div class="chips" id="chipsDia">
       ${dias.map(d => `<button class="chip" data-dia="${d}">${rotuloDia(d)}
-        <b>${news.filter(i => diaChave(i.published) === d).length}</b></button>`).join("")}
+        <b>${news.filter(i => dia(i) === d).length}</b></button>`).join("")}
     </div>
     <div class="saved-list"><div class="list" id="listaDia" style="padding-bottom:24px"></div></div>`);
 
@@ -424,63 +543,23 @@ $("#verTodas").addEventListener("click", () => {
     diaAtivo = b.dataset.dia; listar();
   });
   listar();
-});
+}
+$("#verTodas").addEventListener("click", abrirListaPorDia);
+/* A Agenda tinha tela própria, com o mesmo desenho pior. Agora ela abre esta. */
+$("#verAgenda").addEventListener("click", abrirListaPorDia);
 
-/* ---------------- agenda de eventos por dia ---------------- */
-$("#verAgenda").addEventListener("click", () => {
-  // só eventos de plataforma têm data marcada; é o que dá para agendar
-  const evs = EVENTS.filter(match).filter(e => e.when)
-    .sort((a, b) => new Date(a.when) - new Date(b.when));
-  const dias = [...new Set(evs.map(e => diaChave(e.when)))];
-  let diaAtivo = dias[0];
-
-  const listar = () => {
-    const doDia = evs.filter(e => diaChave(e.when) === diaAtivo);
-    $("#listaAgenda").innerHTML = doDia.length
-      ? doDia.map(agendaHTML).join("")
-      : `<div class="empty">${t("noEvents")}</div>`;
-    $$("#chipsAgenda .chip").forEach(c => c.classList.toggle("is-on", c.dataset.dia === diaAtivo));
-  };
-
-  openPage($("#pageSaved"), `
-    <div class="page__bar">
-      <button class="circbtn" data-back aria-label="Voltar"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
-      <h1>${t("agenda")}</h1><span style="width:38px"></span>
-    </div>
-    <div class="chips" id="chipsAgenda">
-      ${dias.map(d => `<button class="chip" data-dia="${d}">${rotuloDia(d)}
-        <b>${evs.filter(e => diaChave(e.when) === d).length}</b></button>`).join("")}
-    </div>
-    <div class="saved-list"><div class="agenda" id="listaAgenda"></div></div>`);
-
-  $("#chipsAgenda").addEventListener("click", e => {
-    const b = e.target.closest("[data-dia]"); if (!b) return;
-    diaAtivo = b.dataset.dia; listar();
-  });
-  listar();
-});
 
 function horaDe(iso) {
   return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 }
 
-function agendaHTML(e) {
-  const L = loc(e);
-  const local = e.lat != null
-    ? `<button class="ag__local" data-mapa="${e.id}">${e.place}</button>`
-    : `<span class="ag__local ag__local--seco">${e.place}</span>`;
-  return `<article class="ag">
-    <div class="ag__hora">${horaDe(e.when)}</div>
-    <div class="ag__corpo" role="button" tabindex="0" data-open="${e.id}">
-      <div class="ag__t">${L.title}</div>
-      ${local}
-      <div class="ag__pe">
-        ${e.price ? `<span class="tag tag--price">${e.price}</span>` : ""}
-        <span class="ag__fonte">${SOURCES[e.src] ? SOURCES[e.src].name : e.srcName || ""}</span>
-        ${e.dist != null ? `<span class="ev__dist">${e.dist} km</span>` : ""}
-      </div>
-    </div>
-  </article>`;
+
+/* Sem coordenada não há pin para abrir, e um botão que não leva a lugar nenhum
+   é pior do que texto. */
+function localHTML(i) {
+  return i.lat != null
+    ? `<button class="art__local" data-mapa="${i.id}" title="Ver no mapa">${ICONE_PIN} ${i.place}</button>`
+    : `<span>${ICONE_PIN} ${i.place}</span>`;
 }
 
 /* clique em qualquer card */
@@ -518,15 +597,17 @@ function openArticle(id) {
       ${i.credit ? `<p class="art__credito">Foto: ${i.credit}</p>` : ""}
       <div class="art__in">
         <h1>${L.title}</h1>
-        <div class="art__meta"><span class="src">${src.name}</span><i class="dot-sep"></i>${i.time}${i.place ? `<i class="dot-sep"></i><svg viewBox="0 0 24 24" class="svg-ico"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"></path><circle cx="12" cy="10" r="3"></circle></svg> ${i.place}` : ""} ${badge}</div>
+        <div class="art__meta"><span class="src">${src.name}</span><i class="dot-sep"></i>${i.time}${
+          i.place ? `<i class="dot-sep"></i>${localHTML(i)}` : ""} ${badge}</div>
         <p class="art__lead">${L.lead}</p>
+        ${sessoesHTML(i)}
         ${i.body.slice(0, 2).map(p => `<p>${p}</p>`).join("")}
         ${i.body.length ? `<figure class="art__fig">${art(i)}</figure>
         <p class="art__figcap">${i.figcap}</p>` : ""}
         ${i.body.slice(2).map(p => `<p>${p}</p>`).join("")}
         <a class="art__src" href="${i.url || src.url}" target="_blank" rel="noopener">
           <span><small>${t("source")}</small><b>${src.name}</b></span>
-          <span class="sourcelink">${t("openSource")}
+          <span class="sourcelink">${i.kind === "cinema" ? t("buyTicket") : t("openSource")}
             <svg viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>
           </span>
         </a>
@@ -550,7 +631,9 @@ function openArticle(id) {
    ========================================================= */
 let _map, _pinLayer;
 let _marcas = {};   /* marca do mapa por id, para achar a que precisa de realce */
-let _filtroMapa = "todos";   /* "todos" | "news" | "ev": vale só para os pins */
+/* O que o mapa mostra, independente do que a home mostra. Conjunto vazio quer
+   dizer "todos": assim incluir um tipo novo não exige mexer aqui. */
+let _filtroMapa = new Set();
 let _zoomT = 0;              /* espera o zoom parar antes de refazer os pins */
 let _assinaturaPins = null;  /* o que esta desenhado agora, para nao redesenhar igual */
 const RP = [-21.1775, -47.8103];
@@ -598,7 +681,8 @@ function renderMap() {
   const longe = _map.getZoom() < 10;   // só bem afastado é que filtra
   const visiveis = PINS.filter(p => {
     if (p.lat == null) return false;
-    if (_filtroMapa !== "todos" && (p.type === "ev" ? "ev" : "news") !== _filtroMapa) return false;
+    if (_filtroMapa.size && !_filtroMapa.has(p.type === "ev" ? "ev"
+        : p.type === "cine" ? "cine" : "news")) return false;
     // afastado demais, só os favoritos, para o mapa não virar um amontoado
     if (longe && !isSaved(p.id) && !(p.more || []).some(isSaved)) return false;
     // o pin some quando nenhum item dele passa no filtro de cidade
@@ -629,10 +713,15 @@ function renderMap() {
 const GLIFO = {
   news: '<path d="M10.6 11.6h10.8M10.6 15.6h10.8M10.6 19.6h6.6"/>',
   ev: '<rect x="10.4" y="11.2" width="11.2" height="10.2" rx="2.6"/>' +
-      '<path d="M10.4 14.8h11.2M13.7 9v3.2M18.3 9v3.2"/>'
+      '<path d="M10.4 14.8h11.2M13.7 9v3.2M18.3 9v3.2"/>',
+  // pipoca: o balde e os três grãos saindo por cima
+  cine: '<path d="M11.4 13.2h9.2l-1 8.6h-7.2z"/>' +
+        '<path d="M14.7 13.6v7.8M17.3 13.6v7.8"/>' +
+        '<circle cx="13.4" cy="10.6" r="1.7"/><circle cx="16.6" cy="9.4" r="1.9"/>' +
+        '<circle cx="19.6" cy="10.8" r="1.6"/>'
 };
 function marcaHTML(p) {
-  const tipo = p.type === "ev" ? "ev" : "news";
+  const tipo = GLIFO[p.type] ? p.type : "news";
   const rotulo = p.label ? `<span class="pin__label">${p.label}</span>` : "";
   return `<span class="pin pin--${tipo}">
     <span class="pin__pulse"></span>
@@ -644,10 +733,17 @@ function marcaHTML(p) {
     ${p.n > 1 ? `<b class="pin__n">${p.n > 99 ? "99+" : p.n}</b>` : ""}</span>`;
 }
 /* o realce existia no CSS mas nada o ligava: a marca tocada ficava igual às outras */
-function destacarPin(el) {
-  $$(".pin").forEach(x => x.classList.remove("is-on"));
+function destacarPin(el, piscar) {
+  $$(".pin").forEach(x => x.classList.remove("is-on", "is-flash"));
   const marca = el && el.querySelector(".pin");
-  if (marca) marca.classList.add("is-on");
+  if (!marca) return;
+  marca.classList.add("is-on");
+  // Chegando de fora do mapa a pessoa não sabe para onde olhar: a troca de cor
+  // por 0,3 s diz qual dos pins é o da matéria que ela estava lendo.
+  if (piscar) {
+    marca.classList.add("is-flash");
+    setTimeout(() => marca.classList.remove("is-flash"), 700);
+  }
 }
 
 /* leva ao mapa e abre a ficha em cima do pin que já existe para o evento */
@@ -655,16 +751,53 @@ function abrirNoMapa(id) {
   const i = byId(id);
   if (!i || i.lat == null) return;
   _seguindo = false;              // ele quer ver o evento, não a própria posição
-  go("mapa");
-  $$(".tab").forEach(b => b.classList.toggle("is-on", b.dataset.go === "mapa"));
-  setTimeout(() => {
-    if (!_map) return;
-    _map.invalidateSize();
-    _map.setView([i.lat, i.lng], 16);
-    const p = PINS.find(x => x.id === id || (x.more || []).includes(id));
-    if (p && _marcas[p.id]) destacarPin(_marcas[p.id].getElement());
-    openSheet(id, p ? p.more : []);
-  }, 160);
+
+  // A matéria é uma camada por cima da tela: trocar de tela por baixo dela não
+  // muda o que se vê, e o toque no local parecia não fazer nada. Ela sai por
+  // history.back(), e quem fecha de fato é o popstate — chamar closePage()
+  // junto fecharia duas vezes e furaria a conta de _camada.
+  //
+  // O resto só começa depois que a camada saiu. Fazendo em paralelo, o popstate
+  // chegava atrasado, encontrava a ficha já aberta e fechava a ficha em vez da
+  // camada: a pessoa via o mapa piscar e voltar ao normal.
+  const tinhaCamada = !!openLayer();
+  if (tinhaCamada) history.back();
+
+  const seguir = () => {
+    go("mapa");
+    $$(".tab").forEach(b => b.classList.toggle("is-on", b.dataset.go === "mapa"));
+    setTimeout(() => {
+      if (!_map) return;
+      _map.invalidateSize();
+      const p = PINS.find(x => x.id === id || (x.more || []).includes(id));
+      let feito = false;
+      const chegou = () => {
+        if (feito) return;                  // moveend e rede de segurança
+        feito = true;
+        if (p && _marcas[p.id]) destacarPin(_marcas[p.id].getElement(), true);
+        openSheet(id, p ? p.more : []);
+      };
+      // flyTo em vez de setView: o salto seco não mostrava o caminho, e sem ver
+      // o mapa se mover ninguém sabe onde o ponto foi parar. O destaque e a
+      // ficha esperam o voo acabar, senão piscam com o mapa ainda correndo.
+      // Já no lugar: voar para onde se está sacode a tela sem levar a lugar
+      // nenhum, e o Leaflet nem sempre emite moveend quando a origem e o
+      // destino são o mesmo ponto, então a ficha ainda esperava a rede de
+      // segurança. Perto o bastante, vai direto ao destaque.
+      const alvo = L.latLng(i.lat, i.lng);
+      const parado = _map.getCenter().distanceTo(alvo) < 40
+                  && Math.abs(_map.getZoom() - 16) < 0.2;
+      if (parado) return chegou();
+      _map.once("moveend", chegou);
+      _map.flyTo(alvo, 16, { duration: 1.1 });
+      // com o app em segundo plano o voo congela e moveend não vem; sem esta
+      // rede a ficha nunca abriria
+      setTimeout(chegou, 1600);
+    }, 120);
+  };
+
+  // 260 ms cobre a saída da camada, que leva 220 ms
+  tinhaCamada ? setTimeout(seguir, 260) : seguir();
 }
 
 /* o cartão de evento é uma div com role=button: Enter e espaço não
@@ -891,6 +1024,7 @@ function openSheet(id, more = [], total = 0) {
     <div class="sheet__row"><span class="tag">${catLabel(i.cat)}</span>${i.price ? `<span class="tag tag--price">${i.price}</span>` : ""}<span class="ev__p"><svg viewBox="0 0 24 24" class="svg-ico"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"></path><circle cx="12" cy="10" r="3"></circle></svg> ${i.place}</span></div>
     <h3>${L.title}</h3>
     <div class="sheet__quando">${i.kind === "evento" && i.when ? `<svg viewBox="0 0 24 24" class="svg-ico"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg> ${dataLonga(i.when)}` : i.time}</div>
+    ${sessoesHTML(i)}
     <p class="sheet__sum">${L.lead}</p>
     <a class="sourcelink" href="${i.url || src.url}" target="_blank" rel="noopener">
       ${t("readAt")}: <b>${src.name}</b>
@@ -901,9 +1035,13 @@ function openSheet(id, more = [], total = 0) {
       <button class="btn btn--primary" data-open="${i.id}">${t("openSource")}</button>
     </div>
     ${maisDaquiHTML(i, more, total)}`;
+  // A sinopse inteira empurrava o "Também aqui" para fora da ficha. Na ficha
+  // ela é chamariz, não leitura: o texto completo continua na matéria.
+  $("#mapSheet").classList.toggle("sheet--cine", i.kind === "cinema");
   $("#mapSheet").hidden = false;
   $("#mapScrim").hidden = false;
   $("#mapFiltro").classList.add("is-hidden");
+  abrirFiltroMapa(false);
   $("#sheetSave").addEventListener("click", () => {
     $("#sheetSave").textContent = toggleSave(i.id) ? t("saved2") + " ✓" : t("save");
   });
@@ -915,16 +1053,42 @@ function closeSheet() {
   $("#mapFiltro").classList.remove("is-hidden");
   $$(".pin").forEach(p => p.classList.remove("is-on"));
 }
-$("#mapFiltro").addEventListener("click", e => {
-  const b = e.target.closest("button[data-mf]");
-  if (!b || b.dataset.mf === _filtroMapa) return;
-  _filtroMapa = b.dataset.mf;
-  $$("#mapFiltro button").forEach(x => {
-    const on = x === b;
-    x.classList.toggle("is-on", on);
-    x.setAttribute("aria-pressed", on);
+const ROTULO_MF = { news: "Notícias", ev: "Eventos", cine: "Cinema" };
+function pintarFiltroMapa() {
+  $$("#mapFiltroLista button").forEach(b => {
+    const on = b.dataset.mf === "todos" ? !_filtroMapa.size : _filtroMapa.has(b.dataset.mf);
+    b.classList.toggle("is-on", on);
+    b.setAttribute("aria-checked", on);
   });
+  // Rótulo fechado: o que está marcado, ou a contagem quando não cabe
+  const marcados = [..._filtroMapa];
+  $("#mapFiltroRotulo").textContent =
+    !marcados.length ? "Todos"
+    : marcados.length === 1 ? ROTULO_MF[marcados[0]]
+    : `${marcados.length} tipos`;
+}
+function abrirFiltroMapa(abrir) {
+  $("#mapFiltroLista").hidden = !abrir;
+  $("#mapFiltro").classList.toggle("is-aberto", abrir);
+  $("#mapFiltroAbre").setAttribute("aria-expanded", abrir);
+}
+$("#mapFiltroAbre").addEventListener("click", () =>
+  abrirFiltroMapa($("#mapFiltroLista").hidden));
+
+$("#mapFiltroLista").addEventListener("click", e => {
+  const b = e.target.closest("button[data-mf]");
+  if (!b) return;
+  const t = b.dataset.mf;
+  // "Todos" e tipo marcado são estados que se excluem: marcar um limpa o outro
+  if (t === "todos") _filtroMapa.clear();
+  else if (_filtroMapa.has(t)) _filtroMapa.delete(t);
+  else _filtroMapa.add(t);
+  pintarFiltroMapa();
   renderMap();
+});
+// tocar fora fecha a gaveta, senão ela cobre o mapa
+document.addEventListener("click", e => {
+  if (!$("#mapFiltroLista").hidden && !e.target.closest("#mapFiltro")) abrirFiltroMapa(false);
 });
 $("#mapScrim").addEventListener("click", () => history.back());
 $("#sheetClose").addEventListener("click", () => history.back());
@@ -1358,8 +1522,12 @@ function applyLang() {
   if (P[0]) P[0].textContent = t("receive");
   if (P[1]) P[1].textContent = t("reminder");
   if (P[2]) P[2].textContent = t("interests");
-  $$("#mapFiltro button").forEach(b => b.textContent =
-    t({ todos: "mapAll", news: "mapNews", ev: "mapEvents" }[b.dataset.mf]));
+  $$("#tipoChips button").forEach(b => b.textContent = t(
+    { noticia: "mapNews", evento: "mapEvents", cinema: "mapCinema" }[b.dataset.tp]));
+  $$("#mapFiltroLista button").forEach(b => b.textContent = t(
+    { todos: "mapAll", news: "mapNews", ev: "mapEvents", cine: "mapCinema" }[b.dataset.mf]));
+  Object.assign(ROTULO_MF, { news: t("mapNews"), ev: t("mapEvents"), cine: t("mapCinema") });
+  pintarFiltroMapa();
   const nav = [t("home"), t("map"), t("profile")];
   $$(".tab span").forEach((s, i) => s.textContent = nav[i]);
   $("#savedBtn .rowbtn__l").lastChild.textContent = " " + t("saved");

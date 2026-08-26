@@ -65,7 +65,7 @@ async function loadLive(aviso) {
     data = await r.json();
   } catch (e) {
     // nunca mostrar o conteúdo de demonstração como se fosse notícia real
-    NEWS = []; EVENTS = []; ALL = []; PINS = []; UPDATES = []; CIDADES = [];
+    NEWS = []; EVENTS = []; CINEMA = []; ALL = []; PINS = []; UPDATES = []; CIDADES = [];
     if (!document.getElementById("app").hidden) { renderHome(); renderMap(); }
     semServidor(true);
     setTimeout(() => loadLive(), 15000);
@@ -77,7 +77,8 @@ async function loadLive(aviso) {
   SOURCES = data.sources;
   NEWS = data.news.map(shape);
   EVENTS = data.events.map(shape);
-  ALL = [...NEWS, ...EVENTS];
+  CINEMA = (data.cinema || []).map(shape);
+  ALL = [...NEWS, ...EVENTS, ...CINEMA];
   PINS = data.pins;
   CIDADES = data.cidades || [];
   liveUpdated = data.updated;

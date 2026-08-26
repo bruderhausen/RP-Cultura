@@ -215,6 +215,7 @@ const TONES = [
   ["#0E7B63", "#8CC63F"]
 ];
 
+let CINEMA = [];   /* só vem do servidor; não há cartaz de demonstração */
 let ALL = [...NEWS, ...EVENTS];
 
 /* [nome, quantidade] por município, vindo de /api/feed. Alimenta o filtro de
