@@ -125,12 +125,14 @@ function closeGuide() {
   setTimeout(() => { g.hidden = true; g.style.opacity = ""; }, 300);
   startApp();
 }
+/* último slide vem da marcação: assim dá para incluir slide sem mexer aqui */
+const guideLast = () => $$("#guide .guide__slide").length - 1;
 function paintGuide() {
   $$("#guideDots i").forEach((d, i) => d.classList.toggle("on", i === gi));
-  $("#guideNext").textContent = gi === 2 ? "Começar" : "Continuar";
+  $("#guideNext").textContent = gi === guideLast() ? "Começar" : "Continuar";
 }
 $("#guideNext").addEventListener("click", () => {
-  if (gi === 2) return closeGuide();
+  if (gi >= guideLast()) return closeGuide();
   gi++;
   const tr = $("#guideTrack");
   tr.scrollTo({ left: gi * tr.clientWidth, behavior: "smooth" });

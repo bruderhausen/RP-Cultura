@@ -15,26 +15,28 @@ python server/app.py
 ```
 
 `http://localhost:5173` — de preferência no modo dispositivo móvel do navegador (375×812).
-Só precisa de Python 3.9+; não há dependências externas.
+Precisa de Python 3.9+. A única dependência externa é `cryptography`, e só o push a usa: sem ela o
+app roda igual, apenas sem notificação.
 
 ## Telas
 
 | Tela | O que faz |
 |---|---|
 | **Splash** | Animação do logo "RP" com a faixa CULTURAL, ~2,5 s. |
-| **Guia** | Três slides no primeiro uso, revisível pelo Perfil. |
+| **Guia** | Quatro slides no primeiro uso, revisível pelo Perfil: o que o app reúne, a cor dos pins do mapa, o aviso dos salvos e a personalização. |
 | **Início** | Busca, filtro de categoria, manchete, 3 principais notícias + **Ver todas** (separadas por dia), carrossel de eventos com data, local e ingresso. |
 | **Matéria** | Imagem, categoria, fonte, tempo de leitura, resumo, link para a matéria original, salvar e compartilhar. |
-| **Mapa** | Mapa real (Leaflet + CARTO Voyager) com pins no local exato; toque abre a aba com resumo, fonte e "Também aqui". Ponto azul acompanha o usuário. |
+| **Mapa** | Mapa real (Leaflet + CARTO Voyager) com pins no local exato: **pin azul é notícia, pin amarelo é evento**. Toque abre a aba com resumo, fonte e "Também aqui". Ponto azul acompanha o usuário. |
 | **Perfil** | Foto com recorte circular, preferências do que receber, interesses, salvos e link para o guia. |
-| **Salvos** | Notícias e eventos em abas separadas. |
+| **Salvos** | Notícias e eventos em abas separadas. Na aba Eventos há o interruptor de aviso: com ele ligado, cada evento salvo vira uma notificação 30 min, 1 h, 3 h ou 1 dia antes de começar. |
 | **Tradução** | Português → English → Español na interface e nos títulos. |
 
-Preferências, salvos, idioma, foto e localização ficam no `localStorage` (`rpcultural.v1`).
+Preferências, salvos, idioma, foto e localização ficam no `localStorage` (`rpcultural.v1`). O que sai
+do aparelho é só o endpoint de push e a lista de eventos a avisar — nada que identifique a pessoa.
 
 ## Backend
 
-`server/app.py` (só biblioteca padrão) serve o app e a API:
+`server/app.py` serve o app e a API:
 
 | Rota | O que faz |
 |---|---|
@@ -42,6 +44,10 @@ Preferências, salvos, idioma, foto e localização ficam no `localStorage` (`rp
 | `GET /api/stream` | SSE: avisa o app quando entra conteúdo novo |
 | `GET /api/refresh` | força uma leitura agora |
 | `GET /api/health` | status e contagem |
+| `GET /api/push/chave` | chave pública VAPID e se o push está ligado |
+| `POST /api/push/inscrever` · `/api/push/sair` | entra e sai da lista de inscrições |
+| `POST /api/lembrete/sincronizar` | manda os eventos salvos e a antecedência escolhida |
+| `POST /api/lembrete/sair` | apaga os lembretes daquele aparelho |
 
 **Notícias** — RSS do G1 Ribeirão/Franca, Tribuna Ribeirão, G1 São Paulo e Folha (os dois últimos
 filtrados por termos da região). Cada item é classificado por categoria, separado entre notícia e
@@ -51,6 +57,13 @@ evento e deduplicado por semelhança de título.
 Barretos, Araraquara) e extrai nome, data, casa, endereço com número e coordenadas; eventos ficam no
 feed até a data acontecer. Há um adaptador da Eventim pronto, ativado por `EVENTIM_WEBID` /
 `EVENTIM_KEY` (a API deles exige credencial de afiliado).
+
+**Notificações** — `server/push.py` fala Web Push direto, sem biblioteca: monta o cabeçalho VAPID
+(um JWT ES256, único trecho que precisa de `cryptography`) e deixa a entrega com o serviço do próprio
+navegador. `server/lembretes.py` guarda os lembretes dos eventos salvos, porque o navegador não roda
+nada com o app fechado — quem precisa saber que chegou a hora é quem envia. Título e local do evento
+ficam congelados no momento da marcação, para o aviso não depender de o evento ainda estar no
+histórico. Sem `VAPID_PUBLIC` / `VAPID_PRIVATE` o interruptor some e o resto do app continua igual.
 
 **Localização** — o local sai primeiro de um dicionário de lugares conhecidos, depois de
 rua/avenida/bairro com número citados no texto (geocodificados no Nominatim com validação de cidade
@@ -70,6 +83,12 @@ voltar para o primeiro plano. Um auto-ping a cada 10 min evita a hibernação do
 | `KEEPALIVE_URL` | `RENDER_EXTERNAL_URL` | endereço do auto-ping |
 | `GIST_ID` / `GIST_TOKEN` | — | backup do histórico fora do disco efêmero |
 | `EVENTIM_WEBID` / `EVENTIM_KEY` | — | integração da Eventim |
+| `VAPID_PUBLIC` / `VAPID_PRIVATE` | — | assinatura do push; sem elas, push desligado |
+| `VAPID_SUB` | `mailto:contato@rpcultural.app` | contato exigido pelo VAPID |
+| `ADMIN_TOKEN` | — | senha de `/admin.html`; sem ela, envio em massa bloqueado |
+
+Nenhuma delas entra no repositório, que é público. `PROXIMOS-PASSOS.md` lista onde cada uma é
+configurada.
 
 ## Estrutura
 
@@ -80,9 +99,12 @@ js/app.js           estado, navegação, mapa, recorte de foto
 js/live.js          consumo da API, SSE e atualização contínua
 js/data.js          conteúdo de demonstração (só sem backend)
 js/i18n.js          textos da interface e traduções
-sw.js               service worker (rede primeiro)
+sw.js               service worker (rede primeiro) e recebimento do push
 server/app.py       API, leitura das fontes e localização
 server/eventos.py   Sympla e Eventim
+server/push.py      Web Push e assinatura VAPID
+server/lembretes.py agenda do aviso dos eventos salvos
+admin.html          envio manual de aviso, protegido por ADMIN_TOKEN
 ```
 
 ## Créditos
