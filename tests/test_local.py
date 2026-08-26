@@ -323,6 +323,53 @@ class TestFonteArq(unittest.TestCase):
                          self.ev.buscar_arq()[0][0]["id"])
 
 
+class TestFonteLinktree(unittest.TestCase):
+    """Casa que divulga por link na bio: o Linktree aponta para o Sympla."""
+
+    def setUp(self):
+        import eventos
+        self.ev = eventos
+        self.addCleanup(setattr, eventos, "_get", eventos._get)
+
+    def paginas(self, link="https://www.sympla.com.br/evento/show/1"):
+        bio = json.dumps({"props": {"links": {"links": [
+            {"title": "Show - 29/08", "url": link},
+            {"title": "Instagram", "url": "https://instagram.com/x"}]}}})
+        evento = json.dumps({"props": {"event": {
+            "name": "Manchester Oasis Cover", "startDate": "2099-08-29 19:00:00",
+            "images": {"logoUrl": "http://img/1.jpg"},
+            "eventsAddress": {"name": "Hard Rock Cafe", "address": "Rua Edgar Rodrigues",
+                              "addressNum": "200", "neighborhood": "Santa Cruz",
+                              "city": "Ribeirão Preto"}}}})
+        def get(u, timeout=25):
+            return f'<script id="__NEXT_DATA__" type="application/json">{bio if "linktr" in u else evento}</script>'
+        return get
+
+    def test_segue_so_os_links_de_evento(self):
+        # o perfil também tem link de rede social, que não é evento
+        self.ev._get = self.paginas()
+        eventos, erro = self.ev.buscar_linktree()
+        self.assertIsNone(erro)
+        self.assertEqual(len(eventos), 1)
+        self.assertEqual(eventos[0]["title"], "Manchester Oasis Cover")
+
+    def test_monta_local_e_endereco_a_partir_do_sympla(self):
+        self.ev._get = self.paginas()
+        e = self.ev.buscar_linktree()[0][0]
+        self.assertEqual(e["place"], "Hard Rock Cafe")
+        self.assertEqual(e["address"], "Rua Edgar Rodrigues 200, Santa Cruz, Ribeirão Preto")
+        self.assertEqual(e["when"], "2099-08-29T19:00:00")
+        self.assertEqual(e["src"], "sympla")
+
+    def test_perfil_fora_do_ar_devolve_erro_sem_estourar(self):
+        def falha(u, timeout=25):
+            raise RuntimeError("HTTP 503")
+        self.ev._get = falha
+        eventos, erro = self.ev.buscar_linktree()
+        self.assertEqual(eventos, [])
+        self.assertIn("HTTP 503", erro)
+
+
 class TestPins(unittest.TestCase):
     """O agrupamento define cor, contagem e sobreposição no mapa."""
 

@@ -143,6 +143,100 @@ def buscar_arq():
     return saida, erro
 
 
+# ---------------------------------------------------------------- Linktree
+# Casas que divulgam a agenda por link na bio. O Linktree entrega os links num
+# JSON embutido, e cada link do Sympla leva a uma página que também traz o
+# evento em JSON. Isso alcança evento que não aparece na listagem da cidade.
+LINKTREE_PERFIS = [
+    ("eventos.hrcrp", "Hard Rock Cafe Ribeirão Preto", "Ribeirão Preto"),
+]
+LINKTREE_MAX = 12          # uma requisição por link: não vale varrer sem limite
+
+
+def _next_data(pagina):
+    achado = re.search(r'id="__NEXT_DATA__"[^>]*>(.*?)</script>', pagina, re.S)
+    return json.loads(achado.group(1)) if achado else None
+
+
+def _cavar(objeto, chaves, prof=0):
+    """Primeiro dicionário que tenha todas as chaves pedidas."""
+    if prof > 9:
+        return None
+    if isinstance(objeto, dict):
+        if all(k in objeto for k in chaves):
+            return objeto
+        for valor in objeto.values():
+            achado = _cavar(valor, chaves, prof + 1)
+            if achado:
+                return achado
+    elif isinstance(objeto, list):
+        for valor in objeto[:60]:
+            achado = _cavar(valor, chaves, prof + 1)
+            if achado:
+                return achado
+    return None
+
+
+def _sympla_por_url(url, cidade_padrao):
+    """Evento a partir da página dele no Sympla."""
+    dados = _next_data(_get(url))
+    ev = _cavar(dados, ("name", "startDate", "eventsAddress")) if dados else None
+    if not ev or not ev.get("startDate"):
+        return None
+    end = ev.get("eventsAddress") or {}
+    rua = " ".join(x for x in [end.get("address"), end.get("addressNum")] if x).strip()
+    endereco = ", ".join(x for x in [rua, end.get("neighborhood"), end.get("city")] if x)
+    lat, lon = end.get("lat"), end.get("lon")
+    return {
+        "id": "sy" + hashlib.sha1(url.encode()).hexdigest()[:10],
+        "kind": "evento",
+        "title": (ev.get("name") or "").strip(),
+        "lead": " · ".join(x for x in [end.get("name"), endereco] if x) or cidade_padrao,
+        "img": (ev.get("images") or {}).get("logoUrl") or "",
+        "url": url,
+        "src": "sympla",
+        "srcName": "Sympla",
+        "srcSite": "https://www.sympla.com.br",
+        # o Sympla escreve o horário local da casa, sem fuso
+        "published": ev["startDate"].replace(" ", "T"),
+        "when": ev["startDate"].replace(" ", "T"),
+        "place": end.get("name") or endereco or cidade_padrao,
+        "address": endereco,
+        "lat": float(lat) if lat else None,
+        "lng": float(lon) if lon else None,
+        "cidade": end.get("city") or cidade_padrao,
+        "price": None,
+    }
+
+
+def buscar_linktree():
+    """Devolve (eventos, erro). Um perfil fora do ar não derruba os outros."""
+    saida, erro = [], None
+    for usuario, casa, cidade in LINKTREE_PERFIS:
+        try:
+            pagina = _get(f"https://linktr.ee/{usuario}")
+            # varrer a página inteira é mais firme que caçar o campo certo:
+            # o Linktree muda o formato do JSON embutido de tempos em tempos
+            urls = []
+            padrao = r'https:(?:\\u002F|/){2}www\.sympla\.com\.br(?:\\u002F|/)evento[^"\s\\]+'
+            for achado in re.findall(padrao, pagina):
+                limpa = achado.replace("\\u002F", "/").replace("\\/", "/")
+                if limpa not in urls:
+                    urls.append(limpa)
+        except Exception as e:
+            erro = erro or f"{casa}: {e}"
+            print(f"[linktree] {casa}: {e}", flush=True)
+            continue
+        for url in urls[:LINKTREE_MAX]:
+            try:
+                ev = _sympla_por_url(url, cidade)
+                if ev:
+                    saida.append(ev)
+            except Exception as e:
+                print(f"[linktree] {url[:60]}: {e}", flush=True)
+    return saida, erro
+
+
 def buscar(limite_por_cidade=20, com_preco=False):
     """Devolve (eventos, relatorio) normalizados, prontos para o feed.
 
@@ -154,7 +248,8 @@ def buscar(limite_por_cidade=20, com_preco=False):
     vistos, eventos = set(), []
     rel = {"sympla": {"ok": False, "itens": 0, "cidades_ok": 0,
                       "cidades": len(CIDADES_SYMPLA), "erro": None},
-           "arq":    {"ok": False, "itens": 0, "erro": None}}
+           "arq":    {"ok": False, "itens": 0, "erro": None},
+           "linktree": {"ok": False, "itens": 0, "erro": None}}
 
     for slug, cidade in CIDADES_SYMPLA:
         try:
@@ -215,6 +310,14 @@ def buscar(limite_por_cidade=20, com_preco=False):
             vistos.add(ev["id"]); eventos.append(ev)
             rel["arq"]["itens"] += 1
     rel["arq"]["ok"] = erro_arq is None and rel["arq"]["itens"] > 0
+
+    do_linktree, erro_linktree = buscar_linktree()
+    rel["linktree"]["erro"] = erro_linktree
+    for ev in do_linktree:
+        if ev["id"] not in vistos and ev["url"] not in vistos:
+            vistos.add(ev["id"]); eventos.append(ev)
+            rel["linktree"]["itens"] += 1
+    rel["linktree"]["ok"] = erro_linktree is None
 
     if com_preco:
         for ev in eventos[:40]:          # melhor esforço, só nos primeiros

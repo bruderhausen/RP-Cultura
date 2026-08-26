@@ -88,6 +88,7 @@ NOISE_TERMS = ["siga o ", "veja fotos", "veja as fotos", "assista ao vivo", "con
 PLACES = [
     ("Parque do Peão",          ["parque do peao", "festa do peao", "liga nacional de rodeio", "peao de barretos", "barretao", "os independentes"], "Parque do Peao, Barretos, Sao Paulo", "Barretos"),
     # o OSM não tem a Vila do Jon; ela fica no recinto da Festa do Peão
+    ("Hard Rock Cafe",         ["hard rock cafe", "hard rock ribeirao", "hrc ribeirao"], "Rua Edgar Rodrigues, 200, Ribeirao Preto", "Ribeirão Preto"),
     ("Arq Ribeirão Preto",     ["arq ribeirao preto", "arqzin", "arq submundo", "purple arq"], "Avenida do Cafe, 1365, Ribeirao Preto", "Ribeirão Preto"),
     ("Vila do Jon",             ["vila do jon"],                              "Parque do Peao, Barretos, Sao Paulo", "Barretos"),
     ("Centro Cultural Palace",  ["centro cultural palace", "palace hotel"],   "Centro Cultural Palace, Ribeirao Preto", "Ribeirão Preto"),

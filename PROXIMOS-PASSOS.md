@@ -19,8 +19,11 @@ do git guarda o que for commitado mesmo depois de removido.
 
 ## Coleta
 
-- **Mais plataformas de evento.** Hoje são Sympla e ARQ. Casas que vendem em
-  site próprio precisam de um coletor cada.
+- **Mais casas no Linktree.** `LINKTREE_PERFIS` em `server/eventos.py` já
+  coleta o Hard Rock; incluir outra casa é acrescentar uma linha com o usuário
+  do Linktree.
+- **Mais plataformas de evento.** Hoje são Sympla, ARQ e Linktree. Casa que
+  vende em site próprio, fora de plataforma conhecida, precisa de um coletor.
 
 ## Mapa
 
