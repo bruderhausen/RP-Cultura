@@ -73,6 +73,7 @@ async function loadLive(aviso) {
   }
   if (!data.news.length && !data.events.length) return false;
 
+  const antes = liveUpdated;
   SOURCES = data.sources;
   NEWS = data.news.map(shape);
   EVENTS = data.events.map(shape);
@@ -82,8 +83,12 @@ async function loadLive(aviso) {
   liveUpdated = data.updated;
   semServidor(false);
 
+  // A releitura de 90 s quase sempre volta igual. Repintar a home inteira e o
+  // mapa sem novidade custava caro no celular, e ainda apagava o scroll.
+  const mudou = data.updated !== antes;
   if (!document.getElementById("app").hidden) {
-    renderHome(); renderMap(); paintLiveBadge();
+    if (mudou) { renderHome(); renderMap(); }
+    paintLiveBadge();
   }
   if (aviso) toast(aviso);
   return true;

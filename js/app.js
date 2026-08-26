@@ -27,13 +27,14 @@ const catLabel = c => (CATS_I18N[S.lang] && CATS_I18N[S.lang][c]) || c;
 /* ---------------- arte gerada (sem imagens externas) ---------------- */
 function art(item, extra = "") {
   const [a, b] = TONES[item.tone % TONES.length];
-  const g = "g" + item.id + Math.random().toString(36).slice(2, 6);
+  const g = "g" + item.id;
   const glyph = {
     Festival: '<path d="M22 78 L50 22 L78 78 Z" fill="none" stroke="#fff" stroke-width="3"/><circle cx="50" cy="46" r="8" fill="#fff"/>',
     Show:     '<path d="M38 70V32l30-7v38" fill="none" stroke="#fff" stroke-width="3.5" stroke-linejoin="round"/><circle cx="32" cy="70" r="7" fill="#fff"/><circle cx="62" cy="63" r="7" fill="#fff"/>',
     Cultura:  '<path d="M24 74h52M30 74V38M46 74V38M62 74V38M70 74V38M22 34l28-14 28 14z" fill="none" stroke="#fff" stroke-width="3.2" stroke-linejoin="round"/>',
     Cidade:   '<path d="M20 78V44l16-10v44M44 78V30l18-12v60M66 78V48l14 8v22" fill="none" stroke="#fff" stroke-width="3.2" stroke-linejoin="round"/>',
     Esporte: '<circle cx="50" cy="50" r="24" fill="none" stroke="#fff" stroke-width="3.2"/><path d="M50 26v48M26 50h48M34 34l32 32M66 34 34 66" fill="none" stroke="#fff" stroke-width="2.4"/>',
+    "Política": '<path d="M24 46h52v32H24z" fill="none" stroke="#fff" stroke-width="3.2" stroke-linejoin="round"/><path d="M38 46V26h24v20" fill="none" stroke="#fff" stroke-width="3.2" stroke-linejoin="round"/><path d="M36 56h28" stroke="#fff" stroke-width="3.4" stroke-linecap="round"/>',
     Gastronomia: '<path d="M32 22v26a8 8 0 0 0 16 0V22M40 48v30M62 78V22c8 4 10 12 10 22 0 6-4 8-10 8" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/>'
   }[item.cat] || "";
   return `<div class="ph">
@@ -550,6 +551,8 @@ function openArticle(id) {
 let _map, _pinLayer;
 let _marcas = {};   /* marca do mapa por id, para achar a que precisa de realce */
 let _filtroMapa = "todos";   /* "todos" | "news" | "ev": vale só para os pins */
+let _zoomT = 0;              /* espera o zoom parar antes de refazer os pins */
+let _assinaturaPins = null;  /* o que esta desenhado agora, para nao redesenhar igual */
 const RP = [-21.1775, -47.8103];
 
 function renderMap() {
@@ -587,21 +590,29 @@ function renderMap() {
     }
     L.control.zoom({ position: "bottomright" }).addTo(_map);
     _pinLayer = L.layerGroup().addTo(_map);
-    _map.on("zoomend", () => renderMap());
+    _map.on("zoomend", () => { clearTimeout(_zoomT); _zoomT = setTimeout(renderMap, 120); });
     // arrastar o mapa é o usuário dizendo que quer olhar outro lugar
     _map.on("dragstart", () => { _seguindo = false; });
   }
-  _pinLayer.clearLayers();
-  _marcas = {};
   marcarUsuario(false);
   const longe = _map.getZoom() < 10;   // só bem afastado é que filtra
-  PINS.forEach(p => {
-    if (p.lat == null) return;
-    if (_filtroMapa !== "todos" && (p.type === "ev" ? "ev" : "news") !== _filtroMapa) return;
+  const visiveis = PINS.filter(p => {
+    if (p.lat == null) return false;
+    if (_filtroMapa !== "todos" && (p.type === "ev" ? "ev" : "news") !== _filtroMapa) return false;
     // afastado demais, só os favoritos, para o mapa não virar um amontoado
-    if (longe && !isSaved(p.id) && !(p.more || []).some(isSaved)) return;
+    if (longe && !isSaved(p.id) && !(p.more || []).some(isSaved)) return false;
     // o pin some quando nenhum item dele passa no filtro de cidade
-    if (S.cidade && ![p.id, ...(p.more || [])].some(id => { const i = byId(id); return i && i.cidade === S.cidade; })) return;
+    if (S.cidade && ![p.id, ...(p.more || [])].some(id => { const i = byId(id); return i && i.cidade === S.cidade; })) return false;
+    return true;
+  });
+  // Mesmo conjunto de pins: nao ha o que redesenhar. Isso corta o zoom, o
+  // filtro que nao mudou nada e a releitura de 90 s que veio sem novidade.
+  const assinatura = visiveis.map(p => p.id + ":" + p.n).join(",");
+  if (assinatura === _assinaturaPins) return;
+  _assinaturaPins = assinatura;
+  _pinLayer.clearLayers();
+  _marcas = {};
+  visiveis.forEach(p => {
     const icon = L.divIcon({
       className: "pinwrap", iconSize: [36, 46], iconAnchor: [18, 40],
       html: marcaHTML(p)

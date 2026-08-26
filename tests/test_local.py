@@ -892,3 +892,46 @@ class TestPush(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class CategoriaPolitica(unittest.TestCase):
+    """A pesquisa eleitoral saiu marcada como ESPORTE no app.
+
+    A classificação era "primeira regra que casa", então uma palavra solta
+    decidia tudo: "nova rodada da pesquisa" caiu em Esporte por causa de
+    "rodada". Agora cada categoria pontua e a de maior soma vence.
+    """
+
+    def test_pesquisa_de_voto_e_politica(self):
+        self.assertEqual(app.guess_category(
+            "Pesquisa aponta Tarcísio à frente de Haddad na disputa pelo governo de SP "
+            "Nova rodada da Quest mostra 40% das intenções de voto"), "Política")
+
+    def test_politico_em_evento_esportivo_continua_politica(self):
+        self.assertEqual(app.guess_category(
+            "Ao lado do governador no estádio, candidato diz que vai disputar a eleição"),
+            "Política")
+
+    def test_esporte_de_verdade_continua_esporte(self):
+        self.assertEqual(app.guess_category(
+            "Botafogo vence o clássico e assume o topo do campeonato; time comemora o gol"),
+            "Esporte")
+
+    def test_nome_de_espetaculo_nao_vira_politica(self):
+        self.assertEqual(app.guess_category(
+            "Diogo Portugal apresenta seu novo show - Impróprio para Políticos"), "Show")
+
+    def test_rua_com_nome_de_politico_nao_vira_politica(self):
+        """O resumo do evento traz o endereço, e rua daqui se chama Prefeito Fulano."""
+        self.assertEqual(app.guess_category(
+            "Simpósio Nacional da Cana · Rua Prefeito Duarte Nogueira, 100, Ribeirão Preto"),
+            "Cidade")
+
+    def test_casa_de_espetaculo_com_nome_de_politico_fica_na_cultura(self):
+        self.assertEqual(app.guess_category(
+            "Nunca Desista de Seus Sonhos · Teatro Municipal Prefeito Clodoaldo Medina"),
+            "Cultura")
+
+    def test_palavra_fraca_sozinha_nao_elege_politica(self):
+        """"gestão" e "governo" aparecem em curso de vendas e em nota de orçamento."""
+        self.assertEqual(app.guess_category("VENDAS E GESTÃO DE EQUIPE"), "Cidade")

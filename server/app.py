@@ -61,25 +61,84 @@ REGION_TERMS = [
 ]
 
 # ------------------------------------------------- categorias e eventos
-POLICIA_TERMS = ["acidente", "batida", "colisao", "capotamento", "atropelamento", "morre", "morreu",
-                 "morte", "mortes", "morto", "morta", "assalto", "roubo", "furto", "homicidio",
-                 "assassinato", "tiro", "tiros", "preso", "presa", "policia", "pm", "incendio",
-                 "operacao", "apreensao", "vitima", "vitimas", "feridos", "ferida", "ferido"]
+# ------------------------------------------------- classificacao por categoria
+#
+# Sem modelo de linguagem em tempo real, a classificacao e por palavra. A
+# versao antiga devolvia a primeira regra que casasse, e por isso uma palavra
+# solta decidia tudo: "nova rodada da pesquisa" caiu em Esporte porque "rodada"
+# estava na lista do esporte e a lista do esporte vinha antes.
+#
+# Agora cada categoria pontua. Termo FORTE vale 3 e so entra na lista quando
+# sozinho ja denuncia o assunto ("urna", "gol", "vereador"). Termo FRACO vale 1
+# e serve de reforco, nunca de prova: "governo", "jogo", "time", "festa" vivem
+# nas duas pontas. Ganha quem somar mais; no empate vale a ordem desta lista.
+#
+# Consequencia pratica: um titulo com dois nomes de politico e "intencoes de
+# voto" chega a Politica com folga, mesmo carregando "rodada" e "disputa", que
+# soam a esporte. E o espetaculo "Improprio para Politicos" fica em Show, porque
+# "show" e forte e "politico" e fraco.
 
-ESPORTE_TERMS = ["futebol", "jogo", "jogos", "partida", "campeonato", "brasileirao", "paulista",
-                 "copa", "gol", "gols", "time", "clube", "torcida", "estadio", "atleta", "treino",
-                 "tecnico", "botafogo", "comercial", "basquete", "volei", "corrida", "maratona",
-                 "rodada", "serie a", "serie b", "serie c", "serie d", "libertadores", "olimpiada"]
+FORTE, FRACO = 3, 1
 
-CATEGORY_RULES = [
-    ("Cidade",      POLICIA_TERMS),
-    ("Esporte",     ESPORTE_TERMS),
-    ("Show",        ["show", "banda", "cantor", "cantora", "turne", "turnê", "rock", "sertanejo", "rap", "samba", "dj ", "concerto"]),
-    ("Festival",    ["festival", "lollapalooza", "carnaval", "expo", "festa", "rodeio", "peao", "peoes"]),
-    ("Gastronomia", ["gastronom", "restaurante", "chef", "culinar", "cerveja", "food", "feira de produtores", "bar "]),
-    ("Cultura",     ["teatro", "museu", "exposi", "cinema", "livro", "arte", "cultural", "sarau", "danca", "dança", "biblioteca", "espetaculo", "espetáculo"]),
-    ("Cidade",      ["prefeitura", "transito", "trânsito", "obra", "onibus", "ônibus", "saude", "saúde", "escola", "policia", "polícia", "chuva", "clima", "agua", "água"]),
+# Politica so vale com termo forte. "governo", "voto" e "politica" aparecem em
+# materia de orcamento, de votacao de socio-torcedor e de politica de precos;
+# como esses fracos podiam eleger a categoria sozinhos, eles agora so somam
+# depois que um nome, um cargo ou uma urna ja apareceu. As demais categorias
+# nao precisam disso: "festa" sozinha ja e um bom palpite de Festival.
+LIVRE, EXIGE_FORTE = False, True
+
+# Nome proprio e o sinal mais barato e mais certeiro que existe sem IA: quem
+# aparece na manchete costuma ser o assunto. Lista curta e de manutencao manual,
+# regional primeiro. Vale a pena revisar a cada eleicao.
+POLITICOS = ["lula", "bolsonaro", "tarcisio", "haddad", "alckmin", "doria", "boulos",
+             "datafolha", "quaest", "ipec", "ibope", "duarte nogueira",
+             "congresso nacional", "supremo tribunal federal", "stf"]
+
+CATEGORIAS = [
+    ("Cidade", LIVRE, ["acidente", "capotamento", "atropelamento", "assalto", "roubo", "furto",
+                "homicidio", "assassinato", "incendio", "apreensao", "policia", "delegacia",
+                "prefeitura", "transito", "onibus", "hospital", "upa", "saneamento"],
+     ["batida", "colisao", "morre", "morreu", "morte", "mortes", "morto", "morta",
+      "tiro", "tiros", "preso", "presa", "pm", "operacao", "vitima", "vitimas",
+      "feridos", "ferida", "ferido", "obra", "saude", "escola", "chuva", "clima",
+      "agua", "energia"]),
+
+    ("Esporte", LIVRE, ["futebol", "gol", "gols", "campeonato", "brasileirao", "libertadores",
+                 "copinha", "serie a", "serie b", "serie c", "serie d", "basquete",
+                 "volei", "torcida", "atleta", "olimpiada", "botafogo", "ferroviaria",
+                 "jiu-jitsu", "handebol", "automobilismo"],
+     ["jogo", "jogos", "partida", "copa", "time", "clube", "estadio", "treino",
+      "tecnico", "corrida", "maratona", "rodada", "paulista", "comercial", "elenco"]),
+
+    ("Show", LIVRE, ["show", "banda", "cantor", "cantora", "turne", "rock", "sertanejo", "rap",
+              "samba", "pagode", "concerto", "dj "],
+     ["musica", "palco", "ingresso"]),
+
+    ("Festival", LIVRE, ["festival", "lollapalooza", "carnaval", "rodeio", "peao", "peoes"],
+     ["expo", "festa", "arraia", "quermesse"]),
+
+    ("Gastronomia", LIVRE, ["gastronom", "restaurante", "chef", "culinar", "cervejaria",
+                     "feira de produtores"],
+     ["cerveja", "food", "bar ", "boteco", "prato"]),
+
+    ("Cultura", LIVRE, ["teatro", "museu", "exposi", "cinema", "livro", "sarau", "biblioteca",
+                 "espetaculo", "danca"],
+     ["arte", "cultural", "filme", "mostra", "oficina"]),
+
+    # Politica por ultimo de proposito: no empate ganha a categoria mais
+    # especifica. Casa de espetaculo daqui se chama Teatro Municipal Prefeito
+    # Fulano, e com Politica na frente o show virava materia de eleicao.
+    ("Política", EXIGE_FORTE, POLITICOS + [
+        "eleicao", "eleicoes", "eleitoral", "eleitorais", "eleitor", "eleitores",
+        "urna", "urnas", "votacao", "intencoes de voto", "candidatura", "candidato",
+        "candidata", "candidatos", "governador", "governadora", "prefeito", "prefeita",
+        "vereador", "vereadora", "vereadores", "deputado", "deputada", "senador",
+        "senadora", "ministro", "ministra", "partido", "coligacao", "camara municipal",
+        "assembleia legislativa", "cassacao", "impeachment", "posse do prefeito"],
+     ["governo", "voto", "votos", "politica", "politico", "politicos", "mandato",
+      "oposicao"]),
 ]
+
 NOISE_TERMS = ["siga o ", "veja fotos", "veja as fotos", "assista ao vivo", "confira a programacao da tv",
                "resumo do dia", "boletim", "horoscopo", "horóscopo"]
 
@@ -589,15 +648,60 @@ DIA_PAR_RE  = re.compile(r"\((\d{1,2})\)")
 def tem_termo(n, termos):
     return any(re.search(r"\b" + re.escape(t).replace(r"\ ", " ") + r"\b", n) for t in termos)
 
+# O evento traz o endereco da casa no resumo, e rua daqui se chama Prefeito
+# Duarte Nogueira, Presidente Vargas, Sete de Setembro. Sem tirar o endereco, o
+# simposio de doencas da cana virava Politica por causa da rua onde acontece.
+ENDERECO_RE = re.compile(
+    r"\b(rua|avenida|av|alameda|praca|travessa|rodovia|estrada|alam)\.?\s+[^,;|]{0,60}")
+
+
+def sem_endereco(n):
+    return ENDERECO_RE.sub(" ", n)
+
+
+def pontua(n, fortes, fracos):
+    return (FORTE * sum(1 for t in fortes if tem_termo(n, [t]))
+            + FRACO * sum(1 for t in fracos if tem_termo(n, [t])))
+
+
 def guess_category(text):
-    n = norm(text)
-    for cat, terms in CATEGORY_RULES:
-        if tem_termo(n, terms):
-            return cat
-    return "Cidade"
+    """Categoria de maior pontuacao; sem nenhum ponto, cai em Cidade.
+
+    Cidade e o destino do que nao se encaixa porque o app e local: notícia da
+    regiao sem assunto marcado ainda e assunto da cidade.
+    """
+    n = sem_endereco(norm(text))
+    melhor, ponto_max = "Cidade", 0
+    for cat, exige_forte, fortes, fracos in CATEGORIAS:
+        achou_forte = tem_termo(n, fortes)
+        if exige_forte and not achou_forte:
+            continue
+        ponto = pontua(n, fortes, fracos)
+        if ponto > ponto_max:            # > e nao >=: o empate fica com quem veio antes
+            melhor, ponto_max = cat, ponto
+    return melhor
+
 
 # Só estas fontes produzem evento: têm data, local e página de ingresso.
 FONTES_EVENTO = {"sympla", "arq"}
+
+# Suba este numero sempre que mexer em CATEGORIAS: o historico ja gravado
+# recebe a categoria nova na proxima leitura, sem esperar a materia sair do
+# feed. Sem isso a correcao so valia para o que entrasse depois dela.
+CAT_VERSAO = 1
+
+
+def recategoriza(it):
+    """Reclassifica o item guardado quando a regra mudou de versao."""
+    if it.get("catv") == CAT_VERSAO:
+        return it
+    fixa = next((f.get("cat") for f in FEEDS if f["key"] == it.get("src")), None)
+    if not fixa:
+        fixa = guess_category((it.get("title") or "") + " " + (it.get("lead") or ""))
+    it["cat"] = fixa
+    it["catv"] = CAT_VERSAO
+    return it
+
 
 def normaliza_kind(it):
     """Rebaixa a evento vindo de jornal, inclusive o que já está no histórico."""
@@ -921,6 +1025,7 @@ def build_item(feed, raw_item):
         "id": iid,
         "kind": "noticia",
         "cat": feed.get("cat") or guess_category(text),
+        "catv": CAT_VERSAO,
         "title": raw_item["title"],
         "lead": raw_item["summary"] or raw_item["title"],
         "img": raw_item["img"],
@@ -1017,7 +1122,7 @@ def save_store():
             print("[gist]", e, flush=True)
 
 def prune(items):
-    items = [completa_cidade(normaliza_kind(i)) for i in items]
+    items = [completa_cidade(recategoriza(normaliza_kind(i))) for i in items]
     limit = datetime.now(timezone.utc) - timedelta(days=HISTORY_DAYS)
     kept = []
     agora = datetime.now(timezone.utc)

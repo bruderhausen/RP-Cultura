@@ -203,7 +203,7 @@ let PINS = [
 ];
 
 /* ---------- CATEGORIAS ---------- */
-const CATS = ["Todos", "Show", "Festival", "Esporte", "Cultura", "Cidade", "Gastronomia"];
+const CATS = ["Todos", "Show", "Festival", "Esporte", "Cultura", "Cidade", "Política", "Gastronomia"];
 
 /* ---------- PALETAS PARA AS IMAGENS GERADAS ---------- */
 const TONES = [

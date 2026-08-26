@@ -53,8 +53,8 @@ const UI = {
 
 /* categorias */
 const CATS_I18N = {
-  en: { Todos: "All", Show: "Concerts", Festival: "Festivals", Esporte: "Sports", Cultura: "Culture", Cidade: "City", Gastronomia: "Food" },
-  es: { Todos: "Todos", Show: "Conciertos", Festival: "Festivales", Esporte: "Deportes", Cultura: "Cultura", Cidade: "Ciudad", Gastronomia: "Gastronomía" }
+  en: { Todos: "All", Show: "Concerts", Festival: "Festivals", Esporte: "Sports", Cultura: "Culture", Cidade: "City", "Política": "Politics", Gastronomia: "Food" },
+  es: { Todos: "Todos", Show: "Conciertos", Festival: "Festivales", Esporte: "Deportes", Cultura: "Cultura", Cidade: "Ciudad", "Política": "Política", Gastronomia: "Gastronomía" }
 };
 
 /* títulos e resumos traduzidos dos conteúdos */

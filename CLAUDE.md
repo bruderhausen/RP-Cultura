@@ -10,8 +10,9 @@ Modo caveman nível **ultra** por padrão, sem precisar invocar. Frases curtas,
 sem preâmbulo, sem recapitular o que já foi dito, sem repetir no texto o que o
 commit já explica.
 
-Depois de uma tarefa: uma a três linhas com o resultado e o hash do commit.
-Detalhar só o que muda a decisão de quem lê, ou quando eu perguntar.
+Teto de **5 linhas** por resposta, sempre. Depois de uma tarefa: uma a três
+linhas com o resultado e o hash do commit. Detalhar só o que muda a decisão de
+quem lê, e só quando eu perguntar. Resposta longa gasta token à toa.
 
 Nada de tabela, emoji ou lista decorativa. Lista só quando são itens de verdade.
 
