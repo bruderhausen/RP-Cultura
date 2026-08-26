@@ -50,7 +50,12 @@ def geocode_falso(query, confere=None, so_cache=False, granular=False,
     """
     n = app.norm(query)
     achado = None
-    for nome, coord in sorted(LUGARES.items(), key=lambda kv: -len(kv[0])):
+    # consulta granular pede rua, bairro ou ponto: o serviço real recusa
+    # devolver o município nesse modo, e o teste precisa recusar também
+    cidades = {"ribeirao preto", "franca", "barretos", "sertaozinho",
+               "barrinha", "pedregulho", "sales oliveira", "santos"}
+    tabela = {k: v for k, v in LUGARES.items() if not (granular and k in cidades)}
+    for nome, coord in sorted(tabela.items(), key=lambda kv: -len(kv[0])):
         if nome in n:
             achado = (nome, coord)
             break
@@ -496,6 +501,21 @@ class TestLocalizar(Base):
             "A obra fica na Vila Tiberio, em Ribeirao Preto.", None, {})
         self.assertTrue(app.localizar(item))
         self.assertTrue(app._state["items"][0]["preciso"])
+
+    def test_evento_sem_coordenada_usa_o_local_da_plataforma(self):
+        # a página do ARQ é uma aplicação em JavaScript e vem sem texto; o
+        # ponto tem que sair do place e do endereço que a plataforma já mandou
+        item = {"id": "arq1", "kind": "evento", "src": "arq", "url": "http://s/1",
+                "title": "Festa da Casa", "lead": "Show", "place": "Campos Eliseos",
+                "address": "Campos Eliseos", "cidade": "Ribeirão Preto",
+                "lat": None, "lng": None, "img": "i"}
+        with app._lock:
+            app._state["items"] = [dict(item)]
+        app.artigo_texto = lambda u, limite=400000: ("", None, {})
+        self.assertTrue(app.localizar(item))
+        gravado = app._state["items"][0]
+        self.assertTrue(gravado["preciso"])
+        self.assertAlmostEqual(gravado["lat"], -21.150277, places=4)
 
     def test_evento_de_plataforma_nao_e_regeocodificado(self):
         # a coordenada do Sympla é melhor que qualquer palpite sobre o texto

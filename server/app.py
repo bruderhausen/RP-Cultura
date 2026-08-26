@@ -1097,7 +1097,10 @@ def localizar(item):
                     and item.get("geov") == GEO_VERSAO)
     if ja_tem_local and item.get("img"):
         return False                       # nada a refinar nem a completar
-    regional = any(f["key"] == item["src"] and f["regional"] for f in FEEDS)
+    # evento de plataforma é sempre local: a casa fica na região, mesmo quando
+    # o texto do evento não escreve o nome da cidade em lugar nenhum
+    regional = (any(f["key"] == item["src"] and f["regional"] for f in FEEDS)
+                or item.get("src") in FONTES_EVENTO)
     texto, coords, extra = artigo_texto(item["url"])
     mudou = False
     with _lock:
@@ -1108,10 +1111,19 @@ def localizar(item):
                 i["img"] = extra["img"]; mudou = True
             if extra.get("credit") and not i.get("credit"):
                 i["credit"] = extra["credit"]; mudou = True
-    if ja_tem_local or not texto:
+    # antes bastava a página não render texto para desistir. Evento de
+    # plataforma é exatamente esse caso: a página é uma aplicação em JavaScript
+    # e vem vazia, mas o item já traz local e endereço que dão o ponto.
+    if ja_tem_local or not (texto or item.get("place") or item.get("address")):
         return mudou
     marca = re.compile(r"ribeirao preto e franca|g1 ribeirao|eptv", re.I)
-    cabeca = f"{item['title']} {item['lead']}"
+    # local, endereço e cidade vêm da própria plataforma e são a melhor pista
+    # que existe para esses itens; sem eles o Hard Rock e o ARQ ficavam sem pin
+    # sem repetir: place e address costumam trazer o mesmo bairro, e o texto
+    # duplicado fazia o regex capturar "Vila X Vila X" como nome do lugar
+    partes = [str(item.get(c) or "").strip() for c in
+              ("title", "lead", "place", "address", "cidade")]
+    cabeca = " ".join(dict.fromkeys(p for p in partes if p))
     corpo = marca.sub(" ", texto)[:4000]
     # O `or` curto-circuitava: o título sozinho já devolvia o centro da cidade,
     # que é truthy, e o corpo da matéria (onde estão rua e bairro) nunca era
