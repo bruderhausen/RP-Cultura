@@ -442,6 +442,29 @@ class TestPins(unittest.TestCase):
         self.assertNotEqual((por_tipo["ev"]["lat"], por_tipo["ev"]["lng"]),
                             (por_tipo["news"]["lat"], por_tipo["news"]["lng"]))
 
+    def test_pin_de_evento_abre_o_proximo_a_acontecer(self):
+        # a lista chega ordenada por recência de publicação, que para evento de
+        # plataforma é a data: sem reordenar, o pin abria o mais distante
+        base = {"kind": "evento", "lat": -21.1, "lng": -47.8, "place": "Casa",
+                "preciso": True}
+        pin = self.montar([
+            dict(base, id="longe", when="2099-12-31T22:00:00+00:00",
+                 published="2099-12-31T22:00:00+00:00"),
+            dict(base, id="perto", when="2099-01-02T22:00:00+00:00",
+                 published="2099-01-02T22:00:00+00:00"),
+        ])[0]
+        self.assertEqual(pin["id"], "perto")
+        self.assertEqual(pin["more"], ["longe"])
+
+    def test_pin_de_noticia_continua_abrindo_a_mais_nova(self):
+        base = {"kind": "noticia", "lat": -21.1, "lng": -47.8, "place": "Centro",
+                "preciso": True}
+        pin = self.montar([
+            dict(base, id="nova", published="2026-08-25T10:00:00+00:00"),
+            dict(base, id="velha", published="2026-08-20T10:00:00+00:00"),
+        ])[0]
+        self.assertEqual(pin["id"], "nova")
+
     def test_balao_mostra_o_total_real_e_nao_o_tamanho_da_lista(self):
         itens = [{"id": str(i), "kind": "noticia", "lat": -21.1, "lng": -47.8,
                   "place": "X", "preciso": True,

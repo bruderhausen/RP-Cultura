@@ -1371,10 +1371,16 @@ def feed_payload():
     # Um pin por local E por tipo. Antes a chave era só a coordenada e o tipo
     # vinha do primeiro item do grupo: bastava um evento chegar primeiro para
     # um monte de notícia virar pin amarelo de evento no mesmo balão.
+    # Notícia é ordenada por recência, e o pin abre a mais nova: certo.
+    # Evento herdava essa ordem e o pin abria o mais distante no futuro, quando
+    # quem olha o mapa quer saber o que vem primeiro naquele lugar.
+    com_local = [i for i in items if i.get("lat") is not None]
+    proximos = sorted((i for i in com_local if i.get("kind") == "evento"),
+                      key=lambda i: i.get("when") or "9999")
+    demais = [i for i in com_local if i.get("kind") != "evento"]
+
     grupos = {}
-    for i in items:
-        if i.get("lat") is None:
-            continue
+    for i in proximos + demais:
         tipo = "ev" if i["kind"] == "evento" else "news"
         key = (round(i["lat"], 5), round(i["lng"], 5), tipo)
         g = grupos.setdefault(key, {"id": i["id"], "lat": key[0], "lng": key[1],

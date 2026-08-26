@@ -722,6 +722,43 @@ function dataLonga(iso) {
          " · " + d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 }
 
+/* No mesmo lugar, notícia e evento pedem listas diferentes: uma é um índice
+   de manchetes, a outra é uma agenda, e quem abre um pin de casa de show quer
+   saber que dia é cada coisa sem ter que entrar em todas. */
+function maisDaquiHTML(item, more, total) {
+  const outros = (more || []).map(byId).filter(Boolean);
+  if (!outros.length) return "";
+  const resto = total > outros.length + 1
+    ? `<i class="sheet__resto">e mais ${total - outros.length - 1} neste local</i>` : "";
+
+  if (item.kind !== "evento") {
+    return `<div class="sheet__more"><b>Também aqui</b>
+      ${outros.map(m => `<button data-open="${m.id}">${loc(m).title}</button>`).join("")}
+      ${resto}</div>`;
+  }
+
+  const agenda = outros.filter(e => e.when)
+    .sort((a, b) => new Date(a.when) - new Date(b.when));
+  const sem = outros.filter(e => !e.when);
+  return `<div class="sheet__agenda">
+    <b>Próximos aqui <span>${total - 1}</span></b>
+    ${[...agenda, ...sem].map(e => `<button class="proxev" data-open="${e.id}">
+      <span class="proxev__d">${e.when
+        ? `<b>${new Date(e.when).getDate()}</b><i>${MESES_CURTOS[new Date(e.when).getMonth()]}</i>`
+        : "<b>—</b>"}</span>
+      <span class="proxev__b">
+        <span class="proxev__t">${loc(e).title}</span>
+        <span class="proxev__h">${e.when ? horaDe(e.when) : ""}${
+          e.price ? ` · ${e.price}` : ""}</span>
+      </span>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+    </button>`).join("")}
+    ${resto}</div>`;
+}
+
+const MESES_CURTOS = ["jan", "fev", "mar", "abr", "mai", "jun",
+                      "jul", "ago", "set", "out", "nov", "dez"];
+
 function openSheet(id, more = [], total = 0) {
   const i = byId(id); if (!i) return;
   if ($("#mapSheet").hidden) pushLayer();
@@ -740,11 +777,7 @@ function openSheet(id, more = [], total = 0) {
       <button class="btn btn--ghost" id="sheetSave">${isSaved(i.id) ? t("saved2") + " ✓" : t("save")}</button>
       <button class="btn btn--primary" data-open="${i.id}">${t("openSource")}</button>
     </div>
-    ${(more || []).map(byId).filter(Boolean).length ? `<div class="sheet__more">
-      <b>Também aqui</b>
-      ${(more || []).map(byId).filter(Boolean).map(m => `<button data-open="${m.id}">${loc(m).title}</button>`).join("")}
-      ${total > (more || []).length + 1 ? `<i class="sheet__resto">e mais ${total - (more || []).length - 1} neste local</i>` : ""}
-    </div>` : ""}`;
+    ${maisDaquiHTML(i, more, total)}`;
   $("#mapSheet").hidden = false;
   $("#mapScrim").hidden = false;
   $("#mapLegend").classList.add("is-hidden");

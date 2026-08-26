@@ -420,6 +420,27 @@ img{max-width:100%;display:block}
   font-size:11.5px;color:var(--ink-3);text-decoration:none;letter-spacing:.02em}
 .ehadmin:active{color:var(--brand)}
 
+/* --- agenda do local, na ficha do pin de evento --- */
+.sheet__agenda{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+.sheet__agenda>b{display:flex;align-items:center;gap:7px;font-size:13px;
+  margin-bottom:10px}
+.sheet__agenda>b span{font-size:11px;font-weight:700;color:var(--ink-3);
+  background:var(--surface-2);border-radius:99px;padding:2px 8px}
+.proxev{display:flex;align-items:center;gap:12px;width:100%;text-align:left;
+  background:var(--surface-2);border-radius:var(--r-m);padding:10px 12px;
+  margin-bottom:8px;transition:transform .12s}
+.proxev:active{transform:scale(.985)}
+.proxev__d{flex:none;width:40px;text-align:center;line-height:1}
+.proxev__d b{display:block;font-family:var(--display);font-size:17px;font-weight:800;
+  color:var(--brand-ink)}
+.proxev__d i{font-style:normal;font-size:10px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.08em;color:var(--ink-3)}
+.proxev__b{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.proxev__t{font-family:var(--display);font-size:14px;font-weight:700;line-height:1.2}
+.proxev__h{font-size:11.5px;color:var(--ink-3)}
+.proxev svg{flex:none;width:17px;height:17px;fill:none;stroke:var(--ink-3);
+  stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+
 /* --- aviso dos eventos salvos --- */
 .aviso-salvos{padding:4px 0 2px}
 .aviso-salvos .pref{margin:0 18px}
