@@ -20,22 +20,10 @@
 <link rel="apple-touch-icon" href="assets/favicon-180.png?v=2">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="stylesheet" href="css/styles.css?v=43">
+<link rel="stylesheet" href="css/styles.css?v=44">
 </head>
 <body>
 
-<!-- filtro que deixa o mapa branco com ruas em azul -->
-<svg width="0" height="0" aria-hidden="true" style="position:absolute">
-  <filter id="azul" color-interpolation-filters="sRGB">
-    <!-- troca vermelho e azul: rodovias amarelas viram azuis, ruas e parques ficam como estão -->
-    <feColorMatrix type="matrix" values="0 0 1 0 0  0 1 0 0 0  1 0 0 0 0  0 0 0 1 0"/>
-    <feComponentTransfer>
-      <feFuncR type="linear" slope="1.06" intercept="-0.04"/>
-      <feFuncG type="linear" slope="1.04" intercept="-0.03"/>
-      <feFuncB type="linear" slope="1.02" intercept="-0.01"/>
-    </feComponentTransfer>
-  </filter>
-</svg>
 
 <!-- ============ SPLASH ============ -->
 <div id="splash" class="splash" role="status" aria-label="RP Cultural">

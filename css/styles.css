@@ -420,6 +420,14 @@ img{max-width:100%;display:block}
   font-size:11.5px;color:var(--ink-3);text-decoration:none;letter-spacing:.02em}
 .ehadmin:active{color:var(--brand)}
 
+/* O OpenStreetMap padrão é mais saturado que o mapa anterior e brigava com os
+   pins. Dessaturar e clarear um pouco devolve o fundo discreto, sem esconder
+   nome de rua. */
+.leaflet-tile-pane{filter:saturate(.72) brightness(1.04) contrast(.96)}
+@media (prefers-color-scheme:dark){
+  .leaflet-tile-pane{filter:saturate(.65) brightness(.92) contrast(1.02)}
+}
+
 /* --- agenda do local, na ficha do pin de evento --- */
 .sheet__agenda{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
 .sheet__agenda>b{display:flex;align-items:center;gap:7px;font-size:13px;
