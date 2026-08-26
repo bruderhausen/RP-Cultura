@@ -28,6 +28,18 @@
 }
 
 *,*::before,*::after{box-sizing:border-box}
+/* sem o retângulo azul do toque: o retorno vem da animação de press */
+html{-webkit-tap-highlight-color:transparent}
+button,a,.card,.ev,.pin,.chip,.savecard,.rowbtn,.upd,.vertudo{-webkit-tap-highlight-color:transparent}
+.card,.ev,.savecard,.rowbtn,.vertudo,.chip,.iconbtn,.circbtn,.btn,.sourcelink,.hero{
+  transition:transform .16s cubic-bezier(.2,.8,.3,1), box-shadow .16s ease, background-color .16s ease}
+.card:active,.savecard:active,.rowbtn:active,.vertudo:active,.hero:active{transform:scale(.975)}
+.ev:active{transform:scale(.96)}
+.chip:active,.iconbtn:active,.circbtn:active,.btn:active,.sourcelink:active{transform:scale(.93)}
+@media (prefers-reduced-motion:reduce){
+  .card:active,.savecard:active,.rowbtn:active,.vertudo:active,.hero:active,.ev:active,
+  .chip:active,.iconbtn:active,.circbtn:active,.btn:active,.sourcelink:active{transform:none}
+}
 [hidden]{display:none !important}
 html,body{height:100%;overscroll-behavior:none}
 body{
