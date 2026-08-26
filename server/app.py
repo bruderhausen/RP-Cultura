@@ -1194,9 +1194,14 @@ def sincroniza_eventos(eventos, relatorio):
             if novo:
                 alterou = False
                 for campo in CAMPOS_MUTAVEIS:
-                    if campo in novo and novo[campo] != item.get(campo):
-                        item[campo] = novo[campo]
-                        alterou = True
+                    valor = novo.get(campo)
+                    # campo vazio na fonte não apaga o que já temos. ARQ e Hard
+                    # Rock não informam coordenada: sobrescrever com None
+                    # desfazia o refino a cada ciclo e o pin sumia do mapa.
+                    if valor in (None, "") or valor == item.get(campo):
+                        continue
+                    item[campo] = valor
+                    alterou = True
                 mudados += 1 if alterou else 0
             elif item["src"] in confiaveis:
                 removidos.append(item["id"])

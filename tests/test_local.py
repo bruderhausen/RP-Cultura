@@ -398,6 +398,16 @@ class TestAtualizacaoDeEventos(unittest.TestCase):
         self.assertEqual(item["when"], "2099-09-27T03:00:00+00:00")
         self.assertEqual(item["price"], "R$ 25,00")
 
+    def test_fonte_sem_coordenada_nao_apaga_o_pin_ja_resolvido(self):
+        # ARQ e Hard Rock não informam lat/lng: o ponto vem do refino, e a
+        # sincronização não pode desfazer isso a cada ciclo
+        self.guardar([self.evento(lat=-21.175, lng=-47.830, preciso=True)])
+        app.sincroniza_eventos([self.evento(lat=None, lng=None)],
+                               {"arq": {"ok": True}})
+        item = app._state["items"][0]
+        self.assertEqual((item["lat"], item["lng"]), (-21.175, -47.830))
+        self.assertTrue(item["preciso"])
+
     def test_evento_cancelado_sai_do_app(self):
         self.guardar([self.evento()])
         app.sincroniza_eventos([], {"arq": {"ok": True}})
