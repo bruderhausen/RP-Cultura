@@ -545,9 +545,14 @@ function renderMap() {
     // A CARTO passou a exigir chave e devolve o tile com a marca "API KEY
     // REQUIRED" carimbada por cima do mapa. O OpenStreetMap serve sem chave;
     // em troca pede uso moderado, então nada de pré-carregar área.
-    L.tileLayer("https://maps.wikimedia.org/osm-intl/{z}/{x}/{y}{r}.png", {
-      maxZoom: 19, detectRetina: true,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; Wikimedia'
+    // Esri Light Gray: cinza claro, feito para servir de fundo a marcadores.
+    // A Wikimedia recusa pedido de fora dos projetos dela (403) e deixava o
+    // mapa em branco; a CARTO passou a exigir chave. Atenção à ordem {y}/{x},
+    // que aqui é invertida em relação ao padrão.
+    L.tileLayer("https://services.arcgisonline.com/ArcGIS/rest/services/"
+                + "Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}", {
+      maxZoom: 19,
+      attribution: 'Esri, HERE, Garmin &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
     }).addTo(_map);
     L.control.zoom({ position: "bottomright" }).addTo(_map);
     _pinLayer = L.layerGroup().addTo(_map);
