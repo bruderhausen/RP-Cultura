@@ -37,5 +37,7 @@ apareceram quase todos em produção, não em exemplo inventado.
 Commitar e publicar no fim de cada tarefa, sem perguntar. Mensagem de commit em
 português, explicando a causa do problema e não só o que mudou.
 
-Segredo nenhum entra no repositório: ele é público. Chave e senha vivem em
-variável de ambiente, listadas em `PROXIMOS-PASSOS.md`.
+Segredo nenhum entra no repositório. Ele é privado hoje, mas o app é aberto e
+pode virar público a qualquer momento, e segredo commitado fica no histórico
+mesmo depois de removido. Chave e senha vivem em variável de ambiente,
+listadas em `PROXIMOS-PASSOS.md`.
