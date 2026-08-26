@@ -46,6 +46,8 @@ FEEDS = [
      "url": "https://www.acidadeon.com/ribeiraopreto/feed/", "regional": True},
     {"key": "cbn",     "name": "CBN Ribeirão",  "site": "https://cbnribeirao.com.br",
      "url": "https://cbnribeirao.com.br/feed/", "regional": True},
+    {"key": "ge",      "name": "ge Ribeirão", "site": "https://ge.globo.com/sp/ribeirao-preto-e-regiao/",
+     "url": "https://ge.globo.com/rss/ge/sp/ribeirao-preto-e-regiao/", "regional": True, "cat": "Esporte"},
     {"key": "g1sp",    "name": "G1 São Paulo",  "site": "https://g1.globo.com/sp/",
      "url": "https://g1.globo.com/rss/g1/sp/", "regional": False},
     {"key": "folha",   "name": "Folha",         "site": "https://www.folha.uol.com.br/cotidiano/",
@@ -64,8 +66,14 @@ POLICIA_TERMS = ["acidente", "batida", "colisao", "capotamento", "atropelamento"
                  "assassinato", "tiro", "tiros", "preso", "presa", "policia", "pm", "incendio",
                  "operacao", "apreensao", "vitima", "vitimas", "feridos", "ferida", "ferido"]
 
+ESPORTE_TERMS = ["futebol", "jogo", "jogos", "partida", "campeonato", "brasileirao", "paulista",
+                 "copa", "gol", "gols", "time", "clube", "torcida", "estadio", "atleta", "treino",
+                 "tecnico", "botafogo", "comercial", "basquete", "volei", "corrida", "maratona",
+                 "rodada", "serie a", "serie b", "serie c", "serie d", "libertadores", "olimpiada"]
+
 CATEGORY_RULES = [
     ("Cidade",      POLICIA_TERMS),
+    ("Esporte",     ESPORTE_TERMS),
     ("Show",        ["show", "banda", "cantor", "cantora", "turne", "turnê", "rock", "sertanejo", "rap", "samba", "dj ", "concerto"]),
     ("Festival",    ["festival", "lollapalooza", "carnaval", "expo", "festa", "rodeio", "peao", "peoes"]),
     ("Gastronomia", ["gastronom", "restaurante", "chef", "culinar", "cerveja", "food", "feira de produtores", "bar "]),
@@ -898,7 +906,7 @@ def build_item(feed, raw_item):
     return {
         "id": iid,
         "kind": "noticia",
-        "cat": guess_category(text),
+        "cat": feed.get("cat") or guess_category(text),
         "title": raw_item["title"],
         "lead": raw_item["summary"] or raw_item["title"],
         "img": raw_item["img"],

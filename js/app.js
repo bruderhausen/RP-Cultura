@@ -33,6 +33,7 @@ function art(item, extra = "") {
     Show:     '<path d="M38 70V32l30-7v38" fill="none" stroke="#fff" stroke-width="3.5" stroke-linejoin="round"/><circle cx="32" cy="70" r="7" fill="#fff"/><circle cx="62" cy="63" r="7" fill="#fff"/>',
     Cultura:  '<path d="M24 74h52M30 74V38M46 74V38M62 74V38M70 74V38M22 34l28-14 28 14z" fill="none" stroke="#fff" stroke-width="3.2" stroke-linejoin="round"/>',
     Cidade:   '<path d="M20 78V44l16-10v44M44 78V30l18-12v60M66 78V48l14 8v22" fill="none" stroke="#fff" stroke-width="3.2" stroke-linejoin="round"/>',
+    Esporte: '<circle cx="50" cy="50" r="24" fill="none" stroke="#fff" stroke-width="3.2"/><path d="M50 26v48M26 50h48M34 34l32 32M66 34 34 66" fill="none" stroke="#fff" stroke-width="2.4"/>',
     Gastronomia: '<path d="M32 22v26a8 8 0 0 0 16 0V22M40 48v30M62 78V22c8 4 10 12 10 22 0 6-4 8-10 8" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/>'
   }[item.cat] || "";
   return `<div class="ph">
