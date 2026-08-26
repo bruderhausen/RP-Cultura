@@ -315,27 +315,155 @@ img{max-width:100%;display:block}
   display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:14px;padding:24px 34px;text-align:center;
 }
-.guide__art{
-  width:190px;height:190px;border-radius:50%;display:grid;place-items:center;padding:38px;
-  background:linear-gradient(150deg,#F0ECFF,#FFF6D9);margin-bottom:6px;
+/* ---- palco das ilustracoes ----
+   As telas do guia sao feitas com as mesmas pecas do app (cartao, marca do
+   mapa, chip, aviso), entao o que a pessoa ve aqui e o que ela vai encontrar
+   depois. A animacao so roda no slide visivel: `.is-live` entra pelo
+   paintGuide(). Sem isso tudo animaria de uma vez fora da tela e ninguem veria. */
+.gart{
+  position:relative;width:min(288px,86vw);aspect-ratio:29/23;border-radius:var(--r-l);
+  background:linear-gradient(155deg,#F3EFFF 0%,#FBF7FF 52%,#FFF6DC 100%);
+  border:1px solid var(--line);box-shadow:var(--sh-1);overflow:hidden;margin-bottom:4px
 }
-.guide__art svg{overflow:visible}
-.gc{fill:none;stroke:var(--brand);stroke-width:5;stroke-linejoin:round}
-.gl{fill:none;stroke:var(--accent-2);stroke-width:5;stroke-linecap:round;stroke-linejoin:round}
-.gd{fill:var(--accent-2)}
-.gpin{stroke:#fff;stroke-width:3;stroke-linejoin:round}
-.gpin--news{fill:var(--brand)}
-.gpin--ev{fill:var(--accent-2)}
-.gpin__hole{fill:#fff}
-.guide__slide .gk{font-weight:800;white-space:nowrap}
-.guide__slide .gk::before{
-  content:"";display:inline-block;width:9px;height:9px;border-radius:50%;
-  margin-right:5px;vertical-align:1px;box-shadow:0 0 0 2px #fff
+.gart::after{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(120% 78% at 50% 0%,rgba(255,255,255,.85),transparent 62%)
 }
-.gk--news{color:var(--brand)}
-.gk--news::before{background:var(--brand)}
-.gk--ev{color:#8A5A00}
-.gk--ev::before{background:var(--accent-2)}
+
+/* ---- slide 1: o feed enchendo ---- */
+.gart__pill{
+  position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:3;
+  display:flex;align-items:center;gap:6px;
+  background:rgba(255,255,255,.94);border:1px solid var(--line);border-radius:99px;
+  padding:5px 11px;font-size:10.5px;font-weight:700;color:var(--ink-2);box-shadow:var(--sh-1)
+}
+.gart__dot{width:6px;height:6px;border-radius:50%;background:#12B76A}
+.gcard{
+  position:absolute;left:16px;right:16px;display:flex;align-items:center;gap:9px;
+  background:var(--surface);border-radius:14px;padding:9px;box-shadow:var(--sh-1)
+}
+.gcard--a{top:46px}
+.gcard--b{top:98px}
+.gcard--c{top:150px}
+.gcard__img{width:38px;height:38px;border-radius:10px;flex:none;background:linear-gradient(140deg,var(--brand-2),var(--brand))}
+.gcard__img--ev{background:linear-gradient(140deg,var(--accent),var(--accent-2))}
+.gcard span{flex:1;display:flex;flex-direction:column;gap:6px}
+.gcard b{display:block;height:7px;border-radius:4px;background:var(--surface-2)}
+.gcard b.s{width:56%;background:var(--line)}
+
+/* ---- slide 2: o mapa ---- */
+.gart--mapa{background:#EEF3F8}
+.gmapa{position:absolute;inset:0;width:100%;height:100%}
+.gmapa__ch{fill:#EDF2F7}
+.gmapa__q{fill:#E3E9F1}
+.gmapa__via{stroke:#FFF;stroke-width:5;fill:none}
+.gmapa__via--g{stroke-width:9}
+.gmapa__rio{stroke:#CFE3F2;stroke-width:11;fill:none;stroke-linecap:round}
+/* a marca vem inteira do marcaHTML(), a mesma do mapa; aqui só se diz onde ela
+   fica e que a entrada do mapa (pinIn) não vale dentro do guia */
+.gart .gmarca{position:absolute;z-index:4}
+.gart .gmarca .pin{animation:none}
+.gart .gmarca .pin__svg{width:38px;height:47px}
+.gmarca--a{left:33%;top:47%}
+.gmarca--b{left:69%;top:66%}
+.glegenda{
+  position:absolute;left:50%;bottom:11px;transform:translateX(-50%);z-index:5;
+  display:flex;gap:12px;background:rgba(255,255,255,.95);border-radius:99px;
+  padding:5px 12px 5px 8px;box-shadow:var(--sh-1);white-space:nowrap
+}
+.glegenda span{display:flex;align-items:center;gap:3px;font-size:11px;font-weight:700;color:var(--ink-2)}
+/* a mesma marca do mapa, só que pequena e fora do fluxo absoluto */
+.glegenda__p{display:inline-flex}
+.glegenda__p .pin{position:static;transform:none;animation:none}
+.glegenda__p .pin__svg{width:17px;height:21px;filter:none}
+
+/* ---- slide 3: salvar e ser avisado ---- */
+.gsalvo{
+  position:absolute;top:32px;left:18px;right:18px;display:flex;align-items:center;gap:10px;
+  background:var(--surface);border-radius:16px;padding:11px;box-shadow:var(--sh-1)
+}
+.gsalvo__img{width:44px;height:44px;border-radius:12px;flex:none;background:linear-gradient(140deg,var(--accent),var(--accent-2))}
+.gsalvo span{flex:1;display:flex;flex-direction:column;gap:7px}
+.gsalvo b{display:block;height:7px;border-radius:4px;background:var(--surface-2)}
+.gsalvo b.s{width:52%;background:var(--line)}
+.gsalvo__mk{width:22px;height:22px;flex:none;fill:var(--brand);stroke:var(--brand);stroke-width:1.6;stroke-linejoin:round}
+.gaviso{
+  position:absolute;left:18px;right:18px;bottom:28px;display:flex;align-items:center;gap:10px;
+  background:var(--surface);border-radius:16px;padding:11px 13px;box-shadow:var(--sh-2)
+}
+.gaviso__sino{width:22px;height:22px;flex:none;fill:none;stroke:var(--brand);stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;transform-origin:50% 20%}
+.gaviso span{display:flex;flex-direction:column;gap:2px;min-width:0}
+.gaviso b{font-size:12.5px;font-weight:800;color:var(--ink)}
+.gaviso em{font-size:11px;font-style:normal;color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ---- slide 4: personalizar ---- */
+.gchips{
+  position:absolute;top:34px;left:18px;right:18px;
+  display:flex;flex-wrap:wrap;gap:8px;justify-content:center
+}
+.gchip{
+  background:var(--surface);border:1px solid var(--line);border-radius:99px;
+  padding:7px 13px;font-size:11.5px;font-weight:700;color:var(--ink-2);box-shadow:var(--sh-1)
+}
+.gchip--1,.gchip--3{background:var(--brand);border-color:var(--brand);color:#fff}
+.gidiomas{position:absolute;bottom:28px;left:0;right:0;display:flex;gap:8px;justify-content:center}
+.gidioma{
+  width:40px;height:32px;display:grid;place-items:center;border-radius:11px;
+  background:var(--surface);border:1px solid var(--line);
+  font-size:11.5px;font-weight:800;color:var(--ink-3);box-shadow:var(--sh-1)
+}
+.gidioma--1{background:var(--brand-ink);border-color:var(--brand-ink);color:#fff}
+
+/* ---- as animacoes, so no slide aberto ---- */
+.is-live .gart__pill{animation:gSobe .5s .1s backwards}
+.is-live .gcard--a{animation:gSobe .5s .12s backwards}
+.is-live .gcard--b{animation:gSobe .5s .26s backwards}
+.is-live .gcard--c{animation:gSobe .5s .4s backwards}
+.is-live .gart__dot{animation:gPisca 2s .6s infinite}
+
+.is-live .gmarca--a .pin{animation:gCai .55s .2s cubic-bezier(.2,1.5,.4,1) backwards}
+.is-live .gmarca--b .pin{animation:gCai .55s .45s cubic-bezier(.2,1.5,.4,1) backwards}
+.is-live .gmarca--b .pin__pulse{animation:pulse 2.4s 1s infinite}
+.is-live .glegenda{animation:gSobe .5s .75s backwards}
+
+.is-live .gsalvo{animation:gSobe .5s .1s backwards}
+.is-live .gsalvo__mk{animation:gMarca .6s .7s backwards}
+.is-live .gaviso{animation:gDesce .55s 1.2s cubic-bezier(.2,1.2,.4,1) backwards}
+.is-live .gaviso__sino{animation:gSino .8s 1.6s}
+
+.is-live .gchip{animation:gSobe .45s backwards}
+.is-live .gchip--1{animation:gLiga .7s .1s backwards}
+.is-live .gchip--2{animation-delay:.18s}
+.is-live .gchip--3{animation:gLiga .7s .26s backwards}
+.is-live .gchip--4{animation-delay:.34s}
+.is-live .gchip--5{animation-delay:.42s}
+.is-live .gidioma{animation:gSobe .45s backwards}
+.is-live .gidioma--1{animation:gLigaEscuro .7s .55s backwards}
+.is-live .gidioma--2{animation-delay:.65s}
+.is-live .gidioma--3{animation-delay:.75s}
+
+@keyframes gSobe{from{opacity:0;transform:translateY(14px)}}
+@keyframes gDesce{from{opacity:0;transform:translateY(-18px)}}
+@keyframes gCai{from{opacity:0;transform:translate(-50%,-190%) scale(.5)}}
+@keyframes gPisca{0%,100%{opacity:1}50%{opacity:.25}}
+@keyframes gMarca{
+  0%{fill:var(--surface-2);stroke:var(--ink-3);transform:scale(1)}
+  45%{fill:var(--surface-2);stroke:var(--ink-3);transform:scale(1.3)}
+  100%{fill:var(--brand);stroke:var(--brand);transform:scale(1)}
+}
+@keyframes gSino{0%,100%{transform:rotate(0)}20%{transform:rotate(-14deg)}45%{transform:rotate(11deg)}70%{transform:rotate(-5deg)}}
+/* a escolha marca no fim da subida: primeiro a peca aparece, depois ela liga */
+@keyframes gLiga{
+  0%{opacity:0;transform:translateY(14px);background:var(--surface);border-color:var(--line);color:var(--ink-2)}
+  55%{opacity:1;transform:translateY(0);background:var(--surface);border-color:var(--line);color:var(--ink-2)}
+  75%{transform:scale(1.08)}
+}
+@keyframes gLigaEscuro{
+  0%{opacity:0;transform:translateY(14px);background:var(--surface);border-color:var(--line);color:var(--ink-3)}
+  55%{opacity:1;transform:translateY(0);background:var(--surface);border-color:var(--line);color:var(--ink-3)}
+  75%{transform:scale(1.08)}
+}
+
 .guide__slide h2{font-size:25px;font-weight:800;line-height:1.15}
 .guide__slide p{margin:0;color:var(--ink-2);font-size:15px;max-width:30ch}
 .guide__foot{
@@ -599,20 +727,27 @@ img{max-width:100%;display:block}
 .pinwrap .pin{background:none;box-shadow:none;width:auto;position:relative;transform:none;display:flex;flex-direction:column;align-items:center;animation:none}
 .pinwrap .pin:active{transform:scale(.94)}
 .pinwrap .pin__label{display:none}
-.pinwrap .pin__n,.pin__n{position:absolute;z-index:300;top:-5px;right:-9px;min-width:19px;height:19px;
+.pinwrap .pin__n,.pin__n{position:absolute;z-index:300;top:-4px;right:-8px;min-width:19px;height:19px;
   padding:0 5px;border-radius:99px;border:2px solid #fff;background:var(--brand-ink);color:#fff;
   font-size:11px;font-weight:700;line-height:15px;text-align:center;pointer-events:none;
   box-shadow:0 2px 6px rgba(36,17,103,.35)}
-.pin--ev .pin__n{background:#8A5A00}
+.pin--ev .pin__n{background:#7A4E00}
 .sheet__more{display:flex;flex-direction:column;gap:6px;margin:2px 0 4px}
 .sheet__more b{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3)}
 .sheet__more button{text-align:left;font-size:13.5px;font-weight:600;color:var(--brand-ink);background:var(--surface-2);border-radius:12px;padding:9px 12px;line-height:1.25}
-.map__legend{
-  position:absolute;left:50%;transform:translateX(-50%);bottom:calc(var(--tabh) + var(--safe-b) + 14px);
-  background:rgba(255,255,255,.95);backdrop-filter:blur(6px);border-radius:99px;padding:8px 16px;
-  font-size:12.5px;font-weight:600;color:var(--ink-2);box-shadow:var(--sh-2);white-space:nowrap;transition:.25s;z-index:650
+/* filtro dos pins, no canto de baixo à esquerda do mapa */
+.mapfiltro{
+  /* .mapwrap ja termina acima da barra de abas: somar --tabh soltaria o filtro do canto */
+  position:absolute;left:12px;bottom:14px;z-index:650;
+  display:flex;gap:2px;padding:3px;border-radius:99px;
+  background:rgba(255,255,255,.95);backdrop-filter:blur(6px);box-shadow:var(--sh-2);transition:.25s
 }
-.map__legend.is-hidden{opacity:0;transform:translateX(-50%) translateY(10px)}
+.mapfiltro.is-hidden{opacity:0;transform:translateY(10px);pointer-events:none}
+.mapfiltro button{
+  border-radius:99px;padding:7px 12px;font-size:12px;font-weight:700;color:var(--ink-2);
+  background:none;transition:background .18s,color .18s
+}
+.mapfiltro button.is-on{background:var(--brand);color:#fff}
 
 .pin{
   position:absolute;transform:translate(-50%,-100%);z-index:3;
@@ -622,21 +757,33 @@ img{max-width:100%;display:block}
 @keyframes pinIn{from{opacity:0;transform:translate(-50%,-140%) scale(.5)}}
 .pin:active{transform:translate(-50%,-100%) scale(.92)}
 .pinwrap .pin__svg{z-index:1}
-.pin__svg{position:relative;width:34px;height:42px;filter:drop-shadow(0 8px 16px rgba(36,17,103,.3))}
-.pin__shape{fill:var(--brand);stroke:#fff;stroke-width:2.5;stroke-linejoin:round}
-.pin__hole{fill:#fff}
+.pin__svg{
+  position:relative;width:34px;height:42px;
+  /* duas sombras: uma rente ao chão para assentar, outra difusa para o relevo */
+  filter:drop-shadow(0 1px 1px rgba(36,17,103,.28)) drop-shadow(0 6px 12px rgba(36,17,103,.22))
+}
+.pin__shape{fill:var(--brand);stroke:#fff;stroke-width:2;stroke-linejoin:round}
+.pin__ico{fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .pin--ev .pin__shape{fill:var(--accent-2)}
-.pin.is-on{transform:translate(-50%,-108%) scale(1.14);z-index:5}
+/* o amarelo não sustenta glifo branco: sem contraste, some */
+.pin--ev .pin__ico{stroke:#7A4E00}
+.pin.is-on{z-index:5}
+.pin.is-on .pin__svg{animation:pinPulo .55s cubic-bezier(.3,1.3,.5,1)}
+@keyframes pinPulo{0%,100%{transform:translateY(0) scale(1)}32%{transform:translateY(-10px) scale(1.1)}58%{transform:translateY(0) scale(1)}78%{transform:translateY(-4px) scale(1.04)}}
+.pin.is-on .pin__svg{filter:drop-shadow(0 2px 2px rgba(36,17,103,.3)) drop-shadow(0 12px 22px rgba(36,17,103,.34))}
 .pin__label{
   margin-top:2px;font-size:11px;font-weight:700;color:var(--brand-ink);white-space:nowrap;
   background:rgba(255,255,255,.95);border-radius:99px;padding:4px 10px;box-shadow:0 4px 10px rgba(0,0,0,.15);backdrop-filter:blur(4px)
 }
+/* a pulsação ficava em toda marca ao mesmo tempo e o mapa piscava inteiro;
+   agora só a marca aberta pulsa, que é onde a informação serve para alguma coisa */
 .pin__pulse{
-  position:absolute;left:50%;top:16px;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;
-  background:var(--brand);opacity:0;animation:pulse 2.5s cubic-bezier(0.2,0.8,0.2,1) infinite
+  position:absolute;left:50%;top:15px;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;
+  background:var(--brand);opacity:0
 }
 .pin--ev .pin__pulse{background:var(--accent-2)}
-@keyframes pulse{0%{transform:scale(.8);opacity:.6}60%{transform:scale(3.5);opacity:0}100%{opacity:0}}
+.pin.is-on .pin__pulse{animation:pulse 2.4s cubic-bezier(.2,.8,.2,1) infinite}
+@keyframes pulse{0%{transform:scale(.8);opacity:.5}60%{transform:scale(3.4);opacity:0}100%{opacity:0}}
 
 .scrim{position:absolute;inset:0;background:rgba(20,10,50,.35);z-index:890;animation:fadeIn .25s ease}
 .sheet{

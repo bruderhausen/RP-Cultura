@@ -75,52 +75,74 @@
 </div>
 
 <!-- ============ GUIA DO APP ============ -->
-<div id="guide" class="guide" hidden>
+<div id="guide" class="guide" hidden role="dialog" aria-modal="true" aria-label="Guia do RP Cultural">
   <button class="guide__skip" id="guideSkip">Pular</button>
   <div class="guide__track" id="guideTrack">
-    <section class="guide__slide">
-      <div class="guide__art">
-        <svg viewBox="0 0 120 120"><rect x="24" y="22" width="72" height="76" rx="10" class="gc"/><path d="M38 44h44M38 60h44M38 76h26" class="gl"/></svg>
+
+    <section class="guide__slide" aria-roledescription="slide" aria-label="1 de 4">
+      <div class="gart" role="img" aria-label="Notícias e eventos da região chegando juntos na tela inicial">
+        <span class="gart__pill"><i class="gart__dot"></i>atualizado agora</span>
+        <div class="gcard gcard--a"><i class="gcard__img"></i><span><b></b><b class="s"></b></span></div>
+        <div class="gcard gcard--b"><i class="gcard__img gcard__img--ev"></i><span><b></b><b class="s"></b></span></div>
+        <div class="gcard gcard--c"><i class="gcard__img"></i><span><b></b><b class="s"></b></span></div>
       </div>
-      <h2>Tudo o que acontece por aqui</h2>
-      <p>Notícias dos veículos da região e eventos das casas e plataformas de ingresso, reunidos e atualizados sozinhos ao longo do dia.</p>
+      <h2>Tudo o que acontece na região</h2>
+      <p>Notícias dos jornais daqui e eventos das casas da cidade, reunidos num lugar só e atualizados sozinhos.</p>
     </section>
-    <section class="guide__slide">
-      <div class="guide__art">
-        <svg viewBox="0 0 120 120">
-          <path d="M12 34 L40 24 L80 36 L108 26 L108 86 L80 96 L40 84 L12 94 Z" class="gc"/>
-          <path d="M40 24v60M80 36v60" class="gc" opacity=".45"/>
-          <path d="M38 30c8 0 14 6 14 14 0 10-14 22-14 22S24 54 24 44c0-8 6-14 14-14z" class="gpin gpin--news"/>
-          <circle cx="38" cy="43" r="4.6" class="gpin__hole"/>
-          <path d="M84 44c8 0 14 6 14 14 0 10-14 22-14 22S70 68 70 58c0-8 6-14 14-14z" class="gpin gpin--ev"/>
-          <circle cx="84" cy="57" r="4.6" class="gpin__hole"/>
+
+    <section class="guide__slide" aria-roledescription="slide" aria-label="2 de 4">
+      <div class="gart gart--mapa" role="img" aria-label="Mapa com uma marca azul de notícia e uma marca amarela de evento">
+        <svg class="gmapa" viewBox="0 0 260 200" aria-hidden="true" preserveAspectRatio="xMidYMid slice">
+          <rect width="260" height="200" class="gmapa__ch"/>
+          <path class="gmapa__rio" d="M-10 150C40 140 60 176 110 168s70-52 120-44 60 4 60 4"/>
+          <path class="gmapa__via gmapa__via--g" d="M-10 74h280M84 -10v220M186 -10v220"/>
+          <path class="gmapa__via" d="M-10 30h280M-10 124h280M36 -10v220M136 -10v220M232 -10v220"/>
+          <rect x="96" y="86" width="30" height="26" rx="4" class="gmapa__q"/>
+          <rect x="146" y="38" width="30" height="26" rx="4" class="gmapa__q"/>
+          <rect x="44" y="136" width="30" height="24" rx="4" class="gmapa__q"/>
         </svg>
+        <span class="gmarca gmarca--a" data-marca="news"></span>
+        <span class="gmarca gmarca--b" data-marca="ev"></span>
+        <div class="glegenda" aria-hidden="true">
+          <span><i class="glegenda__p" data-marca="news"></i>Notícia</span>
+          <span><i class="glegenda__p" data-marca="ev"></i>Evento</span>
+        </div>
       </div>
-      <h2>Cada coisa no lugar dela</h2>
-      <p>No mapa, o <b class="gk gk--news">pin azul é notícia</b> e o <b class="gk gk--ev">pin amarelo é evento</b>. Toque em um deles para ver o resumo, a fonte e o que mais está acontecendo naquele ponto.</p>
+      <h2>Azul é notícia, amarelo é evento</h2>
+      <p>Cada marca fica no ponto exato. O desenho dentro dela repete o tipo, então dá para reconhecer sem depender da cor. Toque para ler o resumo e ir à fonte.</p>
     </section>
-    <section class="guide__slide">
-      <div class="guide__art">
-        <svg viewBox="0 0 120 120">
-          <path d="M34 22h40v72L54 78 34 94z" class="gc"/>
-          <path d="M78 34c12 0 22 10 22 22v14l5 8H51l5-8V56c0-12 10-22 22-22z" class="gl"/>
-          <path d="M72 84a7 7 0 0 0 13 0" class="gl"/>
-        </svg>
+
+    <section class="guide__slide" aria-roledescription="slide" aria-label="3 de 4">
+      <div class="gart" role="img" aria-label="Um evento salvo vira um aviso que chega antes de começar">
+        <div class="gsalvo">
+          <i class="gsalvo__img"></i>
+          <span><b></b><b class="s"></b></span>
+          <svg viewBox="0 0 24 24" class="gsalvo__mk" aria-hidden="true"><path d="M6 3h12v18l-6-5-6 5z"/></svg>
+        </div>
+        <div class="gaviso">
+          <svg viewBox="0 0 24 24" class="gaviso__sino" aria-hidden="true"><path d="M12 3a6 6 0 0 1 6 6v4l1.6 2.6H4.4L6 13V9a6 6 0 0 1 6-6z"/><path d="M9.6 19a2.6 2.6 0 0 0 4.8 0"/></svg>
+          <span><b>Começa em 1 hora</b><em>Show no Theatro Pedro II</em></span>
+        </div>
       </div>
-      <h2>Salvou, a gente te lembra</h2>
-      <p>Salve notícias e eventos com o marcador. Em <b>Salvos → Eventos</b>, ligue o aviso e o app manda uma notificação 30 minutos, 1 hora, 3 horas ou 1 dia antes de cada evento começar.</p>
+      <h2>Salvou, a gente avisa</h2>
+      <p>Guarde com o marcador. Em <b>Salvos → Eventos</b>, ligue o aviso e escolha a antecedência: 30 min, 1 h, 3 h ou 1 dia. A notificação chega com o app fechado.</p>
     </section>
-    <section class="guide__slide">
-      <div class="guide__art">
-        <svg viewBox="0 0 120 120">
-          <circle cx="60" cy="44" r="16" class="gc"/>
-          <path d="M28 96c4-16 16-24 32-24s28 8 32 24" class="gc"/>
-          <path d="M22 30h14M84 30h14M22 76h10" class="gl"/>
-        </svg>
+
+    <section class="guide__slide" aria-roledescription="slide" aria-label="4 de 4">
+      <div class="gart" role="img" aria-label="Escolha de interesses, de cidade e de idioma">
+        <div class="gchips">
+          <span class="gchip gchip--1">Cultura</span><span class="gchip gchip--2">Shows</span>
+          <span class="gchip gchip--3">Cidade</span><span class="gchip gchip--4">Esporte</span>
+          <span class="gchip gchip--5">Comida</span>
+        </div>
+        <div class="gidiomas">
+          <span class="gidioma gidioma--1">PT</span><span class="gidioma gidioma--2">EN</span><span class="gidioma gidioma--3">ES</span>
+        </div>
       </div>
       <h2>Do seu jeito</h2>
-      <p>Escolha seus interesses e a cidade, troque o idioma para inglês ou espanhol e adicione o RP Cultural à tela de início para abrir como aplicativo.</p>
+      <p>Escolha seus interesses e a cidade, troque para inglês ou espanhol quando quiser e instale na tela de início para abrir como aplicativo.</p>
     </section>
+
   </div>
   <div class="guide__foot">
     <div class="dots" id="guideDots"><i class="on"></i><i></i><i></i><i></i></div>
@@ -185,7 +207,11 @@
     </header>
     <div class="mapwrap">
       <div class="map" id="map"></div>
-      <div class="map__legend" id="mapLegend">Toque em um pin para ver a notícia do local</div>
+      <div class="mapfiltro" id="mapFiltro" role="group" aria-label="Filtrar os pins do mapa">
+        <button data-mf="todos" class="is-on" aria-pressed="true">Todos</button>
+        <button data-mf="news" aria-pressed="false">Notícias</button>
+        <button data-mf="ev" aria-pressed="false">Eventos</button>
+      </div>
     </div>
     <div class="scrim" id="mapScrim" hidden></div>
     <div class="sheet" id="mapSheet" hidden>

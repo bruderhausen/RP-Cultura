@@ -111,11 +111,20 @@ window.addEventListener("load", () => {
 
 /* ---------------- guia ---------------- */
 let gi = 0;
+/* O guia mostra a marca de verdade, montada pela mesma função do mapa: copiar o
+   desenho no HTML deixaria o guia mentindo no dia em que a marca mudasse. */
+function pintarMarcasDoGuia() {
+  $$("#guide [data-marca]").forEach(el => {
+    if (!el.firstChild) el.innerHTML = marcaHTML({ type: el.dataset.marca });
+  });
+}
 function openGuide() {
   gi = 0;
   const g = $("#guide");
+  pintarMarcasDoGuia();
   g.hidden = false;
   $("#guideTrack").scrollTo({ left: 0 });
+  $$("#guide .guide__slide").forEach(sl => sl.classList.remove("is-live"));
   paintGuide();
 }
 function closeGuide() {
@@ -127,8 +136,10 @@ function closeGuide() {
 }
 /* último slide vem da marcação: assim dá para incluir slide sem mexer aqui */
 const guideLast = () => $$("#guide .guide__slide").length - 1;
+/* a ilustração só anima no slide aberto; fora dele a animação passaria despercebida */
 function paintGuide() {
   $$("#guideDots i").forEach((d, i) => d.classList.toggle("on", i === gi));
+  $$("#guide .guide__slide").forEach((sl, i) => sl.classList.toggle("is-live", i === gi));
   $("#guideNext").textContent = gi === guideLast() ? "Começar" : "Continuar";
 }
 $("#guideNext").addEventListener("click", () => {
@@ -537,6 +548,8 @@ function openArticle(id) {
    MAPA
    ========================================================= */
 let _map, _pinLayer;
+let _marcas = {};   /* marca do mapa por id, para achar a que precisa de realce */
+let _filtroMapa = "todos";   /* "todos" | "news" | "ev": vale só para os pins */
 const RP = [-21.1775, -47.8103];
 
 function renderMap() {
@@ -579,26 +592,51 @@ function renderMap() {
     _map.on("dragstart", () => { _seguindo = false; });
   }
   _pinLayer.clearLayers();
+  _marcas = {};
   marcarUsuario(false);
   const longe = _map.getZoom() < 10;   // só bem afastado é que filtra
   PINS.forEach(p => {
     if (p.lat == null) return;
+    if (_filtroMapa !== "todos" && (p.type === "ev" ? "ev" : "news") !== _filtroMapa) return;
     // afastado demais, só os favoritos, para o mapa não virar um amontoado
     if (longe && !isSaved(p.id) && !(p.more || []).some(isSaved)) return;
     // o pin some quando nenhum item dele passa no filtro de cidade
     if (S.cidade && ![p.id, ...(p.more || [])].some(id => { const i = byId(id); return i && i.cidade === S.cidade; })) return;
     const icon = L.divIcon({
       className: "pinwrap", iconSize: [36, 46], iconAnchor: [18, 40],
-      html: `<span class="pin pin--${p.type}"><span class="pin__pulse"></span>
-        <svg viewBox="0 0 32 40" class="pin__svg">
-          <path class="pin__shape" d="M16 2C8.268 2 2 8.268 2 16c0 9.5 14 22 14 22s14-12.5 14-22C30 8.268 23.732 2 16 2z"/>
-          <circle class="pin__hole" cx="16" cy="15" r="5"/></svg>
-        <span class="pin__label">${p.label}</span>
-        ${p.n > 1 ? `<b class="pin__n">${p.n > 99 ? "99+" : p.n}</b>` : ""}</span>`
+      html: marcaHTML(p)
     });
-    L.marker([p.lat, p.lng], { icon, zIndexOffset: p.n > 1 ? 600 : 0 })
-      .addTo(_pinLayer).on("click", () => openSheet(p.id, p.more, p.n));
+    _marcas[p.id] = L.marker([p.lat, p.lng], { icon, zIndexOffset: p.n > 1 ? 600 : 0 })
+      .addTo(_pinLayer)
+      .on("click", e => { destacarPin(e.target.getElement()); openSheet(p.id, p.more, p.n); });
   });
+}
+
+/* A cor sozinha não diz o tipo para quem não distingue azul de amarelo, então
+   cada marca carrega também o desenho: linhas de texto na notícia, calendário
+   no evento. */
+const GLIFO = {
+  news: '<path d="M10.6 11.6h10.8M10.6 15.6h10.8M10.6 19.6h6.6"/>',
+  ev: '<rect x="10.4" y="11.2" width="11.2" height="10.2" rx="2.6"/>' +
+      '<path d="M10.4 14.8h11.2M13.7 9v3.2M18.3 9v3.2"/>'
+};
+function marcaHTML(p) {
+  const tipo = p.type === "ev" ? "ev" : "news";
+  const rotulo = p.label ? `<span class="pin__label">${p.label}</span>` : "";
+  return `<span class="pin pin--${tipo}">
+    <span class="pin__pulse"></span>
+    <svg viewBox="0 0 32 40" class="pin__svg" aria-hidden="true">
+      <path class="pin__shape" d="M11 2h10a9 9 0 0 1 9 9v8a9 9 0 0 1-9 9h-1.4L16 37.4 12.4 28H11a9 9 0 0 1-9-9v-8a9 9 0 0 1 9-9z"/>
+      <g class="pin__ico">${GLIFO[tipo]}</g>
+    </svg>
+    ${rotulo}
+    ${p.n > 1 ? `<b class="pin__n">${p.n > 99 ? "99+" : p.n}</b>` : ""}</span>`;
+}
+/* o realce existia no CSS mas nada o ligava: a marca tocada ficava igual às outras */
+function destacarPin(el) {
+  $$(".pin").forEach(x => x.classList.remove("is-on"));
+  const marca = el && el.querySelector(".pin");
+  if (marca) marca.classList.add("is-on");
 }
 
 /* leva ao mapa e abre a ficha em cima do pin que já existe para o evento */
@@ -613,6 +651,7 @@ function abrirNoMapa(id) {
     _map.invalidateSize();
     _map.setView([i.lat, i.lng], 16);
     const p = PINS.find(x => x.id === id || (x.more || []).includes(id));
+    if (p && _marcas[p.id]) destacarPin(_marcas[p.id].getElement());
     openSheet(id, p ? p.more : []);
   }, 160);
 }
@@ -853,7 +892,7 @@ function openSheet(id, more = [], total = 0) {
     ${maisDaquiHTML(i, more, total)}`;
   $("#mapSheet").hidden = false;
   $("#mapScrim").hidden = false;
-  $("#mapLegend").classList.add("is-hidden");
+  $("#mapFiltro").classList.add("is-hidden");
   $("#sheetSave").addEventListener("click", () => {
     $("#sheetSave").textContent = toggleSave(i.id) ? t("saved2") + " ✓" : t("save");
   });
@@ -862,9 +901,20 @@ function closeSheet() {
   $("#mapSheet").classList.remove("is-tall");
   $("#mapSheet").style.transform = "";
   $("#mapSheet").hidden = true; $("#mapScrim").hidden = true;
-  $("#mapLegend").classList.remove("is-hidden");
+  $("#mapFiltro").classList.remove("is-hidden");
   $$(".pin").forEach(p => p.classList.remove("is-on"));
 }
+$("#mapFiltro").addEventListener("click", e => {
+  const b = e.target.closest("button[data-mf]");
+  if (!b || b.dataset.mf === _filtroMapa) return;
+  _filtroMapa = b.dataset.mf;
+  $$("#mapFiltro button").forEach(x => {
+    const on = x === b;
+    x.classList.toggle("is-on", on);
+    x.setAttribute("aria-pressed", on);
+  });
+  renderMap();
+});
 $("#mapScrim").addEventListener("click", () => history.back());
 $("#sheetClose").addEventListener("click", () => history.back());
 
@@ -1297,7 +1347,8 @@ function applyLang() {
   if (P[0]) P[0].textContent = t("receive");
   if (P[1]) P[1].textContent = t("reminder");
   if (P[2]) P[2].textContent = t("interests");
-  $("#mapLegend").textContent = t("mapHint");
+  $$("#mapFiltro button").forEach(b => b.textContent =
+    t({ todos: "mapAll", news: "mapNews", ev: "mapEvents" }[b.dataset.mf]));
   const nav = [t("home"), t("map"), t("profile")];
   $$(".tab span").forEach((s, i) => s.textContent = nav[i]);
   $("#savedBtn .rowbtn__l").lastChild.textContent = " " + t("saved");
