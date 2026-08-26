@@ -1155,6 +1155,48 @@ def worker_local():
         finally:
             _fila.task_done()
 
+# o que muda depois de publicado e precisa ser reescrito no histórico
+CAMPOS_MUTAVEIS = ("title", "lead", "when", "published", "price", "img",
+                   "place", "address", "lat", "lng", "cidade", "cat")
+
+def sincroniza_eventos(eventos, relatorio):
+    """Atualiza e remove eventos de plataforma. Devolve (mudados, removidos).
+
+    A remoção só vale para a fonte que respondeu bem nesta rodada: se a
+    plataforma caiu, a lista dela vem vazia, e apagar tudo por causa disso
+    esvaziaria a agenda.
+    """
+    vivos, confiaveis = {}, set()
+    for ev in eventos:
+        vivos[ev["id"]] = ev
+    for nome, f in (relatorio or {}).items():
+        if f.get("ok"):
+            confiaveis.add(nome)
+
+    mudados, removidos = 0, []
+    with _lock:
+        for item in _state["items"]:
+            if item.get("src") not in FONTES_EVENTO or item.get("kind") != "evento":
+                continue
+            novo = vivos.get(item["id"])
+            if novo:
+                alterou = False
+                for campo in CAMPOS_MUTAVEIS:
+                    if campo in novo and novo[campo] != item.get(campo):
+                        item[campo] = novo[campo]
+                        alterou = True
+                mudados += 1 if alterou else 0
+            elif item["src"] in confiaveis:
+                removidos.append(item["id"])
+        if removidos:
+            fora = set(removidos)
+            _state["items"] = [i for i in _state["items"] if i["id"] not in fora]
+    if mudados or removidos:
+        print(f"[eventos] {mudados} atualizados, {len(removidos)} saíram da fonte",
+              flush=True)
+    return mudados, len(removidos)
+
+
 def refresh():
     """Lê todos os feeds e devolve quantas notícias novas entraram."""
     collected = []
@@ -1192,6 +1234,11 @@ def refresh():
     for nome, f in relatorio.items():
         if not f.get("ok"):
             print(f"[eventos] {nome} sem resultado: {f.get('erro') or 'zero itens'}", flush=True)
+
+    # Evento de plataforma muda depois de publicado: horário adiado, preço novo,
+    # cartaz trocado, e às vezes cancelamento. Só acrescentar os inéditos
+    # deixaria o app mostrando a versão antiga para sempre.
+    sincroniza_eventos(eventos, relatorio)
 
     with _lock:
         known = {i["id"] for i in _state["items"]}

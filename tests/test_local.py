@@ -370,6 +370,47 @@ class TestFonteLinktree(unittest.TestCase):
         self.assertIn("HTTP 503", erro)
 
 
+class TestAtualizacaoDeEventos(unittest.TestCase):
+    """Evento de plataforma muda depois de publicado: data, preço, cartaz."""
+
+    def guardar(self, itens):
+        with app._lock:
+            app._state["items"] = itens
+
+    def evento(self, **extra):
+        base = {"id": "arq1", "kind": "evento", "src": "arq", "title": "PURPLE ARQ",
+                "lead": "Festa", "when": "2099-09-27T02:00:00+00:00",
+                "price": "R$ 16,00", "img": "http://img/a.jpg"}
+        base.update(extra)
+        return base
+
+    def test_horario_e_preco_novos_sobrescrevem_o_antigo(self):
+        self.guardar([self.evento()])
+        app.sincroniza_eventos(
+            [self.evento(when="2099-09-27T03:00:00+00:00", price="R$ 25,00")],
+            {"arq": {"ok": True}})
+        item = app._state["items"][0]
+        self.assertEqual(item["when"], "2099-09-27T03:00:00+00:00")
+        self.assertEqual(item["price"], "R$ 25,00")
+
+    def test_evento_cancelado_sai_do_app(self):
+        self.guardar([self.evento()])
+        app.sincroniza_eventos([], {"arq": {"ok": True}})
+        self.assertEqual(app._state["items"], [])
+
+    def test_plataforma_fora_do_ar_nao_apaga_a_agenda(self):
+        # lista vazia por falha não pode ser lida como "não há mais eventos"
+        self.guardar([self.evento()])
+        app.sincroniza_eventos([], {"arq": {"ok": False, "erro": "HTTP 500"}})
+        self.assertEqual(len(app._state["items"]), 1)
+
+    def test_noticia_nao_e_tocada(self):
+        noticia = {"id": "n1", "kind": "noticia", "src": "g1", "title": "Manchete"}
+        self.guardar([noticia])
+        app.sincroniza_eventos([], {"arq": {"ok": True}, "sympla": {"ok": True}})
+        self.assertEqual(len(app._state["items"]), 1)
+
+
 class TestPins(unittest.TestCase):
     """O agrupamento define cor, contagem e sobreposição no mapa."""
 
