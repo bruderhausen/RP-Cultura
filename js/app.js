@@ -682,14 +682,21 @@ function renderMap() {
     }
     L.control.zoom({ position: "bottomright" }).addTo(_map);
     _pinLayer = L.layerGroup().addTo(_map);
-    _map.on("zoomend", () => { clearTimeout(_zoomT); _zoomT = setTimeout(renderMap, 120); });
+    // moveend cobre zoom e arrasto: fora da tela o pin não precisa existir
+    _map.on("moveend", () => { clearTimeout(_zoomT); _zoomT = setTimeout(renderMap, 120); });
     // arrastar o mapa é o usuário dizendo que quer olhar outro lugar
     _map.on("dragstart", () => { _seguindo = false; });
   }
   marcarUsuario(false);
   const longe = _map.getZoom() < 10;   // só bem afastado é que filtra
+  // Só o que está à vista vira marcador. O Leaflet monta o DOM de todos, e cada
+  // pin é um SVG com duas sombras que o aparelho recompõe a cada quadro do
+  // gesto; com 72 pins e 29 na tela, 60% do custo era de pin que ninguém via.
+  // A folga de 60% da tela evita o pin aparecer só depois que o dedo para.
+  const area = _map.getBounds().pad(0.6);
   const visiveis = PINS.filter(p => {
     if (p.lat == null) return false;
+    if (!area.contains([p.lat, p.lng])) return false;
     if (_filtroMapa.size && !_filtroMapa.has(p.type === "ev" ? "ev"
         : p.type === "cine" ? "cine" : "news")) return false;
     // afastado demais, só os favoritos, para o mapa não virar um amontoado
@@ -708,7 +715,9 @@ function renderMap() {
   visiveis.forEach(p => {
     const icon = L.divIcon({
       className: "pinwrap", iconSize: [36, 46], iconAnchor: [18, 40],
-      html: marcaHTML(p)
+      // sem rótulo: o CSS já o esconde dentro do mapa, e gerá-lo era um nó de
+      // texto por pin sem nada em troca
+      html: marcaHTML({ type: p.type, n: p.n })
     });
     _marcas[p.id] = L.marker([p.lat, p.lng], { icon, zIndexOffset: p.n > 1 ? 600 : 0 })
       .addTo(_pinLayer)
@@ -791,6 +800,9 @@ function abrirNoMapa(id) {
       const chegou = () => {
         if (feito) return;                  // moveend e rede de segurança
         feito = true;
+        // o destino pode ter entrado na tela agora; sem redesenhar antes, o
+        // marcador dele ainda não existe e o destaque não acha ninguém
+        renderMap();
         if (p && _marcas[p.id]) destacarPin(_marcas[p.id].getElement(), true);
         openSheet(id, p ? p.more : []);
       };
