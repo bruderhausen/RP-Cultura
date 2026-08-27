@@ -96,9 +96,14 @@ POLITICOS = ["lula", "bolsonaro", "tarcisio", "haddad", "alckmin", "doria", "bou
              "congresso nacional", "supremo tribunal federal", "stf"]
 
 CATEGORIAS = [
+    # Faltavam os crimes contra a pessoa: o esfaqueamento no camping de Barretos
+    # ficava com a editoria da festa por não casar nada aqui.
     ("Cidade", LIVRE, ["acidente", "capotamento", "atropelamento", "assalto", "roubo", "furto",
                 "homicidio", "assassinato", "incendio", "apreensao", "policia", "delegacia",
-                "prefeitura", "transito", "onibus", "hospital", "upa", "saneamento"],
+                "prefeitura", "transito", "onibus", "hospital", "upa", "saneamento",
+                "esfaqueia", "esfaqueado", "esfaqueada", "facada", "sequestro", "estupro",
+                "abusar", "abuso", "agressao", "agride", "trafico", "flagrante",
+                "violencia domestica", "boletim de ocorrencia"],
      ["batida", "colisao", "morre", "morreu", "morte", "mortes", "morto", "morta",
       "tiro", "tiros", "preso", "presa", "pm", "operacao", "vitima", "vitimas",
       "feridos", "ferida", "ferido", "obra", "saude", "escola", "chuva", "clima",
@@ -630,9 +635,12 @@ def parse_feed(raw):
                 for c in el:
                     if tag(c) == "link" and c.get("href"):
                         link = c.get("href"); break
+            cats = [clean(c.text, 60) for c in el
+                    if tag(c) == "category" and (c.text or "").strip()]
             out.append({
                 "title": clean(first_text(el, ("title",)), 180),
                 "link": link,
+                "categorias": cats,
                 "summary": clean(first_text(el, ("description", "summary", "subtitle", "encoded")), 260),
                 "published": to_iso(first_text(el, ("pubDate", "published", "updated", "date"))),
                 "img": find_image(el),
@@ -670,6 +678,85 @@ def pontua(n, fortes, fracos):
             + FRACO * sum(1 for t in fracos if tem_termo(n, [t])))
 
 
+# A editoria que o veículo já publicou vale mais do que qualquer palpite por
+# palavra: é o próprio jornal dizendo do que a matéria trata. O G1 põe a seção
+# no caminho da URL ("/festa-do-peao-de-barretos/noticia/..."), e os feeds em
+# WordPress mandam <category>. Só o que está nesta tabela conta; o resto do que
+# vem em <category> é etiqueta solta — nome de cidade, de pessoa, "destaque
+# home" — e cair nelas seria trocar um chute por outro.
+EDITORIAS = {
+    # G1 e ge, seção tirada do caminho da URL
+    "festa-do-peao-de-barretos": "Festival",
+    "eleicoes": "Política", "politica": "Política",
+    "concursos-e-emprego": "Cidade", "educacao": "Cidade", "transito": "Cidade",
+    "previsao-do-tempo": "Cidade", "saude": "Cidade", "economia": "Cidade",
+    "meio-ambiente": "Cidade", "seguranca": "Cidade", "trabalho-e-carreira": "Cidade",
+    "esporte": "Esporte", "futebol": "Esporte", "basquete": "Esporte",
+    "pop-arte": "Cultura", "cultura": "Cultura", "cinema": "Cultura",
+    "teatro": "Cultura", "literatura": "Cultura", "arte": "Cultura",
+    "musica": "Show", "shows": "Show", "carnaval": "Festival",
+    "turismo-e-viagem": "Gastronomia", "gastronomia": "Gastronomia",
+    # <category> dos feeds em WordPress
+    "cotidiano": "Cidade", "acidente": "Cidade", "obituario": "Cidade",
+    "policia": "Cidade", "policia civil": "Cidade", "policia militar": "Cidade",
+    "policia federal": "Cidade", "policia militar rodoviaria": "Cidade",
+    "seguranca publica": "Cidade", "servicos": "Cidade", "empregos": "Cidade",
+    "lazer": "Cultura", "lazer e cultura": "Cultura", "entretenimento": "Cultura",
+    "esportes": "Esporte", "eleicoes 2026": "Política",
+}
+
+
+def editoria_da_url(url):
+    """Seção do G1 e do ge: o trecho de caminho antes de /noticia/.
+
+    A região vem antes da seção ("sp/ribeirao-preto-franca/transito"), e nem
+    toda matéria tem seção. Por isso lê de trás para frente e para no primeiro
+    trecho conhecido.
+    """
+    if "/noticia/" not in (url or ""):
+        return None
+    caminho = url.split("/noticia/")[0]
+    for trecho in reversed(caminho.split("/")):
+        achou = EDITORIAS.get(norm(trecho))
+        if achou:
+            return achou
+    return None
+
+
+def categoria_da_fonte(url, categorias):
+    """Categoria dita pelo próprio veículo, ou None quando ele não diz."""
+    for c in categorias or []:
+        achou = EDITORIAS.get(norm(c))
+        if achou:
+            return achou
+    return editoria_da_url(url)
+
+
+# Nome de político e vocabulário de urna: coisas que não aparecem por acaso.
+# Cargo ficou de fora — rua e casa de espetáculo daqui se chamam Prefeito
+# Fulano, e isso marcaria a peça de teatro como eleição.
+POLITICA_INEQUIVOCA = POLITICOS + [
+    "eleicao", "eleicoes", "eleitoral", "urna", "urnas", "votacao",
+    "intencoes de voto", "candidatura", "cassacao", "impeachment"]
+
+
+def resolve_categoria(url, categorias, texto):
+    """Editoria da fonte primeiro, palavra como reserva — com duas exceções.
+
+    A editoria do G1 para Barretos é uma cobertura, não um assunto: cai lá o
+    show, o turismo, o esfaqueamento no camping e o governador em campanha.
+    Crime e eleição atravessam a cobertura e são os dois casos em que a
+    categoria errada mais incomoda, então termo forte deles vence a editoria.
+    No resto, o que o veículo publicou vale mais do que qualquer palpite nosso.
+    """
+    n = sem_endereco(norm(texto))
+    if tem_termo(n, CATEGORIAS[0][2]):        # fortes de Cidade: polícia e crime
+        return "Cidade"
+    if tem_termo(n, POLITICA_INEQUIVOCA):
+        return "Política"
+    return categoria_da_fonte(url, categorias) or guess_category(texto)
+
+
 def guess_category(text):
     """Categoria de maior pontuacao; sem nenhum ponto, cai em Cidade.
 
@@ -694,7 +781,7 @@ FONTES_EVENTO = {"sympla", "arq"}
 # Suba este numero sempre que mexer em CATEGORIAS: o historico ja gravado
 # recebe a categoria nova na proxima leitura, sem esperar a materia sair do
 # feed. Sem isso a correcao so valia para o que entrasse depois dela.
-CAT_VERSAO = 3
+CAT_VERSAO = 4
 
 
 def recategoriza(it):
@@ -706,7 +793,8 @@ def recategoriza(it):
         return it
     fixa = next((f.get("cat") for f in FEEDS if f["key"] == it.get("src")), None)
     if not fixa:
-        fixa = guess_category((it.get("title") or "") + " " + (it.get("lead") or ""))
+        fixa = resolve_categoria(it.get("url"), it.get("editoria"),
+                                 (it.get("title") or "") + " " + (it.get("lead") or ""))
     it["cat"] = fixa
     it["catv"] = CAT_VERSAO
     return it
@@ -1035,8 +1123,13 @@ def build_item(feed, raw_item):
     return {
         "id": iid,
         "kind": "noticia",
-        "cat": feed.get("cat") or guess_category(text),
+        # ordem: categoria fixa da fonte, editoria publicada, e só então o
+        # palpite por palavra, que é o que erra
+        "cat": (feed.get("cat")
+                or resolve_categoria(raw_item["link"], raw_item.get("categorias"), text)),
         "catv": CAT_VERSAO,
+        # guardado para a recategorização do histórico não perder a editoria
+        "editoria": raw_item.get("categorias") or [],
         "title": raw_item["title"],
         "lead": raw_item["summary"] or raw_item["title"],
         "img": raw_item["img"],

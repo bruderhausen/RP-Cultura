@@ -973,3 +973,57 @@ class CategoriaTimeRevista(unittest.TestCase):
         self.assertEqual(app.guess_category(
             "Botafogo-SP perde por 3 a 0 e fica perto do rebaixamento no campeonato"),
             "Esporte")
+
+
+class EditoriaDaFonte(unittest.TestCase):
+    """A categoria dita pelo veículo vale mais do que o palpite por palavra.
+
+    Cada correção da lista de palavras revelava a próxima: "rodada", depois
+    "paulista", depois "time". O G1 publica a seção no caminho da URL e os
+    feeds em WordPress mandam <category>; é o próprio jornal dizendo o assunto.
+    """
+
+    def test_secao_da_url_do_g1(self):
+        self.assertEqual(app.categoria_da_fonte(
+            "https://g1.globo.com/sp/campinas-regiao/concursos-e-emprego/noticia/2026/08/27/x",
+            []), "Cidade")
+
+    def test_secao_ignora_a_regiao_no_caminho(self):
+        self.assertEqual(app.categoria_da_fonte(
+            "https://g1.globo.com/sp/ribeirao-preto-franca/festa-do-peao-de-barretos/noticia/x",
+            []), "Festival")
+
+    def test_sem_secao_nao_inventa(self):
+        self.assertIsNone(app.categoria_da_fonte(
+            "https://g1.globo.com/sp/ribeirao-preto-franca/noticia/2026/08/27/x", []))
+
+    def test_category_do_wordpress(self):
+        self.assertEqual(app.categoria_da_fonte("", ["Policia Civil"]), "Cidade")
+
+    def test_etiqueta_solta_nao_vira_categoria(self):
+        """<category> mistura seção com nome de cidade e de artista."""
+        self.assertIsNone(app.categoria_da_fonte("", ["simone mendes", "shopping"]))
+
+    def test_crime_vence_a_editoria_de_cobertura(self):
+        """Tudo de Barretos sai na editoria da festa, inclusive o esfaqueamento."""
+        self.assertEqual(app.resolve_categoria(
+            "https://g1.globo.com/sp/ribeirao-preto-franca/festa-do-peao-de-barretos/noticia/x",
+            [], "Influenciadora esfaqueia suspeito de abusar da filha no camping"),
+            "Cidade")
+
+    def test_eleicao_vence_a_editoria_de_cobertura(self):
+        self.assertEqual(app.resolve_categoria(
+            "https://g1.globo.com/sp/ribeirao-preto-franca/festa-do-peao-de-barretos/noticia/x",
+            [], "Ao lado de Tarcísio na Festa do Peão, Flávio fala da eleição"),
+            "Política")
+
+    def test_show_na_festa_segue_a_editoria(self):
+        self.assertEqual(app.resolve_categoria(
+            "https://g1.globo.com/sp/ribeirao-preto-franca/festa-do-peao-de-barretos/noticia/x",
+            [], "Gusttavo Lima faz retorno apoteótico à arena"), "Festival")
+
+    def test_casa_de_espetaculo_com_nome_de_prefeito_nao_vira_eleicao(self):
+        """Cargo ficou fora da exceção justamente por causa deste caso."""
+        self.assertEqual(app.resolve_categoria(
+            "", [], "Nunca Desista de Seus Sonhos · Teatro Municipal Prefeito Clodoaldo Medina"),
+            "Cultura")
