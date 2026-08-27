@@ -108,7 +108,7 @@ CATEGORIAS = [
                  "copinha", "serie a", "serie b", "serie c", "serie d", "basquete",
                  "volei", "torcida", "atleta", "olimpiada", "botafogo", "ferroviaria",
                  "jiu-jitsu", "handebol", "automobilismo"],
-     ["jogo", "jogos", "partida", "copa", "time", "clube", "estadio", "treino",
+     ["jogo", "jogos", "partida", "copa", "clube", "estadio", "treino",
       "tecnico", "corrida", "maratona", "rodada", "comercial", "elenco"]),
 
     ("Show", LIVRE, ["show", "banda", "cantor", "cantora", "turne", "rock", "sertanejo", "rap",
@@ -694,7 +694,7 @@ FONTES_EVENTO = {"sympla", "arq"}
 # Suba este numero sempre que mexer em CATEGORIAS: o historico ja gravado
 # recebe a categoria nova na proxima leitura, sem esperar a materia sair do
 # feed. Sem isso a correcao so valia para o que entrasse depois dela.
-CAT_VERSAO = 2
+CAT_VERSAO = 3
 
 
 def recategoriza(it):

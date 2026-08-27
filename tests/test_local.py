@@ -959,3 +959,17 @@ class CategoriaBairroPaulista(unittest.TestCase):
     def test_campeonato_paulista_continua_esporte(self):
         self.assertEqual(app.guess_category(
             "Botafogo estreia no Campeonato Paulista com gol no fim"), "Esporte")
+
+
+class CategoriaTimeRevista(unittest.TestCase):
+    """Matéria sobre a revista TIME saía como ESPORTE por causa de "time"."""
+
+    def test_revista_time_nao_e_esporte(self):
+        self.assertEqual(app.guess_category(
+            "EPTV aparece em ranking da TIME de melhores empregadores do Brasil"),
+            "Cidade")
+
+    def test_esporte_de_verdade_nao_dependia_de_time(self):
+        self.assertEqual(app.guess_category(
+            "Botafogo-SP perde por 3 a 0 e fica perto do rebaixamento no campeonato"),
+            "Esporte")
