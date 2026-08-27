@@ -109,7 +109,7 @@ CATEGORIAS = [
                  "volei", "torcida", "atleta", "olimpiada", "botafogo", "ferroviaria",
                  "jiu-jitsu", "handebol", "automobilismo"],
      ["jogo", "jogos", "partida", "copa", "time", "clube", "estadio", "treino",
-      "tecnico", "corrida", "maratona", "rodada", "paulista", "comercial", "elenco"]),
+      "tecnico", "corrida", "maratona", "rodada", "comercial", "elenco"]),
 
     ("Show", LIVRE, ["show", "banda", "cantor", "cantora", "turne", "rock", "sertanejo", "rap",
               "samba", "pagode", "concerto", "dj "],
@@ -654,10 +654,15 @@ def tem_termo(n, termos):
 # simposio de doencas da cana virava Politica por causa da rua onde acontece.
 ENDERECO_RE = re.compile(
     r"\b(rua|avenida|av|alameda|praca|travessa|rodovia|estrada|alam)\.?\s+[^,;|]{0,60}")
+# O bairro vem depois da vírgula e escapava do corte acima: "Jardim Paulista"
+# marcava a palestra como Esporte. "parque" fica de fora de propósito, senão o
+# Parque do Peão deixaria de ser sinal de Festival.
+BAIRRO_RE = re.compile(
+    r"\b(jardim|jd|vila|vl|bairro|chacara|residencial|conjunto|nucleo)\.?\s+[^,;|]{0,40}")
 
 
 def sem_endereco(n):
-    return ENDERECO_RE.sub(" ", n)
+    return BAIRRO_RE.sub(" ", ENDERECO_RE.sub(" ", n))
 
 
 def pontua(n, fortes, fracos):
@@ -689,7 +694,7 @@ FONTES_EVENTO = {"sympla", "arq"}
 # Suba este numero sempre que mexer em CATEGORIAS: o historico ja gravado
 # recebe a categoria nova na proxima leitura, sem esperar a materia sair do
 # feed. Sem isso a correcao so valia para o que entrasse depois dela.
-CAT_VERSAO = 1
+CAT_VERSAO = 2
 
 
 def recategoriza(it):

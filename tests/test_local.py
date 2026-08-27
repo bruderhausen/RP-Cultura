@@ -935,3 +935,27 @@ class CategoriaPolitica(unittest.TestCase):
     def test_palavra_fraca_sozinha_nao_elege_politica(self):
         """"gestão" e "governo" aparecem em curso de vendas e em nota de orçamento."""
         self.assertEqual(app.guess_category("VENDAS E GESTÃO DE EQUIPE"), "Cidade")
+
+
+class CategoriaBairroPaulista(unittest.TestCase):
+    """Palestra e vaga de emprego saíam marcadas como ESPORTE.
+
+    "paulista" valia como sinal de esporte, e bairro e cidade daqui se chamam
+    Jardim Paulista e Bonfim Paulista. O corte de endereço parava na vírgula,
+    então o bairro sobrevivia ao filtro e decidia a categoria sozinho.
+    """
+
+    def test_bairro_jardim_paulista_nao_e_esporte(self):
+        self.assertEqual(app.guess_category(
+            "Ciências sociais: conceitos para entender o mundo · Centro Universitário "
+            "Barão de Mauá, Rua Ramos de Azevedo, 423, Jardim Paulista, Ribeirão Preto"),
+            "Cidade")
+
+    def test_cidade_bonfim_paulista_nao_e_esporte(self):
+        self.assertEqual(app.guess_category(
+            "Em busca de emprego? Mutirão oferece 1,7 mil vagas em Bonfim Paulista"),
+            "Cidade")
+
+    def test_campeonato_paulista_continua_esporte(self):
+        self.assertEqual(app.guess_category(
+            "Botafogo estreia no Campeonato Paulista com gol no fim"), "Esporte")
