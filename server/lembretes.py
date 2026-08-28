@@ -210,3 +210,41 @@ def loop(intervalo=60):
 def estado():
     return {"agendados": quantos(), "ultimo_erro": _ultimo_erro,
             "antecedencias": sorted(ANTECEDENCIA)}
+
+
+def reagendar(id_evento, novo_when, titulo=None, local=None):
+    """Move os lembretes de um evento que mudou de horário.
+
+    O lembrete nasce com a hora do evento no momento em que a pessoa o salvou,
+    e quem reagenda é o app, ao abrir. Se o evento adia e a pessoa não abre o
+    app até lá, o aviso saía na hora velha — que é o único momento em que ele
+    não serve para nada. Agora a própria leitura das plataformas corrige, sem
+    depender de o aparelho estar por perto.
+
+    Cada aparelho mantém a antecedência que escolheu, e o evento que passou a
+    começar antes da antecedência pedida sai da lista, como em sincronizar():
+    avisar num prazo que ninguém pediu é pior que não avisar.
+
+    Devolve (movidos, removidos).
+    """
+    movidos, removidos = 0, 0
+    with _lock:
+        alvos = [c for c, r in _itens.items() if r["evento"] == id_evento]
+        for chave in alvos:
+            r = _itens[chave]
+            alvo = quando_avisar(novo_when, r.get("antecedencia", PADRAO))
+            if alvo is None:
+                del _itens[chave]
+                removidos += 1
+                continue
+            if alvo == r["quando"]:
+                continue
+            r["quando"] = alvo
+            if titulo:
+                r["titulo"] = titulo[:120]
+            if local is not None:
+                r["local"] = local[:80]
+            movidos += 1
+        if movidos or removidos:
+            _gravar()
+    return movidos, removidos

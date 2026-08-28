@@ -11,12 +11,14 @@ import json
 import os
 import re
 import sys
+import time
 import unittest
 from datetime import datetime, timedelta, timezone
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "server"))
 import app  # noqa: E402
 import push as push_mod  # noqa: E402
+import lembretes  # noqa: E402
 
 
 # Coordenadas reais, conferidas uma vez, para o geocodificador de mentira.
@@ -1027,3 +1029,46 @@ class EditoriaDaFonte(unittest.TestCase):
         self.assertEqual(app.resolve_categoria(
             "", [], "Nunca Desista de Seus Sonhos · Teatro Municipal Prefeito Clodoaldo Medina"),
             "Cultura")
+
+
+class LembreteSegueOEvento(unittest.TestCase):
+    """Evento adiado avisava na hora velha.
+
+    O lembrete nascia com a hora do momento em que a pessoa salvou, e quem
+    reagendava era o app, ao abrir. Quem não abrisse o app até lá recebia o
+    push na hora errada — o único momento em que ele não serve para nada.
+    """
+
+    def setUp(self):
+        lembretes._itens.clear()
+        self.ponto = "https://exemplo.com/push/abc"
+
+    def _daqui(self, horas):
+        return (datetime.now(timezone.utc) + timedelta(hours=horas)).isoformat()
+
+    def test_evento_adiado_move_o_aviso(self):
+        ev = {"id": "ev1", "when": self._daqui(5), "title": "Show", "place": "Casa"}
+        lembretes.marcar(self.ponto, ev, "1h")
+        antes = list(lembretes._itens.values())[0]["quando"]
+        movidos, removidos = lembretes.reagendar("ev1", self._daqui(9))
+        depois = list(lembretes._itens.values())[0]["quando"]
+        self.assertEqual((movidos, removidos), (1, 0))
+        self.assertGreater(depois, antes)
+
+    def test_antecedencia_de_cada_aparelho_e_mantida(self):
+        ev = {"id": "ev2", "when": self._daqui(10), "title": "Show", "place": "Casa"}
+        lembretes.marcar(self.ponto, ev, "3h")
+        lembretes.reagendar("ev2", self._daqui(20))
+        r = list(lembretes._itens.values())[0]
+        self.assertEqual(r["antecedencia"], "3h")
+        # 20 h de evento menos 3 h de antecedência: o aviso cai perto das 17 h
+        faltam = (r["quando"] - time.time()) / 3600
+        self.assertAlmostEqual(faltam, 17, delta=0.2)
+
+    def test_evento_antecipado_demais_sai_da_lista(self):
+        """Avisar num prazo que ninguém pediu é pior que não avisar."""
+        ev = {"id": "ev3", "when": self._daqui(30), "title": "Show", "place": "Casa"}
+        lembretes.marcar(self.ponto, ev, "1d")
+        movidos, removidos = lembretes.reagendar("ev3", self._daqui(2))
+        self.assertEqual((movidos, removidos), (0, 1))
+        self.assertEqual(lembretes._itens, {})

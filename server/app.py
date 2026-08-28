@@ -1402,6 +1402,7 @@ def sincroniza_eventos(eventos, relatorio):
             novo = vivos.get(item["id"])
             if novo:
                 alterou = False
+                antes_when = item.get("when")
                 for campo in CAMPOS_MUTAVEIS:
                     valor = novo.get(campo)
                     # campo vazio na fonte não apaga o que já temos. ARQ e Hard
@@ -1412,6 +1413,18 @@ def sincroniza_eventos(eventos, relatorio):
                     item[campo] = valor
                     alterou = True
                 mudados += 1 if alterou else 0
+                # Evento adiado precisa mover o aviso de quem já o salvou. Quem
+                # reagendava era o app, ao abrir; sem isso o push saía na hora
+                # velha justamente para quem não abriu o app até lá.
+                if alterou and item.get("when") != antes_when:
+                    try:
+                        m, r = lembretes.reagendar(item["id"], item.get("when"),
+                                                   item.get("title"), item.get("place"))
+                        if m or r:
+                            print(f"[lembretes] {item['id']} mudou de hora: "
+                                  f"{m} movidos, {r} removidos", flush=True)
+                    except Exception as e:
+                        print("[lembretes]", e, flush=True)
             elif item["src"] in confiaveis:
                 removidos.append(item["id"])
         if removidos:
