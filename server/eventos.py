@@ -4,7 +4,7 @@ A página de cada cidade traz um JSON embutido com nome, data, local, endereço
 e coordenadas de cada evento — é isso que lemos aqui. O preço não vem nesse
 JSON, então tentamos achá-lo na página do evento (melhor esforço).
 """
-import gzip, hashlib, json, re, urllib.request
+import gzip, hashlib, html, json, re, urllib.request
 from datetime import datetime, timedelta, timezone
 
 UA = {"User-Agent": "Mozilla/5.0 (compatible; RPCulturalBot/1.0)"}
@@ -146,6 +146,106 @@ def buscar_arq():
     return saida, erro
 
 
+# ---------------------------------------------------------------- Macumbox
+# A Agenda da Encruzilhada serve HTML pronto, sem JavaScript, e cada evento é um
+# <article class="card"> com data, hora, local e tipo em atributos próprios.
+# Ler atributo é mais firme do que ler texto: eles existem para o filtro da
+# própria página funcionar, então mudam menos que o desenho.
+#
+# A casa não vende ingresso por plataforma, então nada disso aparece na Sympla —
+# é conteúdo que só existe aqui.
+MACUMBOX_URL = "https://agenda.macumbox.app.br/"
+MACUMBOX_CASA = "Macumbox"
+MACUMBOX_ENDERECO = "Rua Américo Brasiliense, 1193, Centro, Ribeirão Preto"
+MACUMBOX_LAT, MACUMBOX_LNG = None, None   # preenchidos pelo refino do app.py
+
+MB_CARD_RE = re.compile(r'<article class="card"(.*?)</article>', re.S)
+MB_ATTR_RE = re.compile(r'data-(type|date|datebr)="([^"]*)"')
+MB_BANDA_RE = re.compile(r'class="coverTop">(.*?)</div>', re.S)
+MB_TITULO_RE = re.compile(r'class="title">(.*?)</h3>', re.S)
+MB_HORA_RE = re.compile(r'🕒\s*([0-9]{1,2}[:h][0-9]{2})')
+MB_LOCAL_RE = re.compile(r'class="mapLink"[^>]*>(.*?)</a>', re.S)
+MB_PROMO_RE = re.compile(r'class="promo">(.*?)</div>', re.S)
+MB_CAPA_RE = re.compile(r"background-image:url\('([^']+)'\)")
+
+
+def _mb_texto(m):
+    """Tira marcação e espaço sobrando do trecho capturado."""
+    if not m:
+        return ""
+    t = re.sub(r"<[^>]+>", " ", m.group(1))
+    return re.sub(r"\s+", " ", html.unescape(t)).strip(" —·")
+
+
+def buscar_macumbox():
+    """Devolve (eventos, erro) da Agenda da Encruzilhada."""
+    try:
+        pagina = _get(MACUMBOX_URL)
+    except Exception as e:
+        print(f"[macumbox] {e}", flush=True)
+        return [], str(e)
+
+    hoje = datetime.now(timezone.utc).date()
+    saida = []
+    for bruto in MB_CARD_RE.findall(pagina):
+        attrs = dict((k, v) for k, v in MB_ATTR_RE.findall(bruto))
+        data, hora = attrs.get("date"), _mb_texto(MB_HORA_RE.search(bruto))
+        if not data:
+            continue
+        try:
+            dia = datetime.strptime(data, "%Y-%m-%d").date()
+        except ValueError:
+            continue
+        if dia < hoje:
+            continue
+
+        # a página mostra o horário de Brasília; sem marcar o fuso o app somaria
+        # 3 horas e o lembrete sairia na hora errada
+        h, m = (hora.replace("h", ":").split(":") + ["00"])[:2] if hora else ("20", "00")
+        try:
+            local_dt = datetime(dia.year, dia.month, dia.day, int(h), int(m),
+                                tzinfo=timezone(timedelta(hours=-3)))
+        except ValueError:
+            continue
+        quando = local_dt.astimezone(timezone.utc).isoformat()
+
+        banda = _mb_texto(MB_BANDA_RE.search(bruto))
+        titulo = _mb_texto(MB_TITULO_RE.search(bruto))
+        casa = _mb_texto(MB_LOCAL_RE.search(bruto)).replace("como chegar", "").strip(" —·")
+        nome = " — ".join(x for x in [banda, titulo] if x) or titulo or banda
+        if not nome:
+            continue
+
+        # A agenda leva a bares parceiros, não só à casa. O endereço fixo vale
+        # apenas quando o evento é na própria Macumbox; nos outros o app
+        # geocodifica pelo nome do lugar, como já faz com o resto.
+        na_casa = MACUMBOX_CASA.lower() in casa.lower()
+        saida.append({
+            "id": "mb" + hashlib.sha1(f"{data}{nome}{casa}".encode()).hexdigest()[:10],
+            "kind": "evento",
+            "title": nome,
+            "lead": " · ".join(x for x in [casa or MACUMBOX_CASA,
+                                           attrs.get("datebr", ""), hora] if x),
+            "img": (MB_CAPA_RE.search(bruto) or [None, ""])[1] if MB_CAPA_RE.search(bruto) else "",
+            "url": MACUMBOX_URL,
+            "src": "macumbox",
+            "srcName": "Agenda da Encruzilhada",
+            "srcSite": MACUMBOX_URL,
+            "published": quando,
+            "when": quando,
+            "place": casa or MACUMBOX_CASA,
+            "address": MACUMBOX_ENDERECO if na_casa or not casa else casa + ", Ribeirão Preto",
+            "lat": MACUMBOX_LAT if na_casa else None,
+            "lng": MACUMBOX_LNG if na_casa else None,
+            "cidade": "Ribeirão Preto",
+            "price": _mb_texto(MB_PROMO_RE.search(bruto)) or None,
+            # a própria agenda classifica o evento; usar isso evita o palpite
+            # por palavra, que mandava "PONTO DE QUARTA" para Cidade
+            "editoria": [attrs.get("type", "")],
+        })
+    return saida, None
+
+
 # ---------------------------------------------------------------- Linktree
 # Casas que divulgam a agenda por link na bio. O Linktree entrega os links num
 # JSON embutido, e cada link do Sympla leva a uma página que também traz o
@@ -261,7 +361,8 @@ def buscar(limite_por_cidade=20, com_preco=False):
     rel = {"sympla": {"ok": False, "itens": 0, "cidades_ok": 0,
                       "cidades": len(CIDADES_SYMPLA), "erro": None},
            "arq":    {"ok": False, "itens": 0, "erro": None},
-           "linktree": {"ok": False, "itens": 0, "erro": None}}
+           "linktree": {"ok": False, "itens": 0, "erro": None},
+           "macumbox": {"ok": False, "itens": 0, "erro": None}}
 
     for slug, cidade in CIDADES_SYMPLA:
         try:
@@ -330,6 +431,14 @@ def buscar(limite_por_cidade=20, com_preco=False):
             vistos.add(ev["id"]); eventos.append(ev)
             rel["linktree"]["itens"] += 1
     rel["linktree"]["ok"] = erro_linktree is None
+
+    do_mb, erro_mb = buscar_macumbox()
+    rel["macumbox"]["erro"] = erro_mb
+    for ev in do_mb:
+        if ev["id"] not in vistos:
+            vistos.add(ev["id"]); eventos.append(ev)
+            rel["macumbox"]["itens"] += 1
+    rel["macumbox"]["ok"] = erro_mb is None
 
     if com_preco:
         for ev in eventos[:40]:          # melhor esforço, só nos primeiros

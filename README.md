@@ -56,7 +56,9 @@ evento e deduplicado por semelhança de título.
 
 **Eventos** — `server/eventos.py` lê as páginas de cidade da Sympla (Ribeirão, Franca, Sertãozinho,
 Barretos, Araraquara) e extrai nome, data, casa, endereço com número e coordenadas; eventos ficam no
-feed até a data acontecer. Há um adaptador da Eventim pronto, ativado por `EVENTIM_WEBID` /
+feed até a data acontecer. A Agenda da Encruzilhada (`agenda.macumbox.app.br`) entra pelo mesmo módulo: ela serve HTML pronto,
+com data, hora, local e tipo em atributos do próprio card, e traz show de casa que não vende por
+plataforma nenhuma. Há um adaptador da Eventim pronto, ativado por `EVENTIM_WEBID` /
 `EVENTIM_KEY` (a API deles exige credencial de afiliado).
 
 **Cinema** — `server/cinema.py` lê a API de conteúdo da Ingresso.com, que responde sem chave nem cadastro. O item é o par filme × sala, não a sessão: sessão vira item afogaria o feed, e o mapa precisa de um ponto por casa. As coordenadas das quatro salas são fixas no código porque o geocodificador erra o número em duas delas. O cartaz é substituído inteiro a cada leitura, já que horário não tem histórico que valha guardar.

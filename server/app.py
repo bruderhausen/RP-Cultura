@@ -702,6 +702,9 @@ EDITORIAS = {
     "policia federal": "Cidade", "policia militar rodoviaria": "Cidade",
     "seguranca publica": "Cidade", "servicos": "Cidade", "empregos": "Cidade",
     "lazer": "Cultura", "lazer e cultura": "Cultura", "entretenimento": "Cultura",
+    # tipos da Agenda da Encruzilhada: casa de música, tudo é noite
+    "rock": "Show", "karaoke": "Show", "encruzas": "Show", "macumbafest": "Festival",
+    "quarta": "Show", "agora": "Cultura",
     "esportes": "Esporte", "eleicoes 2026": "Política",
 }
 
@@ -776,7 +779,7 @@ def guess_category(text):
 
 
 # Só estas fontes produzem evento: têm data, local e página de ingresso.
-FONTES_EVENTO = {"sympla", "arq"}
+FONTES_EVENTO = {"sympla", "arq", "macumbox"}
 
 # Suba este numero sempre que mexer em CATEGORIAS: o historico ja gravado
 # recebe a categoria nova na proxima leitura, sem esperar a materia sair do
@@ -1348,6 +1351,11 @@ def localizar(item):
         return mudou
     if not place.get("preciso") and item.get("lat") is not None and item.get("geov") == GEO_VERSAO:
         return mudou                      # já estava no centro, nada mudou
+    # O nome do lugar que a plataforma informou é melhor do que o que o
+    # geocodificador devolve: ele trocava "Sem Fronteiras Bar" por "Ribeirão
+    # Preto", e o cartão perdia a única informação que dizia onde é.
+    if item.get("src") in FONTES_EVENTO and item.get("place"):
+        place = dict(place, place=item["place"])
     with _lock:
         for i in _state["items"]:
             if i["id"] == item["id"]:
@@ -1457,7 +1465,10 @@ def refresh():
         eventos, relatorio, erro_eventos = [], {}, str(e)
         print("[eventos]", e, flush=True)
     for ev in eventos:
-        ev["cat"] = guess_category(ev["title"] + " " + ev["lead"])
+        # a plataforma que classifica o próprio evento vale mais que o palpite
+        ev["cat"] = resolve_categoria(ev.get("url"), ev.get("editoria"),
+                                      ev["title"] + " " + ev["lead"])
+        ev["catv"] = CAT_VERSAO
         ev["tone"] = int(hashlib.sha1(ev["id"].encode()).hexdigest()[:2], 16) % TONES
         # A plataforma informa a coordenada do local do evento. É melhor do que
         # qualquer coisa que se consiga geocodificando o texto, então o item já
@@ -1500,7 +1511,10 @@ def refresh():
         assinaturas = [assinatura(i["title"]) for i in antigos]
         fresh = []
         for i in collected:
-            if i.get("kind") == "cinema":
+            # Cinema e evento de plataforma têm id estável na origem, então a
+            # comparação por semelhança de título só atrapalha: a mesma casa
+            # repete o nome da festa toda semana, e 73 shows viravam 23.
+            if i.get("kind") == "cinema" or i.get("src") in FONTES_EVENTO:
                 if i["id"] not in known:
                     known.add(i["id"]); fresh.append(i)
                 continue
@@ -1668,6 +1682,8 @@ def feed_payload():
     sources["sympla"] = {"name": "Sympla", "url": "https://www.sympla.com.br"}
     sources["arq"] = {"name": "ARQ", "url": "https://ingresso.arqzin.com"}
     sources["ingresso"] = {"name": "Ingresso.com", "url": "https://www.ingresso.com"}
+    sources["macumbox"] = {"name": "Agenda da Encruzilhada",
+                           "url": "https://agenda.macumbox.app.br"}
     return {"updated": updated, "days": HISTORY_DAYS, "refresh": REFRESH_SECONDS,
             "sources": sources, "news": news, "events": events,
             "cinema": cinema, "pins": pins,
