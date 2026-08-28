@@ -27,9 +27,6 @@ do git guarda o que for commitado mesmo depois de removido.
 
 ## Mapa
 
-- **Agrupar pins próximos.** Com mais itens em local próprio, o zoom afastado
-  vira amontoado. Hoje a solução é esconder tudo abaixo do zoom 10, que é
-  grosseiro.
 - **Ampliar a lista de bairros.** `BAIRROS_RP` cobre Ribeirão Preto; as outras
   cidades da região dependem só do regex de prefixo e do geocodificador.
 

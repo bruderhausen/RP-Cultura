@@ -718,6 +718,8 @@ img{max-width:100%;display:block}
 .leaflet-container{font-family:var(--font);background:#F2F6FA}
 .leaflet-control-attribution{font-size:10px}
 .pinwrap{background:none;border:0}
+/* pin que entrou por arrasto ou zoom: já estava no mapa, não "chega" de novo */
+.pinwrap--quieto .pin{animation:none}
 .euwrap{background:none;border:0;
   /* o GPS entrega saltos discretos; a transição transforma isso em deslizada */
   transition:transform .55s linear}

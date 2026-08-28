@@ -26,7 +26,7 @@ app roda igual, apenas sem notificação.
 | **Guia** | Quatro slides no primeiro uso, revisível pelo Perfil: o que o app reúne, a cor dos pins do mapa, o aviso dos salvos e a personalização. |
 | **Início** | Mostra um tipo por vez — Notícias, Eventos ou Cinema — no mesmo cartão, com busca, filtro de categoria e manchete. Evento e cinema ordenam por data ou por distância. |
 | **Matéria** | Imagem, categoria, fonte, tempo de leitura, resumo, link para a matéria original, salvar e compartilhar. |
-| **Mapa** | Mapa real (Leaflet) com pins no local exato: **azul é notícia, amarelo é evento, vermelho é cinema**, cada um com o próprio desenho para não depender da cor. Filtro no canto marca vários tipos ao mesmo tempo. Toque abre a aba com resumo, fonte e "Também aqui". |
+| **Mapa** | Mapa real (Leaflet) com pins no local exato: **azul é notícia, amarelo é evento, vermelho é cinema**, cada um com o próprio desenho para não depender da cor. Filtro no canto marca vários tipos ao mesmo tempo. Ao afastar, os pins que se encostariam viram um só com a contagem, e o toque enquadra o grupo. Toque abre a aba com resumo, fonte e "Também aqui". |
 | **Perfil** | Foto com recorte circular, preferências do que receber, interesses, salvos e link para o guia. |
 | **Salvos** | Notícias e eventos em abas separadas. Na aba Eventos há o interruptor de aviso: com ele ligado, cada evento salvo vira uma notificação 30 min, 1 h, 3 h ou 1 dia antes de começar. |
 | **Cinema** | Cartaz das quatro salas de Ribeirão, um cartão por filme, com os horários por dia atrás de "Ver horários" e link direto para a compra da sessão. |

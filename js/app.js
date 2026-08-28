@@ -644,6 +644,7 @@ let _marcas = {};   /* marca do mapa por id, para achar a que precisa de realce 
    dizer "todos": assim incluir um tipo novo não exige mexer aqui. */
 let _filtroMapa = new Set();
 let _zoomT = 0;              /* espera o zoom parar antes de refazer os pins */
+let _pinsCaem = true;        /* animação de entrada só na chegada ao mapa */
 let _assinaturaPins = null;  /* o que esta desenhado agora, para nao redesenhar igual */
 const RP = [-21.1775, -47.8103];
 
@@ -682,13 +683,17 @@ function renderMap() {
     }
     L.control.zoom({ position: "bottomright" }).addTo(_map);
     _pinLayer = L.layerGroup().addTo(_map);
-    // moveend cobre zoom e arrasto: fora da tela o pin não precisa existir
-    _map.on("moveend", () => { clearTimeout(_zoomT); _zoomT = setTimeout(renderMap, 120); });
+    // moveend cobre zoom e arrasto: fora da tela o pin não precisa existir.
+    // Os que entram agora não repetem a animação de queda: ela é a chegada ao
+    // mapa, e repetida a cada arrasto vira pisca-pisca e custo à toa.
+    _map.on("moveend", () => {
+      _pinsCaem = false;
+      clearTimeout(_zoomT); _zoomT = setTimeout(renderMap, 120);
+    });
     // arrastar o mapa é o usuário dizendo que quer olhar outro lugar
     _map.on("dragstart", () => { _seguindo = false; });
   }
   marcarUsuario(false);
-  const longe = _map.getZoom() < 10;   // só bem afastado é que filtra
   // Só o que está à vista vira marcador. O Leaflet monta o DOM de todos, e cada
   // pin é um SVG com duas sombras que o aparelho recompõe a cada quadro do
   // gesto; com 72 pins e 29 na tela, 60% do custo era de pin que ninguém via.
@@ -699,30 +704,78 @@ function renderMap() {
     if (!area.contains([p.lat, p.lng])) return false;
     if (_filtroMapa.size && !_filtroMapa.has(p.type === "ev" ? "ev"
         : p.type === "cine" ? "cine" : "news")) return false;
-    // afastado demais, só os favoritos, para o mapa não virar um amontoado
-    if (longe && !isSaved(p.id) && !(p.more || []).some(isSaved)) return false;
     // o pin some quando nenhum item dele passa no filtro de cidade
     if (S.cidade && ![p.id, ...(p.more || [])].some(id => { const i = byId(id); return i && i.cidade === S.cidade; })) return false;
     return true;
   });
   // Mesmo conjunto de pins: nao ha o que redesenhar. Isso corta o zoom, o
   // filtro que nao mudou nada e a releitura de 90 s que veio sem novidade.
-  const assinatura = visiveis.map(p => p.id + ":" + p.n).join(",");
+  const grupos = agrupaPorTela(visiveis);
+  // Mesmo conjunto de pins: nao ha o que redesenhar. Isso corta o zoom, o
+  // filtro que nao mudou nada e a releitura de 90 s que veio sem novidade.
+  const assinatura = grupos.map(g => g.id + ":" + g.n).join(",");
   if (assinatura === _assinaturaPins) return;
   _assinaturaPins = assinatura;
   _pinLayer.clearLayers();
   _marcas = {};
-  visiveis.forEach(p => {
+  grupos.forEach(g => {
     const icon = L.divIcon({
-      className: "pinwrap", iconSize: [36, 46], iconAnchor: [18, 40],
+      className: _pinsCaem ? "pinwrap" : "pinwrap pinwrap--quieto",
+      iconSize: [36, 46], iconAnchor: [18, 40],
       // sem rótulo: o CSS já o esconde dentro do mapa, e gerá-lo era um nó de
       // texto por pin sem nada em troca
-      html: marcaHTML({ type: p.type, n: p.n })
+      html: marcaHTML({ type: g.type, n: g.n })
     });
-    _marcas[p.id] = L.marker([p.lat, p.lng], { icon, zIndexOffset: p.n > 1 ? 600 : 0 })
-      .addTo(_pinLayer)
-      .on("click", e => { destacarPin(e.target.getElement()); openSheet(p.id, p.more, p.n); });
+    const m = L.marker([g.lat, g.lng], { icon, zIndexOffset: g.n > 1 ? 600 : 0 })
+      .addTo(_pinLayer);
+    if (g.pins.length > 1) {
+      // agrupado: aproximar é a única resposta útil, porque a ficha teria de
+      // escolher um item entre vários locais diferentes
+      m.on("click", () => abrirGrupo(g));
+    } else {
+      const p = g.pins[0];
+      _marcas[p.id] = m;
+      m.on("click", e => { destacarPin(e.target.getElement()); openSheet(p.id, p.more, p.n); });
+    }
   });
+}
+
+/* Junta os pins que cairiam quase em cima uns dos outros na tela.
+
+   Antes, abaixo do zoom 10 tudo sumia menos o salvo — grosseiro, e ainda assim
+   deixava dezenas de pins amontoados no zoom 11 ou 12. Agrupar resolve os dois
+   lados: nada some, e o aparelho compõe um punhado de marcadores em vez de
+   quarenta, que é o que pesa no gesto.
+
+   A célula é medida em pixels de tela, não em graus: assim o agrupamento
+   acompanha o zoom sozinho e não precisa de tabela por nível. Tipos diferentes
+   nunca se juntam, senão a cor do pin passaria a mentir sobre o conteúdo. */
+const CELULA = 88;   // px; abaixo disso dois pins se encostam na tela
+
+function agrupaPorTela(pins) {
+  const celulas = new Map();
+  pins.forEach(p => {
+    const pt = _map.project([p.lat, p.lng]);
+    const chave = `${Math.round(pt.x / CELULA)}:${Math.round(pt.y / CELULA)}:${p.type}`;
+    const g = celulas.get(chave);
+    if (g) { g.pins.push(p); g.n += p.n; }
+    else celulas.set(chave, { id: chave, type: p.type, n: p.n, pins: [p] });
+  });
+  return [...celulas.values()].map(g => {
+    if (g.pins.length === 1) return Object.assign(g, { lat: g.pins[0].lat, lng: g.pins[0].lng });
+    // o grupo fica no meio dos seus pins, não no canto da célula
+    const lat = g.pins.reduce((t, p) => t + p.lat, 0) / g.pins.length;
+    const lng = g.pins.reduce((t, p) => t + p.lng, 0) / g.pins.length;
+    return Object.assign(g, { lat, lng });
+  });
+}
+
+/* Enquadra os pins do grupo em vez de somar níveis de zoom: somar chuta, e
+   com o grupo espalhado três níveis podem não separar nada. */
+function abrirGrupo(g, animar = true) {
+  const cantos = g.pins.map(p => [p.lat, p.lng]);
+  _map.fitBounds(L.latLngBounds(cantos).pad(0.35),
+                 { maxZoom: 17, animate: animar, duration: .7 });
 }
 
 /* A cor sozinha não diz o tipo para quem não distingue azul de amarelo, então
@@ -888,7 +941,8 @@ function realcarVias(gl) {
 }
 
 function refreshMapSize() {
-  if (_map) setTimeout(() => _map.invalidateSize(), 80);
+  // voltar ao mapa é uma chegada: os pins caem de novo
+  if (_map) { _pinsCaem = true; setTimeout(() => _map.invalidateSize(), 80); }
 }
 
 let _euMarker, _euCirculo;
