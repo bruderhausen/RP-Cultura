@@ -155,9 +155,16 @@ def buscar_arq():
 # A casa não vende ingresso por plataforma, então nada disso aparece na Sympla —
 # é conteúdo que só existe aqui.
 MACUMBOX_URL = "https://agenda.macumbox.app.br/"
-MACUMBOX_CASA = "Macumbox"
-MACUMBOX_ENDERECO = "Rua Américo Brasiliense, 1193, Centro, Ribeirão Preto"
-MACUMBOX_LAT, MACUMBOX_LNG = None, None   # preenchidos pelo refino do app.py
+# Casas da agenda, com endereço e ponto conferidos. Sem isso o app geocodificava
+# só pelo nome do bar e caía a uns 600 m dali: o OSM registra o Sem Fronteiras
+# na Rua 7 de Setembro, que é a esquina, e o número da Américo Brasiliense é o
+# que a casa informa. Casa fora desta lista continua sendo geocodificada.
+MACUMBOX_CASAS = {
+    "sem fronteiras": ("Sem Fronteiras Bar",
+                       "Rua Américo Brasiliense, 1193, Centro, Ribeirão Preto",
+                       -21.1808946, -47.8047340),
+}
+MACUMBOX_CASA_PADRAO = MACUMBOX_CASAS["sem fronteiras"]
 
 MB_CARD_RE = re.compile(r'<article class="card"(.*?)</article>', re.S)
 MB_ATTR_RE = re.compile(r'data-(type|date|datebr)="([^"]*)"')
@@ -216,16 +223,17 @@ def buscar_macumbox():
         if not nome:
             continue
 
-        # A agenda leva a bares parceiros, não só à casa. O endereço fixo vale
-        # apenas quando o evento é na própria Macumbox; nos outros o app
-        # geocodifica pelo nome do lugar, como já faz com o resto.
-        na_casa = MACUMBOX_CASA.lower() in casa.lower()
+        # A agenda leva a bares parceiros. Para os que estão na lista o ponto já
+        # vem certo; para os outros o app geocodifica pelo nome, como no resto.
+        conhecida = next((v for k, v in MACUMBOX_CASAS.items() if k in casa.lower()), None)
+        if not casa:
+            conhecida = MACUMBOX_CASA_PADRAO
+        nome_casa, endereco, lat, lng = conhecida or (casa, casa + ", Ribeirão Preto", None, None)
         saida.append({
             "id": "mb" + hashlib.sha1(f"{data}{nome}{casa}".encode()).hexdigest()[:10],
             "kind": "evento",
             "title": nome,
-            "lead": " · ".join(x for x in [casa or MACUMBOX_CASA,
-                                           attrs.get("datebr", ""), hora] if x),
+            "lead": " · ".join(x for x in [nome_casa, attrs.get("datebr", ""), hora] if x),
             "img": (MB_CAPA_RE.search(bruto) or [None, ""])[1] if MB_CAPA_RE.search(bruto) else "",
             "url": MACUMBOX_URL,
             "src": "macumbox",
@@ -233,10 +241,10 @@ def buscar_macumbox():
             "srcSite": MACUMBOX_URL,
             "published": quando,
             "when": quando,
-            "place": casa or MACUMBOX_CASA,
-            "address": MACUMBOX_ENDERECO if na_casa or not casa else casa + ", Ribeirão Preto",
-            "lat": MACUMBOX_LAT if na_casa else None,
-            "lng": MACUMBOX_LNG if na_casa else None,
+            "place": nome_casa,
+            "address": endereco,
+            "lat": lat,
+            "lng": lng,
             "cidade": "Ribeirão Preto",
             "price": _mb_texto(MB_PROMO_RE.search(bruto)) or None,
             # a própria agenda classifica o evento; usar isso evita o palpite
