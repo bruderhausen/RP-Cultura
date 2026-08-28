@@ -809,7 +809,10 @@ function preparaBitmaps(aoTerminar) {
    A célula é medida em pixels de tela, não em graus: assim o agrupamento
    acompanha o zoom sozinho e não precisa de tabela por nível. Tipos diferentes
    nunca se juntam, senão a cor do pin passaria a mentir sobre o conteúdo. */
-const CELULA = 88;   // px; abaixo disso dois pins se encostam na tela
+// 88 px agrupava cedo demais e obrigava a dar muito zoom para ver onde as
+// coisas ficam de verdade. 52 px é pouco mais que a largura do pin: só junta o
+// que ia mesmo se sobrepor.
+const CELULA = 52;
 
 function agrupaPorTela(pins) {
   const celulas = new Map();
@@ -834,7 +837,8 @@ function agrupaPorTela(pins) {
    marca só, branca, com a conta de notícia, evento e cinema — o mapa deixa de
    ser amontoado e passa a ser resumo. De quebra é o estado mais barato: cinco
    marcas em vez de dezenas. */
-const ZOOM_CIDADE = 11;   // abaixo disso a cidade inteira vira uma marca
+// o resumo por cidade fica para quando a cidade já não cabe na tela
+const ZOOM_CIDADE = 10;
 
 function cidadeDoPin(p) {
   for (const id of [p.id, ...(p.more || [])]) {
