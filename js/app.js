@@ -682,6 +682,8 @@ function renderMap() {
       }).addTo(_map);
     }
     L.control.zoom({ position: "bottomright" }).addTo(_map);
+    // o primeiro desenho sai em SVG e troca para imagem assim que ela existir
+    preparaBitmaps(() => { _assinaturaPins = null; renderMap(); });
     _pinLayer = L.layerGroup().addTo(_map);
     // moveend cobre zoom e arrasto: fora da tela o pin não precisa existir.
     // Os que entram agora não repetem a animação de queda: ela é a chegada ao
@@ -724,10 +726,11 @@ function renderMap() {
       ? L.divIcon({ className: "cidwrap", iconSize: [null, null], html: marcaCidadeHTML(g) })
       : L.divIcon({
           className: _pinsCaem ? "pinwrap" : "pinwrap pinwrap--quieto",
-          iconSize: [36, 46], iconAnchor: [18, 40],
+          iconSize: [PIN_W + PIN_PAD * 2, PIN_H + PIN_PAD * 2],
+          iconAnchor: [PIN_PAD + 17, PIN_PAD + 40],
           // sem rótulo: o CSS já o esconde dentro do mapa, e gerá-lo era um nó
           // de texto por pin sem nada em troca
-          html: marcaHTML({ type: g.type, n: g.n })
+          html: marcaMapaHTML(g.type, g.n)
         });
     const m = L.marker([g.lat, g.lng], { icon, zIndexOffset: g.n > 1 ? 600 : 0 })
       .addTo(_pinLayer);
@@ -741,6 +744,59 @@ function renderMap() {
       m.on("click", e => { destacarPin(e.target.getElement()); openSheet(p.id, p.more, p.n); });
     }
   });
+}
+
+/* O pin desenhado uma vez, virado imagem, e reusado por todos.
+
+   Como SVG no DOM, cada pin é redesenhado e refiltrado pelo navegador a cada
+   quadro do gesto. Medido no aparelho: com 28 marcas o mapa entregava 52 fps, e
+   sem pin nenhum 60. Como imagem, o aparelho só copia pixels prontos.
+
+   São seis desenhos ao todo: um por tipo, mais um verde por tipo para a piscada
+   de quem chega da matéria, que antes animava o preenchimento do SVG e agora é
+   troca de imagem. A sombra entra no próprio desenho, então não sobra filtro
+   nenhum em tempo real.
+
+   O bitmap é gerado na densidade da tela, senão fica borrado em aparelho
+   moderno, e refeito se a densidade mudar (janela arrastada entre monitores). */
+const PIN_W = 34, PIN_H = 42, PIN_PAD = 8;   // px CSS; a folga é onde a sombra cabe
+const _bitmaps = {};        // "news" | "news:flash" | ... -> data URI
+let _bitmapDPR = 0;
+
+function svgDoPin(tipo, verde) {
+  const corpo = verde ? "#0FA968" : tipo === "ev" ? "#FFC01E" : tipo === "cine" ? "#8E1B2C" : "#4B2ED4";
+  const glifo = verde ? "#fff" : tipo === "ev" ? "#7A4E00" : "#fff";
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 40" width="${PIN_W}" height="${PIN_H}">
+    <path d="M11 2h10a9 9 0 0 1 9 9v8a9 9 0 0 1-9 9h-1.4L16 37.4 12.4 28H11a9 9 0 0 1-9-9v-8a9 9 0 0 1 9-9z"
+          fill="${corpo}" stroke="#fff" stroke-width="2" stroke-linejoin="round"/>
+    <g fill="none" stroke="${glifo}" stroke-width="2" stroke-linecap="round"
+       stroke-linejoin="round">${GLIFO[tipo]}</g></svg>`;
+}
+
+function preparaBitmaps(aoTerminar) {
+  const dpr = Math.min(window.devicePixelRatio || 1, 3);   // acima de 3 só gasta memória
+  if (_bitmapDPR === dpr) return;
+  _bitmapDPR = dpr;
+  const largura = PIN_W + PIN_PAD * 2, altura = PIN_H + PIN_PAD * 2;
+  let faltam = 0;
+  ["news", "ev", "cine"].forEach(tipo => [false, true].forEach(verde => {
+    faltam++;
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement("canvas");
+      c.width = largura * dpr; c.height = altura * dpr;
+      const ctx = c.getContext("2d");
+      ctx.scale(dpr, dpr);
+      // mesma sombra que o CSS aplicava, agora assada no desenho
+      ctx.shadowColor = "rgba(36,17,103,.32)";
+      ctx.shadowBlur = 6; ctx.shadowOffsetY = 3;
+      ctx.drawImage(img, PIN_PAD, PIN_PAD, PIN_W, PIN_H);
+      _bitmaps[tipo + (verde ? ":flash" : "")] = c.toDataURL("image/png");
+      if (--faltam === 0 && aoTerminar) aoTerminar();
+    };
+    img.onerror = () => { if (--faltam === 0 && aoTerminar) aoTerminar(); };
+    img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgDoPin(tipo, verde));
+  }));
 }
 
 /* Junta os pins que cairiam quase em cima uns dos outros na tela.
@@ -827,6 +883,18 @@ function abrirGrupo(g, animar = true) {
                  { maxZoom: 17, animate: animar, duration: .7 });
 }
 
+/* No mapa a marca é a imagem pronta. Antes dos bitmaps ficarem prontos, e em
+   navegador sem canvas, cai no SVG de sempre — o mapa nunca fica sem pin. */
+function marcaMapaHTML(tipo, n) {
+  const t = GLIFO[tipo] ? tipo : "news";
+  const src = _bitmaps[t];
+  if (!src) return marcaHTML({ type: t, n });
+  return `<span class="pin pin--${t} pin--img">
+    <span class="pin__pulse"></span>
+    <img class="pin__img" src="${src}" alt="" draggable="false">
+    ${n > 1 ? `<b class="pin__n">${n > 99 ? "99+" : n}</b>` : ""}</span>`;
+}
+
 /* A cor sozinha não diz o tipo para quem não distingue azul de amarelo, então
    cada marca carrega também o desenho: linhas de texto na notícia, calendário
    no evento. */
@@ -862,6 +930,15 @@ function destacarPin(el, piscar) {
   // por 0,3 s diz qual dos pins é o da matéria que ela estava lendo.
   if (piscar) {
     marca.classList.add("is-flash");
+    const img = marca.querySelector(".pin__img");
+    const tipo = marca.classList.contains("pin--ev") ? "ev"
+               : marca.classList.contains("pin--cine") ? "cine" : "news";
+    // com a marca virada imagem, a troca de cor é troca de arquivo
+    if (img && _bitmaps[tipo + ":flash"]) {
+      const normal = _bitmaps[tipo];
+      img.src = _bitmaps[tipo + ":flash"];
+      setTimeout(() => { img.src = normal; }, 700);
+    }
     setTimeout(() => marca.classList.remove("is-flash"), 700);
   }
 }

@@ -871,6 +871,14 @@ img{max-width:100%;display:block}
 @keyframes pinIn{from{opacity:0;transform:translate(-50%,-140%) scale(.5)}}
 .pin:active{transform:translate(-50%,-100%) scale(.92)}
 .pinwrap .pin__svg{z-index:1}
+/* marca virada imagem: sem SVG para redesenhar e sem filtro, porque a sombra
+   já está assada no arquivo. O pulo continua, agora sobre a imagem. */
+.pin__img{
+  position:relative;z-index:1;display:block;width:50px;height:58px;
+  pointer-events:auto;user-select:none
+}
+.pin--img .pin__pulse{top:24px}
+.pin.is-on .pin__img{animation:pinPulo .7s cubic-bezier(.3,1.3,.5,1)}
 .pin__svg{
   position:relative;width:34px;height:42px;
   /* Uma sombra só. Eram duas, e cada uma é recalculada pelo compositor a cada
