@@ -314,5 +314,13 @@
 <script src="js/i18n.js?v=15"></script>
 <script src="js/app.js?v=15"></script>
 <script src="js/live.js?v=15"></script>
+<!-- medidor de fluidez do mapa: só entra com #fps na URL, para não pesar o app -->
+<script>
+  if (location.hash === "#fps") {
+    const m = document.createElement("script");
+    m.src = "js/perf.js?v=15";
+    document.body.appendChild(m);
+  }
+</script>
 </body>
 </html>
