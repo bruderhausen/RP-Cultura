@@ -710,7 +710,8 @@ function renderMap() {
   });
   // Mesmo conjunto de pins: nao ha o que redesenhar. Isso corta o zoom, o
   // filtro que nao mudou nada e a releitura de 90 s que veio sem novidade.
-  const grupos = agrupaPorTela(visiveis);
+  const porCidade = _map.getZoom() < ZOOM_CIDADE;
+  const grupos = porCidade ? agrupaPorCidade(visiveis) : agrupaPorTela(visiveis);
   // Mesmo conjunto de pins: nao ha o que redesenhar. Isso corta o zoom, o
   // filtro que nao mudou nada e a releitura de 90 s que veio sem novidade.
   const assinatura = grupos.map(g => g.id + ":" + g.n).join(",");
@@ -719,16 +720,18 @@ function renderMap() {
   _pinLayer.clearLayers();
   _marcas = {};
   grupos.forEach(g => {
-    const icon = L.divIcon({
-      className: _pinsCaem ? "pinwrap" : "pinwrap pinwrap--quieto",
-      iconSize: [36, 46], iconAnchor: [18, 40],
-      // sem rótulo: o CSS já o esconde dentro do mapa, e gerá-lo era um nó de
-      // texto por pin sem nada em troca
-      html: marcaHTML({ type: g.type, n: g.n })
-    });
+    const icon = porCidade
+      ? L.divIcon({ className: "cidwrap", iconSize: [null, null], html: marcaCidadeHTML(g) })
+      : L.divIcon({
+          className: _pinsCaem ? "pinwrap" : "pinwrap pinwrap--quieto",
+          iconSize: [36, 46], iconAnchor: [18, 40],
+          // sem rótulo: o CSS já o esconde dentro do mapa, e gerá-lo era um nó
+          // de texto por pin sem nada em troca
+          html: marcaHTML({ type: g.type, n: g.n })
+        });
     const m = L.marker([g.lat, g.lng], { icon, zIndexOffset: g.n > 1 ? 600 : 0 })
       .addTo(_pinLayer);
-    if (g.pins.length > 1) {
+    if (porCidade || g.pins.length > 1) {
       // agrupado: aproximar é a única resposta útil, porque a ficha teria de
       // escolher um item entre vários locais diferentes
       m.on("click", () => abrirGrupo(g));
@@ -768,6 +771,52 @@ function agrupaPorTela(pins) {
     const lng = g.pins.reduce((t, p) => t + p.lng, 0) / g.pins.length;
     return Object.assign(g, { lat, lng });
   });
+}
+
+/* Bem longe, pin por pin não diz nada: são dezenas de marcas iguais espalhadas
+   e nenhuma informação sobre o que há em cada cidade. Aqui cada cidade vira uma
+   marca só, branca, com a conta de notícia, evento e cinema — o mapa deixa de
+   ser amontoado e passa a ser resumo. De quebra é o estado mais barato: cinco
+   marcas em vez de dezenas. */
+const ZOOM_CIDADE = 11;   // abaixo disso a cidade inteira vira uma marca
+
+function cidadeDoPin(p) {
+  for (const id of [p.id, ...(p.more || [])]) {
+    const i = byId(id);
+    if (i && i.cidade) return i.cidade;
+  }
+  return null;
+}
+
+function agrupaPorCidade(pins) {
+  const cidades = new Map();
+  pins.forEach(p => {
+    const nome = cidadeDoPin(p);
+    if (!nome) return;
+    const g = cidades.get(nome)
+      || cidades.set(nome, { id: "cid:" + nome, cidade: nome, pins: [], n: 0,
+                             contas: { news: 0, ev: 0, cine: 0 } }).get(nome);
+    g.pins.push(p);
+    g.n += p.n;
+    g.contas[p.type === "ev" ? "ev" : p.type === "cine" ? "cine" : "news"] += p.n;
+  });
+  return [...cidades.values()].map(g => Object.assign(g, {
+    lat: g.pins.reduce((t, p) => t + p.lat, 0) / g.pins.length,
+    lng: g.pins.reduce((t, p) => t + p.lng, 0) / g.pins.length,
+  }));
+}
+
+/* A marca da cidade repete o glifo de cada tipo, o mesmo do pin, para a leitura
+   não depender de decorar cor. Tipo zerado não aparece: linha com zero ocupa
+   espaço e não informa. */
+function marcaCidadeHTML(g) {
+  const linha = (tipo, n) => n ? `<i class="cidmarca__t cidmarca__t--${tipo}">
+    <svg viewBox="0 0 32 40" aria-hidden="true"><g class="pin__ico">${GLIFO[tipo]}</g></svg>
+    ${n > 99 ? "99+" : n}</i>` : "";
+  return `<span class="cidmarca">
+    <b class="cidmarca__nome">${g.cidade}</b>
+    <span class="cidmarca__contas">${linha("news", g.contas.news)}${
+      linha("ev", g.contas.ev)}${linha("cine", g.contas.cine)}</span></span>`;
 }
 
 /* Enquadra os pins do grupo em vez de somar níveis de zoom: somar chuta, e
