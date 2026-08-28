@@ -873,8 +873,11 @@ img{max-width:100%;display:block}
 .pinwrap .pin__svg{z-index:1}
 .pin__svg{
   position:relative;width:34px;height:42px;
-  /* duas sombras: uma rente ao chão para assentar, outra difusa para o relevo */
-  filter:drop-shadow(0 1px 1px rgba(36,17,103,.28)) drop-shadow(0 6px 12px rgba(36,17,103,.22))
+  /* Uma sombra só. Eram duas, e cada uma é recalculada pelo compositor a cada
+     quadro do gesto, numa tela de densidade 2,8 que multiplica por ~8 a área em
+     pixels reais. Medido no aparelho: 25 pins derrubavam o mapa de 60 para 38
+     fps, e sem pin nenhum voltava a 60. */
+  filter:drop-shadow(0 3px 6px rgba(36,17,103,.32))
 }
 .pin__shape{fill:var(--brand);stroke:#fff;stroke-width:2;stroke-linejoin:round}
 .pin__ico{fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
