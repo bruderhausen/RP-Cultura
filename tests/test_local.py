@@ -1072,3 +1072,31 @@ class LembreteSegueOEvento(unittest.TestCase):
         movidos, removidos = lembretes.reagendar("ev3", self._daqui(2))
         self.assertEqual((movidos, removidos), (0, 1))
         self.assertEqual(lembretes._itens, {})
+
+
+class LugarEHomonimo(unittest.TestCase):
+    """Avenida e parque com o mesmo nome, e cidade fora da lista.
+
+    Dois erros que apareceram no mapa em produção: acidente na Avenida Maurílio
+    Biagi virava pin dentro do Parque Maurílio Biagi, e notícia de Jaborandi
+    ganhava pin em bairro de Ribeirão, porque a cidade não era reconhecida e a
+    rua acabava procurada aqui.
+    """
+
+    def _lugares(self, texto):
+        n = app.norm(texto)
+        return [nome for nome, termos, _, _ in app.PLACES if app.tem_termo(n, termos)]
+
+    def test_avenida_nao_cai_no_parque(self):
+        self.assertEqual(
+            self._lugares("Acidente na Avenida Maurílio Biagi deixa dois feridos"), [])
+
+    def test_parque_continua_sendo_reconhecido(self):
+        self.assertIn("Parque Maurilio Biagi",
+                      self._lugares("Show no Parque Maurílio Biagi reúne famílias"))
+
+    def test_jaborandi_e_cidade_da_regiao(self):
+        self.assertIn("Jaborandi", app.CIDADES_REGIAO)
+        self.assertEqual(
+            app.cidade_pontuada("Homem é preso em Jaborandi após furto", "Jaborandi"),
+            "Jaborandi")

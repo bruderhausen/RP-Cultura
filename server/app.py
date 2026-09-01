@@ -162,7 +162,9 @@ PLACES = [
     ("Mercado Municipal",       ["mercado municipal"],                        "Mercado Municipal, Ribeirao Preto", "Ribeirão Preto"),
     ("Biblioteca Municipal",    ["biblioteca municipal", "biblioteca sinha junqueira"], "Biblioteca Municipal Altino Arantes, Ribeirao Preto", "Ribeirão Preto"),
     ("Museu de Arte (MARP)",    ["marp", "museu de arte de ribeirao"],        "Museu de Arte de Ribeirao Preto", "Ribeirão Preto"),
-    ("Parque Maurilio Biagi",   ["maurilio biagi", "maurílio biagi"],         "Parque Maurilio Biagi, Ribeirao Preto", "Ribeirão Preto"),
+    # o nome é de uma avenida movimentada antes de ser de um parque: sem exigir
+    # "parque", acidente na avenida virava pin dentro do parque
+    ("Parque Maurilio Biagi",   ["parque maurilio biagi", "parque maurílio biagi"], "Parque Maurilio Biagi, Ribeirao Preto", "Ribeirão Preto"),
     ("Parque Curupira",         ["curupira"],                                 "Parque Curupira, Ribeirao Preto", "Ribeirão Preto"),
     ("Parque Prefeito Luiz Roberto Jábali", ["parque do morro", "luiz roberto jabali"], "Parque Prefeito Luiz Roberto Jabali, Ribeirao Preto", "Ribeirão Preto"),
     ("Teatro Municipal",        ["teatro municipal"],                         "Teatro Municipal, Ribeirao Preto", "Ribeirão Preto"),
@@ -209,6 +211,10 @@ CIDADES_REGIAO = [
     "Colina", "Guaíra", "Ipuã", "Morro Agudo", "Mococa", "Casa Branca",
     "Porto Ferreira", "Descalvado", "Tambaú", "Santa Rita do Passa Quatro",
     "Américo Brasiliense", "Matão", "Rincão", "Motuca", "Nova Europa",
+    # faltavam na lista, e sem cidade reconhecida a rua era procurada em
+    # Ribeirão: notícia de Jaborandi ganhava pin em bairro daqui
+    "Jaborandi", "Olímpia", "Severínia", "Monte Azul Paulista", "Cajobi",
+    "Guaraci", "Taiúva", "Taiaçu", "Taquaral", "Embaúba",
 ]
 
 def _sem_acento(txt):
@@ -403,7 +409,7 @@ RP_CENTRO = [-21.177632, -47.810098]
 # Sobe quando as regras de localização mudam. Itens gravados por uma versão
 # anterior voltam para a fila: sem isso, um pin colocado no lugar errado por
 # uma regra antiga ficaria errado para sempre.
-GEO_VERSAO = 4
+GEO_VERSAO = 5
 
 _geo_falhas = {}            # chave -> instante em que vale a pena tentar de novo
 _ritmo = threading.Lock()   # serializa as consultas
