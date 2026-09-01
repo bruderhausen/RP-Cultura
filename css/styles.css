@@ -806,15 +806,28 @@ img{max-width:100%;display:block}
 .ordem button.is-on{background:var(--surface-2);border-color:var(--brand);color:var(--brand)}
 .ordem button:disabled{opacity:.45}
 
-/* tipos que a tela inicial mostra */
-.tipos{display:flex;gap:6px;padding:2px 16px 10px;overflow-x:auto;scrollbar-width:none}
-.tipos::-webkit-scrollbar{display:none}
-.tipos button{
-  flex:none;border:1px solid var(--line);border-radius:99px;padding:7px 13px;
-  font-size:12.5px;font-weight:700;color:var(--ink-2);background:var(--surface);
-  transition:background .16s,color .16s,border-color .16s
+/* Tipos da tela inicial. Quem usou o app demorou a achar estas abas, então
+   elas cresceram, ganharam o desenho do próprio pin e, quando escolhidas, a
+   cor daquele pin — a mesma pista que a pessoa já vê no mapa. */
+.tipos{
+  display:flex;gap:10px;padding:2px 16px 12px;overflow-x:auto;
+  scrollbar-width:none;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch
 }
-.tipos button.is-on{background:var(--brand-ink);border-color:var(--brand-ink);color:#fff}
+.tipos::-webkit-scrollbar{display:none}
+.tipo{
+  flex:none;scroll-snap-align:center;display:flex;align-items:center;gap:8px;
+  border:1.5px solid var(--line);border-radius:99px;padding:11px 18px;
+  font-size:15px;font-weight:800;color:var(--ink-2);background:var(--surface);
+  box-shadow:var(--sh-1);transition:background .18s,color .18s,border-color .18s
+}
+.tipo__ico{
+  width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:2.2;
+  stroke-linecap:round;stroke-linejoin:round
+}
+/* cada tipo acende na cor do seu pin */
+.tipo--noticia.is-on{background:var(--brand);border-color:var(--brand);color:#fff}
+.tipo--evento.is-on{background:var(--accent-2);border-color:var(--accent-2);color:#5E3B00}
+.tipo--cinema.is-on{background:var(--cine);border-color:var(--cine);color:#fff}
 .sessoes__dia{display:flex;flex-direction:column;gap:6px}
 .sessoes__dia>b{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3)}
 .sessoes__hs{display:flex;flex-wrap:wrap;gap:6px}

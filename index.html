@@ -179,10 +179,11 @@
       <button class="regionbtn" id="regionBtn"><span id="regionLabel">Ribeirão</span><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
     </div>
 
-    <div class="tipos" id="tipoChips" role="radiogroup" aria-label="O que mostrar na tela inicial">
-      <button data-tp="noticia" class="is-on" role="radio" aria-checked="true">Notícias</button>
-      <button data-tp="evento" role="radio" aria-checked="false">Eventos</button>
-      <button data-tp="cinema" role="radio" aria-checked="false">Cinema</button>
+    <div class="tipos" id="tipoChips" role="radiogroup"
+         aria-label="O que mostrar na tela inicial">
+      <button data-tp="noticia" class="tipo tipo--noticia is-on" role="radio" aria-checked="true"><svg class="tipo__ico" viewBox="8 7 16 16" aria-hidden="true"><path d="M10.6 11.6h10.8M10.6 15.6h10.8M10.6 19.6h6.6"/></svg><span class="tipo__txt">Notícias</span></button>
+      <button data-tp="evento" class="tipo tipo--evento" role="radio" aria-checked="false"><svg class="tipo__ico" viewBox="8 7 16 16" aria-hidden="true"><rect x="10.4" y="11.2" width="11.2" height="10.2" rx="2.6"/><path d="M10.4 14.8h11.2M13.7 9v3.2M18.3 9v3.2"/></svg><span class="tipo__txt">Eventos</span></button>
+      <button data-tp="cinema" class="tipo tipo--cinema" role="radio" aria-checked="false"><svg class="tipo__ico" viewBox="8 7 16 16" aria-hidden="true"><path d="M11.4 13.2h9.2l-1 8.6h-7.2z"/><path d="M14.7 13.6v7.8M17.3 13.6v7.8"/><circle cx="13.4" cy="10.6" r="1.7"/><circle cx="16.6" cy="9.4" r="1.9"/><circle cx="19.6" cy="10.8" r="1.6"/></svg><span class="tipo__txt">Cinema</span></button>
     </div>
 
     <div class="ordem" id="ordemLinha" role="radiogroup" aria-label="Ordem da lista" hidden>

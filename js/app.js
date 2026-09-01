@@ -189,6 +189,7 @@ $("#tipoChips").addEventListener("click", e => {
   // escolha exclusiva: tocar num tipo troca, nunca soma
   S.homeTipo = b.dataset.tp;
   save(); pintarTipos(); renderHome();
+  b.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
 });
 
 
@@ -1777,8 +1778,10 @@ function applyLang() {
   if (P[0]) P[0].textContent = t("receive");
   if (P[1]) P[1].textContent = t("reminder");
   if (P[2]) P[2].textContent = t("interests");
-  $$("#tipoChips button").forEach(b => b.textContent = t(
-    { noticia: "mapNews", evento: "mapEvents", cinema: "mapCinema" }[b.dataset.tp]));
+  // só o rótulo troca de idioma: escrever no botão inteiro apagava o ícone
+  $$("#tipoChips .tipo__txt").forEach(el => el.textContent = t(
+    { noticia: "mapNews", evento: "mapEvents", cinema: "mapCinema" }[
+      el.closest("button").dataset.tp]));
   $$("#mapFiltroLista button").forEach(b => b.textContent = t(
     { todos: "mapAll", news: "mapNews", ev: "mapEvents", cine: "mapCinema" }[b.dataset.mf]));
   Object.assign(ROTULO_MF, { news: t("mapNews"), ev: t("mapEvents"), cine: t("mapCinema") });
