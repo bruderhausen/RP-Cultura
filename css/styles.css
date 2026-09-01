@@ -723,18 +723,17 @@ img{max-width:100%;display:block}
 .cidmarca{
   display:inline-flex;flex-direction:column;gap:3px;transform:translate(-50%,-50%);
   position:absolute;background:#fff;border-radius:14px;padding:7px 10px;white-space:nowrap;
-  box-shadow:0 1px 2px rgba(36,17,103,.2),0 8px 20px rgba(36,17,103,.22)
+  /* uma sombra só: eram duas, e o compositor refaz cada uma a cada quadro */
+  box-shadow:0 4px 12px rgba(36,17,103,.28)
 }
 .cidmarca__nome{font-size:11px;font-weight:800;color:var(--brand-ink)}
 .cidmarca__contas{display:flex;gap:8px}
 .cidmarca__t{
   display:flex;align-items:center;gap:3px;font-size:12px;font-weight:800;font-style:normal
 }
-.cidmarca__t svg{width:14px;height:14px;overflow:visible}
-.cidmarca__t svg .pin__ico{fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
-/* o glifo vem do pin e é desenhado num viewBox de 32x40; aqui só interessa a
-   parte de cima dele, então o grupo sobe e cresce para caber no quadrado */
-.cidmarca__t svg{transform:translate(-8px,-6px) scale(1.35)}
+/* o glifo é imagem pronta; o SVG é só a reserva de antes de ela existir */
+.cidmarca__ico{width:18px;height:18px;display:block;flex:none}
+.cidmarca__t svg.cidmarca__ico{fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
 .cidmarca__t--news{color:var(--brand)}
 .cidmarca__t--news svg .pin__ico{stroke:var(--brand)}
 .cidmarca__t--ev{color:#7A4E00}

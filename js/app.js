@@ -773,12 +773,43 @@ function svgDoPin(tipo, verde) {
        stroke-linejoin="round">${GLIFO[tipo]}</g></svg>`;
 }
 
+const GLIFO_PX = 18;        // tamanho do glifo dentro do cartão da cidade
+
+function svgDoGlifo(tipo) {
+  const cor = tipo === "ev" ? "#FFC01E" : tipo === "cine" ? "#8E1B2C" : "#4B2ED4";
+  // o glifo do pin é desenhado num viewBox de 32x40; aqui só interessa o miolo
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="8 7 16 16"
+    width="${GLIFO_PX}" height="${GLIFO_PX}">
+    <g fill="none" stroke="${cor}" stroke-width="2.4" stroke-linecap="round"
+       stroke-linejoin="round">${GLIFO[tipo]}</g></svg>`;
+}
+
 function preparaBitmaps(aoTerminar) {
   const dpr = Math.min(window.devicePixelRatio || 1, 3);   // acima de 3 só gasta memória
   if (_bitmapDPR === dpr) return;
   _bitmapDPR = dpr;
   const largura = PIN_W + PIN_PAD * 2, altura = PIN_H + PIN_PAD * 2;
   let faltam = 0;
+
+  // O cartão da cidade tinha três SVGs cada, redesenhados a cada quadro do
+  // gesto: com treze cartões na tela isso travava o zoom afastado, justamente o
+  // estado que devia ser o mais leve.
+  ["news", "ev", "cine"].forEach(tipo => {
+    faltam++;
+    const g = new Image();
+    g.onload = () => {
+      const c = document.createElement("canvas");
+      c.width = GLIFO_PX * dpr; c.height = GLIFO_PX * dpr;
+      const ctx = c.getContext("2d");
+      ctx.scale(dpr, dpr);
+      ctx.drawImage(g, 0, 0, GLIFO_PX, GLIFO_PX);
+      _bitmaps[tipo + ":glifo"] = c.toDataURL("image/png");
+      if (--faltam === 0 && aoTerminar) aoTerminar();
+    };
+    g.onerror = () => { if (--faltam === 0 && aoTerminar) aoTerminar(); };
+    g.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgDoGlifo(tipo));
+  });
+
   ["news", "ev", "cine"].forEach(tipo => [false, true].forEach(verde => {
     faltam++;
     const img = new Image();
@@ -840,18 +871,23 @@ function agrupaPorTela(pins) {
 // o resumo por cidade fica para quando a cidade já não cabe na tela
 const ZOOM_CIDADE = 10;
 
-function cidadeDoPin(p) {
+function cidadeDoPin(p, indice) {
   for (const id of [p.id, ...(p.more || [])]) {
-    const i = byId(id);
-    if (i && i.cidade) return i.cidade;
+    const c = indice.get(id);
+    if (c) return c;
   }
   return null;
 }
 
 function agrupaPorCidade(pins) {
+  // byId() varre ALL inteiro, e aqui ele era chamado uma vez por id de cada
+  // pin: com 120 pins e até 25 ids em cada, isso é dezenas de milhares de
+  // comparações a cada redesenho. O índice é montado uma vez.
+  const indice = new Map();
+  ALL.forEach(i => { if (i.cidade) indice.set(i.id, i.cidade); });
   const cidades = new Map();
   pins.forEach(p => {
-    const nome = cidadeDoPin(p);
+    const nome = cidadeDoPin(p, indice);
     if (!nome) return;
     const g = cidades.get(nome)
       || cidades.set(nome, { id: "cid:" + nome, cidade: nome, pins: [], n: 0,
@@ -870,9 +906,14 @@ function agrupaPorCidade(pins) {
    não depender de decorar cor. Tipo zerado não aparece: linha com zero ocupa
    espaço e não informa. */
 function marcaCidadeHTML(g) {
-  const linha = (tipo, n) => n ? `<i class="cidmarca__t cidmarca__t--${tipo}">
-    <svg viewBox="0 0 32 40" aria-hidden="true"><g class="pin__ico">${GLIFO[tipo]}</g></svg>
-    ${n > 99 ? "99+" : n}</i>` : "";
+  const linha = (tipo, n) => {
+    if (!n) return "";
+    const ico = _bitmaps[tipo + ":glifo"];
+    const desenho = ico
+      ? `<img class="cidmarca__ico" src="${ico}" alt="" draggable="false">`
+      : `<svg class="cidmarca__ico" viewBox="8 7 16 16" aria-hidden="true"><g class="pin__ico">${GLIFO[tipo]}</g></svg>`;
+    return `<i class="cidmarca__t cidmarca__t--${tipo}">${desenho}${n > 99 ? "99+" : n}</i>`;
+  };
   return `<span class="cidmarca">
     <b class="cidmarca__nome">${g.cidade}</b>
     <span class="cidmarca__contas">${linha("news", g.contas.news)}${
