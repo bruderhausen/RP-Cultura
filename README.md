@@ -6,7 +6,7 @@ App mobile-first de notícias, eventos e cultura de Ribeirão Preto e região, f
 wireframes de baixa fidelidade (páginas 01, 02 e 03). Conteúdo real: notícias vindas dos RSS dos
 veículos da região e eventos das plataformas de ingresso.
 
-**No ar:** https://rpcultura.onrender.com · adicione à tela de início para abrir como app.
+**No ar:** https://rpcultural.onrender.com · adicione à tela de início para abrir como app.
 
 ## Como rodar
 

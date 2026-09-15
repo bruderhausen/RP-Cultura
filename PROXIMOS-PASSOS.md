@@ -5,7 +5,7 @@ Pendências conhecidas, em ordem de urgência. Atualizar conforme cada uma sai.
 ## Configuração no Render (bloqueia recursos já prontos)
 
 O código está pronto e testado; falta só criar as variáveis de ambiente em
-`rpcultura` → Environment. O painel `/diag.html` mostra o que está faltando.
+`rpcultural` → Environment. O painel `/diag.html` mostra o que está faltando.
 
 | Variável | Para quê | Sem ela |
 |---|---|---|
